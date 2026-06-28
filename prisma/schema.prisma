@@ -1,0 +1,618 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum VerificationStatus {
+  draft
+  peer_reviewed
+  verified
+  deprecated
+}
+
+enum RequirementType {
+  obligation
+  recommendation
+  principle
+  control
+  subcategory
+  category
+  function
+}
+
+enum MappingType {
+  equivalent
+  partial
+  related
+  implements
+  supersedes
+}
+
+enum MappingConfidence {
+  high
+  medium
+  low
+}
+
+enum CoverageLevel {
+  full
+  partial
+}
+
+enum RiskTier {
+  prohibited
+  high
+  limited
+  minimal
+  gpai
+  general
+}
+
+enum ActorType {
+  provider
+  deployer
+  importer
+  distributor
+  authority
+  general
+}
+
+enum ControlType {
+  preventive
+  detective
+  corrective
+  directive
+}
+
+enum ControlFrequency {
+  continuous
+  daily
+  weekly
+  monthly
+  quarterly
+  annual
+  ad_hoc
+}
+
+enum AssessmentStatus {
+  draft
+  in_progress
+  completed
+  archived
+}
+
+enum WorkflowStage {
+  client_setup
+  use_cases
+  requirement_scoping
+  workshop
+  evaluation
+  human_review
+  deliverables
+  finalized
+}
+
+enum UseCaseType {
+  client_facing_product
+  internal_operations_tool
+  employee_workforce_ai
+  automated_decision_support
+  autonomous_agent_system
+  generative_ai_content
+  biometric_identification
+  critical_infrastructure
+  third_party_saas_embedded
+  research_prototype
+  gpai_provider
+  gpai_deployer
+}
+
+enum EvaluationStatus {
+  pending
+  ai_draft
+  human_confirmed
+  rejected
+}
+
+enum CheckpointStatus {
+  locked
+  pending
+  approved
+  rejected
+}
+
+enum CheckpointType {
+  scope_confirmation
+  use_case_confirmation
+  requirement_scoping_confirmation
+  evaluation_review
+  deliverable_approval
+}
+
+enum DeliverableType {
+  gap_assessment_report
+  remediation_roadmap
+  risk_control_matrix
+  board_ready_summary
+}
+
+enum DeliverableStatus {
+  draft
+  approved
+}
+
+enum MaturityLevel {
+  not_implemented
+  initial
+  developing
+  defined
+  managed
+  optimized
+}
+
+enum GapSeverity {
+  critical
+  high
+  medium
+  low
+  informational
+}
+
+model Framework {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  version       String
+  publisher     String
+  sourceUrl     String   @map("source_url")
+  effectiveDate DateTime? @map("effective_date")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  requirements FrameworkRequirement[]
+
+  @@map("frameworks")
+}
+
+model FrameworkRequirement {
+  id                 String             @id @default(cuid())
+  frameworkId        String             @map("framework_id")
+  clauseId           String             @map("clause_id")
+  parentClauseId     String?            @map("parent_clause_id")
+  title              String
+  requirementText    String             @map("requirement_text") @db.Text
+  requirementType    RequirementType    @map("requirement_type")
+  riskTier           RiskTier?          @map("risk_tier")
+  actor              ActorType?         @map("actor")
+  theme              String?
+  sortOrder          Int                @default(0) @map("sort_order")
+  verificationStatus VerificationStatus @default(draft) @map("verification_status")
+  contentHash        String             @map("content_hash")
+  sourceDocument     String             @map("source_document")
+  sourceVersion      String             @map("source_version")
+  sourceUrl          String             @map("source_url")
+  sourcePage         String?            @map("source_page")
+  ingestedAt         DateTime           @default(now()) @map("ingested_at")
+  metadata           Json?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  framework           Framework              @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  crosswalkFrom       CrosswalkMapping[]     @relation("CrosswalkSource")
+  crosswalkTo         CrosswalkMapping[]     @relation("CrosswalkTarget")
+  riskLinks           RequirementRiskLink[]
+  controlLinks        ControlRequirementLink[]
+  gapFindings         GapFinding[]
+  useCaseRequirements UseCaseRequirement[]
+  workshopResponses   WorkshopResponse[]
+  requirementEvaluations RequirementEvaluation[]
+
+  @@unique([frameworkId, clauseId])
+  @@index([frameworkId])
+  @@index([clauseId])
+  @@index([verificationStatus])
+  @@map("framework_requirements")
+}
+
+model CrosswalkMapping {
+  id                   String             @id @default(cuid())
+  sourceRequirementId  String             @map("source_requirement_id")
+  targetRequirementId  String             @map("target_requirement_id")
+  mappingType          MappingType        @map("mapping_type")
+  confidence           MappingConfidence
+  rationale            String             @db.Text
+  verificationStatus   VerificationStatus @default(draft) @map("verification_status")
+  verifiedBy           String?            @map("verified_by")
+  verifiedAt           DateTime?          @map("verified_at")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  sourceRequirement FrameworkRequirement @relation("CrosswalkSource", fields: [sourceRequirementId], references: [id], onDelete: Cascade)
+  targetRequirement FrameworkRequirement @relation("CrosswalkTarget", fields: [targetRequirementId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceRequirementId, targetRequirementId, mappingType])
+  @@index([sourceRequirementId])
+  @@index([targetRequirementId])
+  @@map("crosswalk_mappings")
+}
+
+model RiskStatement {
+  id                  String             @id @default(cuid())
+  code                String             @unique
+  statement           String             @db.Text
+  category            String
+  inherentLikelihood  String?            @map("inherent_likelihood")
+  inherentImpact      String?            @map("inherent_impact")
+  relatedHarm         String?            @map("related_harm") @db.Text
+  verificationStatus  VerificationStatus @default(draft) @map("verification_status")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  requirementLinks RequirementRiskLink[]
+  controlLinks     ControlRiskLink[]
+  gapFindings      GapFinding[]
+
+  @@index([category])
+  @@map("risk_statements")
+}
+
+model RequirementRiskLink {
+  id            String        @id @default(cuid())
+  requirementId String        @map("requirement_id")
+  riskId        String        @map("risk_id")
+  coverage      CoverageLevel @default(partial)
+
+  requirement FrameworkRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  risk        RiskStatement        @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@unique([requirementId, riskId])
+  @@map("requirement_risk_links")
+}
+
+model CanonicalControl {
+  id                 String             @id @default(cuid())
+  code               String             @unique
+  title              String
+  description        String             @db.Text
+  controlType        ControlType        @map("control_type")
+  frequency          ControlFrequency
+  ownerRole          String             @map("owner_role")
+  cosoIcfComponent   String?            @map("coso_icf_component")
+  cosoIcfPrinciple   String?            @map("coso_icf_principle")
+  verificationStatus VerificationStatus @default(draft) @map("verification_status")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  evidences        Evidence[]
+  procedures       Procedure[]
+  requirementLinks ControlRequirementLink[]
+  riskLinks        ControlRiskLink[]
+  responses        AssessmentResponse[]
+  gapFindings      GapFinding[]
+
+  @@map("canonical_controls")
+}
+
+model ControlRequirementLink {
+  id            String        @id @default(cuid())
+  controlId     String        @map("control_id")
+  requirementId String        @map("requirement_id")
+  coverage      CoverageLevel @default(partial)
+
+  control     CanonicalControl     @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  requirement FrameworkRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, requirementId])
+  @@map("control_requirement_links")
+}
+
+model ControlRiskLink {
+  id        String        @id @default(cuid())
+  controlId String        @map("control_id")
+  riskId    String        @map("risk_id")
+  coverage  CoverageLevel @default(partial)
+
+  control CanonicalControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  risk    RiskStatement    @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, riskId])
+  @@map("control_risk_links")
+}
+
+model Evidence {
+  id                String   @id @default(cuid())
+  controlId         String   @map("control_id")
+  evidenceType      String   @map("evidence_type")
+  description       String   @db.Text
+  retentionPeriod   String?  @map("retention_period")
+  collectionMethod  String?  @map("collection_method")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  control CanonicalControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@map("evidence")
+}
+
+model Procedure {
+  id              String   @id @default(cuid())
+  controlId       String   @map("control_id")
+  steps           String   @db.Text
+  responsibleRole String   @map("responsible_role")
+  linkedPolicy    String?  @map("linked_policy")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  control CanonicalControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@map("procedures")
+}
+
+model Assessment {
+  id            String           @id @default(cuid())
+  name          String
+  description   String?          @db.Text
+  clientName    String?          @map("client_name")
+  clientIndustry String?         @map("client_industry")
+  status        AssessmentStatus @default(draft)
+  workflowStage WorkflowStage    @default(client_setup) @map("workflow_stage")
+  createdBy     String?          @map("created_by")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  completedAt   DateTime?        @map("completed_at")
+
+  scope                  AssessmentScope?
+  useCases               UseCase[]
+  responses              AssessmentResponse[]
+  gaps                   GapFinding[]
+  requirementEvaluations RequirementEvaluation[]
+  checkpoints            HumanCheckpoint[]
+  deliverables           Deliverable[]
+  workshopSessions       WorkshopSession[]
+
+  @@map("assessments")
+}
+
+model AssessmentScope {
+  id              String   @id @default(cuid())
+  assessmentId    String   @unique @map("assessment_id")
+  frameworkCodes  String[] @map("framework_codes")
+  riskTiers       RiskTier[] @map("risk_tiers")
+  systemName      String?  @map("system_name")
+  systemDescription String? @map("system_description") @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@map("assessment_scopes")
+}
+
+model AssessmentResponse {
+  id              String        @id @default(cuid())
+  assessmentId    String        @map("assessment_id")
+  controlId       String        @map("control_id")
+  maturity        MaturityLevel @default(not_implemented)
+  evidenceNotes   String?       @map("evidence_notes") @db.Text
+  implementationNotes String?   @map("implementation_notes") @db.Text
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  assessment Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  control    CanonicalControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, controlId])
+  @@map("assessment_responses")
+}
+
+model GapFinding {
+  id            String      @id @default(cuid())
+  assessmentId  String      @map("assessment_id")
+  requirementId String?     @map("requirement_id")
+  controlId     String?     @map("control_id")
+  riskId        String?     @map("risk_id")
+  severity      GapSeverity
+  title         String
+  description   String      @db.Text
+  remediation   String?     @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  assessment  Assessment            @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  requirement FrameworkRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  control     CanonicalControl?     @relation(fields: [controlId], references: [id], onDelete: SetNull)
+  risk        RiskStatement?        @relation(fields: [riskId], references: [id], onDelete: SetNull)
+
+  @@map("gap_findings")
+}
+
+model UseCase {
+  id              String      @id @default(cuid())
+  assessmentId    String      @map("assessment_id")
+  name            String
+  description     String      @db.Text
+  useCaseType     UseCaseType @map("use_case_type")
+  actorRole       ActorType?  @map("actor_role")
+  riskTier        RiskTier?   @map("risk_tier")
+  dataCategories  String[]    @map("data_categories")
+  sortOrder       Int         @default(0) @map("sort_order")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  assessment           Assessment            @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  scopedRequirements   UseCaseRequirement[]
+  workshopResponses    WorkshopResponse[]
+  pillarWorkshopResponses WorkshopPillarResponse[]
+  requirementEvaluations RequirementEvaluation[]
+
+  @@index([assessmentId])
+  @@map("use_cases")
+}
+
+model UseCaseRequirement {
+  id              String   @id @default(cuid())
+  useCaseId       String   @map("use_case_id")
+  requirementId   String   @map("requirement_id")
+  scopingRationale String  @map("scoping_rationale") @db.Text
+  included        Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  useCase     UseCase              @relation(fields: [useCaseId], references: [id], onDelete: Cascade)
+  requirement FrameworkRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([useCaseId, requirementId])
+  @@map("use_case_requirements")
+}
+
+model WorkshopSession {
+  id           String   @id @default(cuid())
+  assessmentId String   @map("assessment_id")
+  title        String
+  scheduledAt  DateTime? @map("scheduled_at")
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@map("workshop_sessions")
+}
+
+model WorkshopPillarResponse {
+  id               String   @id @default(cuid())
+  useCaseId        String   @map("use_case_id")
+  pillarId         String   @map("pillar_id")
+  pillarLabel      String   @map("pillar_label")
+  questionPrompt   String   @map("question_prompt") @db.Text
+  requirementIds   String[] @map("requirement_ids")
+  linkedControls   String[] @map("linked_controls")
+  frameworkSummary Json?    @map("framework_summary")
+  clientNotes      String?  @map("client_notes") @db.Text
+  facilitatorNotes String?  @map("facilitator_notes") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  useCase       UseCase          @relation(fields: [useCaseId], references: [id], onDelete: Cascade)
+  evidenceFiles PillarEvidence[]
+
+  @@unique([useCaseId, pillarId])
+  @@map("workshop_pillar_responses")
+}
+
+model PillarEvidence {
+  id                       String   @id @default(cuid())
+  workshopPillarResponseId String   @map("workshop_pillar_response_id")
+  fileName                 String   @map("file_name")
+  filePath                 String   @map("file_path")
+  mimeType                 String   @map("mime_type")
+  fileSize                 Int      @map("file_size")
+  description              String?  @db.Text
+  uploadedAt               DateTime @default(now()) @map("uploaded_at")
+
+  workshopPillarResponse WorkshopPillarResponse @relation(fields: [workshopPillarResponseId], references: [id], onDelete: Cascade)
+
+  @@map("pillar_evidence")
+}
+
+model WorkshopResponse {
+  id               String   @id @default(cuid())
+  useCaseId        String   @map("use_case_id")
+  requirementId    String   @map("requirement_id")
+  questionPrompt   String   @map("question_prompt") @db.Text
+  facilitatorNotes String?  @map("facilitator_notes") @db.Text
+  clientNotes      String?  @map("client_notes") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  useCase      UseCase              @relation(fields: [useCaseId], references: [id], onDelete: Cascade)
+  requirement  FrameworkRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  evidenceFiles ClientEvidence[]
+  evaluation   RequirementEvaluation?
+
+  @@unique([useCaseId, requirementId])
+  @@map("workshop_responses")
+}
+
+model ClientEvidence {
+  id                 String   @id @default(cuid())
+  workshopResponseId String   @map("workshop_response_id")
+  fileName           String   @map("file_name")
+  filePath           String   @map("file_path")
+  mimeType           String   @map("mime_type")
+  fileSize           Int      @map("file_size")
+  description        String?  @db.Text
+  uploadedAt         DateTime @default(now()) @map("uploaded_at")
+
+  workshopResponse WorkshopResponse @relation(fields: [workshopResponseId], references: [id], onDelete: Cascade)
+
+  @@map("client_evidence")
+}
+
+model RequirementEvaluation {
+  id                    String           @id @default(cuid())
+  assessmentId          String           @map("assessment_id")
+  useCaseId             String           @map("use_case_id")
+  requirementId         String           @map("requirement_id")
+  workshopResponseId    String?          @unique @map("workshop_response_id")
+  alignedFindings       String           @map("aligned_findings") @db.Text
+  gapFindings           String           @map("gap_findings") @db.Text
+  recommendations       String           @map("recommendations") @db.Text
+  citedClauseId         String           @map("cited_clause_id")
+  citedRequirementText  String           @map("cited_requirement_text") @db.Text
+  linkedControlCodes    String[]         @map("linked_control_codes")
+  complianceStatus      String           @map("compliance_status")
+  status                EvaluationStatus @default(pending)
+  aiGenerated           Boolean          @default(false) @map("ai_generated")
+  confirmedBy           String?          @map("confirmed_by")
+  confirmedAt           DateTime?        @map("confirmed_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  assessment       Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  useCase          UseCase              @relation(fields: [useCaseId], references: [id], onDelete: Cascade)
+  requirement      FrameworkRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  workshopResponse WorkshopResponse?    @relation(fields: [workshopResponseId], references: [id], onDelete: SetNull)
+
+  @@unique([assessmentId, useCaseId, requirementId])
+  @@map("requirement_evaluations")
+}
+
+model HumanCheckpoint {
+  id             String           @id @default(cuid())
+  assessmentId   String           @map("assessment_id")
+  checkpointType CheckpointType   @map("checkpoint_type")
+  status         CheckpointStatus @default(locked)
+  title          String
+  summary        String           @db.Text
+  reviewerNotes  String?          @map("reviewer_notes") @db.Text
+  confirmedBy    String?          @map("confirmed_by")
+  confirmedAt    DateTime?        @map("confirmed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, checkpointType])
+  @@map("human_checkpoints")
+}
+
+model Deliverable {
+  id           String            @id @default(cuid())
+  assessmentId String            @map("assessment_id")
+  type         DeliverableType
+  title        String
+  content      String            @db.Text
+  status       DeliverableStatus @default(draft)
+  generatedAt  DateTime          @default(now()) @map("generated_at")
+  approvedBy   String?           @map("approved_by")
+  approvedAt   DateTime?         @map("approved_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, type])
+  @@map("deliverables")
+}
