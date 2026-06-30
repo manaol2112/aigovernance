@@ -157,9 +157,20 @@ export const WORKFLOW_STEPS = [
   { stage: "client_setup", label: "Client & Frameworks", number: 1 },
   { stage: "use_cases", label: "Use Cases", number: 2 },
   { stage: "requirement_scoping", label: "Requirement Scoping", number: 3 },
-  { stage: "workshop", label: "Workshop", number: 4 },
-  { stage: "evaluation", label: "Evaluation", number: 5 },
-  { stage: "human_review", label: "Human Review", number: 6 },
-  { stage: "deliverables", label: "Deliverables", number: 7 },
-  { stage: "finalized", label: "Finalized", number: 8 },
+  { stage: "workshop", label: "Workshop & Analysis", number: 4 },
+  { stage: "deliverables", label: "Deliverables", number: 5 },
+  { stage: "finalized", label: "Finalized", number: 6 },
 ] as const;
+
+/** Maps legacy stages to the combined stepper index for display. */
+export function displayStepIndex(stage: string): number {
+  if (stage === "evaluation" || stage === "human_review") return 3;
+  if (stage === "deliverables") return 4;
+  if (stage === "finalized") return 5;
+  const idx = WORKFLOW_STEPS.findIndex((s) => s.stage === stage);
+  return idx >= 0 ? idx : 0;
+}
+
+export function isAnalysisStage(stage: string): boolean {
+  return stage === "workshop" || stage === "evaluation" || stage === "human_review";
+}

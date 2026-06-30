@@ -3,14 +3,17 @@ import { prisma } from "@/lib/db";
 import {
   advanceWorkflowStage,
   approveCheckpoint,
+  canGoToStage,
   getCheckpointForStage,
   getNextStage,
   isCheckpointApproved,
+  normalizeStageForNavigation,
   syncCheckpoints,
 } from "@/lib/workflow";
 import { scopeAllUseCasesForAssessment } from "@/lib/use-case-scoping";
+import { initControlEvaluations } from "@/lib/control-scoping";
 import { initPillarWorkshop } from "@/lib/pillar-workshop";
-import { runAssessmentEvaluation } from "@/lib/requirement-evaluator";
+import { analyzeAllControls } from "@/lib/control-analyzer";
 import { generateAllDeliverables } from "@/lib/report-generator";
 import type { WorkflowStage, CheckpointType } from "@prisma/client";
 
@@ -85,6 +88,21 @@ export async function PATCH(
       return NextResponse.json({ workflowStage: next });
     }
 
+    case "go_to_stage": {
+      if (!stage) {
+        return NextResponse.json({ error: "stage required" }, { status: 400 });
+      }
+      const target = normalizeStageForNavigation(stage);
+      if (!canGoToStage(assessment.workflowStage, target)) {
+        return NextResponse.json(
+          { error: "Cannot jump ahead to a future stage. Complete checkpoints to advance." },
+          { status: 403 }
+        );
+      }
+      await advanceWorkflowStage(id, target);
+      return NextResponse.json({ workflowStage: target });
+    }
+
     case "approve_checkpoint": {
       if (!checkpointType || !confirmedBy) {
         return NextResponse.json({ error: "checkpointType and confirmedBy required" }, { status: 400 });
@@ -101,17 +119,18 @@ export async function PATCH(
       return NextResponse.json({ scopedCount: count, workflowStage: "requirement_scoping" });
     }
 
-    case "init_workshop": {
-      const created = await initPillarWorkshop(id);
+    case "init_workshop":
+    case "init_control_review": {
+      const created = await initControlEvaluations(id);
+      await initPillarWorkshop(id);
       await advanceWorkflowStage(id, "workshop");
-      return NextResponse.json({ pillarQuestions: created, workflowStage: "workshop" });
+      return NextResponse.json({ controlCount: created, workflowStage: "workshop" });
     }
 
     case "run_evaluation": {
-      const count = await runAssessmentEvaluation(id);
-      await advanceWorkflowStage(id, "human_review");
+      await analyzeAllControls(id);
       await syncCheckpoints(id);
-      return NextResponse.json({ evaluatedCount: count, workflowStage: "human_review" });
+      return NextResponse.json({ workflowStage: "workshop" });
     }
 
     case "generate_deliverables": {
@@ -125,6 +144,35 @@ export async function PATCH(
       const deliverables = await generateAllDeliverables(id);
       await advanceWorkflowStage(id, "deliverables");
       return NextResponse.json({ deliverables });
+    }
+
+    case "proceed_to_deliverables": {
+      const evaluations = await prisma.controlEvaluation.findMany({ where: { assessmentId: id } });
+      if (
+        evaluations.length === 0 ||
+        !evaluations.every((e) => e.status === "human_confirmed")
+      ) {
+        return NextResponse.json(
+          { error: "All controls must be signed off before opening the deliverable package." },
+          { status: 403 }
+        );
+      }
+
+      const evalReviewApproved = await isCheckpointApproved(id, "evaluation_review");
+      if (!evalReviewApproved) {
+        if (!confirmedBy?.trim()) {
+          return NextResponse.json(
+            { error: "Reviewer name required to attest the completed assessment review." },
+            { status: 400 }
+          );
+        }
+        await approveCheckpoint(id, "evaluation_review", confirmedBy.trim(), notes);
+      }
+
+      const deliverables = await generateAllDeliverables(id);
+      await advanceWorkflowStage(id, "deliverables");
+      await syncCheckpoints(id);
+      return NextResponse.json({ workflowStage: "deliverables", deliverables });
     }
 
     case "finalize": {

@@ -293,6 +293,7 @@ model CanonicalControl {
   riskLinks        ControlRiskLink[]
   responses        AssessmentResponse[]
   gapFindings      GapFinding[]
+  controlEvaluations ControlEvaluation[]
 
   @@map("canonical_controls")
 }
@@ -373,6 +374,10 @@ model Assessment {
   checkpoints            HumanCheckpoint[]
   deliverables           Deliverable[]
   workshopSessions       WorkshopSession[]
+  repository             AssessmentRepository?
+  evidenceFiles          AssessmentEvidence[]
+  controlEvaluations     ControlEvaluation[]
+  captureSourceChunks    CaptureSourceChunk[]
 
   @@map("assessments")
 }
@@ -439,6 +444,7 @@ model UseCase {
   actorRole       ActorType?  @map("actor_role")
   riskTier        RiskTier?   @map("risk_tier")
   dataCategories  String[]    @map("data_categories")
+  department      String?     @map("department")
   sortOrder       Int         @default(0) @map("sort_order")
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
@@ -615,4 +621,114 @@ model Deliverable {
 
   @@unique([assessmentId, type])
   @@map("deliverables")
+}
+
+model AssessmentRepository {
+  id               String   @id @default(cuid())
+  assessmentId     String   @unique @map("assessment_id")
+  workshopNotes    String?  @map("workshop_notes") @db.Text
+  facilitatorNotes String?  @map("facilitator_notes") @db.Text
+  departmentNotes  Json     @default("{}") @map("department_notes")
+  captureQueries       Json     @default("[]") @map("capture_queries")
+  captureAnalysisMeta  Json?    @map("capture_analysis_meta")
+  reportNarrativeCache Json?   @map("report_narrative_cache")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@map("assessment_repositories")
+}
+
+model AssessmentEvidence {
+  id            String   @id @default(cuid())
+  assessmentId  String   @map("assessment_id")
+  fileName      String   @map("file_name")
+  filePath      String   @map("file_path")
+  mimeType      String   @map("mime_type")
+  fileSize      Int      @map("file_size")
+  description   String?  @db.Text
+  extractedText String?  @map("extracted_text") @db.Text
+  controlCodes  String[] @map("control_codes")
+  useCaseId     String?  @map("use_case_id")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
+
+  assessment Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  citations  EvaluationCitation[]
+  sourceChunks CaptureSourceChunk[]
+
+  @@index([assessmentId])
+  @@map("assessment_evidence")
+}
+
+model CaptureSourceChunk {
+  id           String   @id @default(cuid())
+  assessmentId String   @map("assessment_id")
+  evidenceId   String   @map("evidence_id")
+  chunkIndex   Int      @map("chunk_index")
+  fileName     String   @map("file_name")
+  text         String   @db.Text
+  startOffset  Int      @map("start_offset")
+  endOffset    Int      @map("end_offset")
+  embedding    Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  evidence   AssessmentEvidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@unique([evidenceId, chunkIndex])
+  @@index([assessmentId])
+  @@map("capture_source_chunks")
+}
+
+model ControlEvaluation {
+  id                      String           @id @default(cuid())
+  assessmentId            String           @map("assessment_id")
+  controlId               String           @map("control_id")
+  inPlaceFindings         String           @default("") @map("in_place_findings") @db.Text
+  gapFindings             String           @default("") @map("gap_findings") @db.Text
+  recommendations         String           @default("") @map("recommendations") @db.Text
+  workshopNotes           String?          @map("workshop_notes") @db.Text
+  facilitatorNotes        String?          @map("facilitator_notes") @db.Text
+  complianceStatus        String           @default("not_assessed") @map("compliance_status")
+  status                  EvaluationStatus @default(pending)
+  aiGenerated             Boolean          @default(false) @map("ai_generated")
+  reviewerComplete        Boolean?         @map("reviewer_complete")
+  reviewerAccurate        Boolean?         @map("reviewer_accurate")
+  reviewerNoHallucination Boolean?         @map("reviewer_no_hallucination")
+  confirmedBy             String?          @map("confirmed_by")
+  confirmedAt             DateTime?        @map("confirmed_at")
+  reviewerNotes           String?          @map("reviewer_notes") @db.Text
+  analyzedAt              DateTime?        @map("analyzed_at")
+  createdAt               DateTime         @default(now()) @map("created_at")
+  updatedAt               DateTime         @updatedAt @map("updated_at")
+
+  assessment Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  control    CanonicalControl     @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  citations  EvaluationCitation[]
+
+  @@unique([assessmentId, controlId])
+  @@index([assessmentId])
+  @@map("control_evaluations")
+}
+
+model EvaluationCitation {
+  id                  String @id @default(cuid())
+  controlEvaluationId String @map("control_evaluation_id")
+  section             String
+  claimIndex          Int    @map("claim_index")
+  claimText           String @map("claim_text") @db.Text
+  sourceType          String @map("source_type")
+  sourceId            String? @map("source_id")
+  sourceLabel         String @map("source_label")
+  excerpt             String @db.Text
+  startOffset         Int    @map("start_offset")
+  endOffset           Int    @map("end_offset")
+  citationIndex       Int    @map("citation_index")
+
+  controlEvaluation ControlEvaluation   @relation(fields: [controlEvaluationId], references: [id], onDelete: Cascade)
+  evidence          AssessmentEvidence? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([controlEvaluationId])
+  @@map("evaluation_citations")
 }

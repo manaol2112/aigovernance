@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, ArrowRight } from "lucide-react";
 import { titleCase, formatDate } from "@/lib/utils";
 import { WORKFLOW_STEPS } from "@/lib/use-case-types";
+import { DeleteAssessmentButton } from "@/components/delete-assessment-button";
 
 export const dynamic = "force-dynamic";
 
@@ -59,11 +60,14 @@ export default async function AssessmentsPage() {
                         {a.clientName}{a.clientIndustry ? ` · ${a.clientIndustry}` : ""} · {formatDate(a.createdAt)}
                       </CardDescription>
                     </div>
-                    <Button asChild size="sm">
-                      <Link href={`/assessments/${a.id}/workflow`}>
-                        Continue <ArrowRight className="ml-1 h-3 w-3" />
-                      </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <DeleteAssessmentButton assessmentId={a.id} assessmentName={a.name} />
+                      <Button asChild size="sm">
+                        <Link href={`/assessments/${a.id}/workflow`}>
+                          Continue <ArrowRight className="ml-1 h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>

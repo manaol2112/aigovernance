@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // pdfkit reads .afm font metrics from disk; bundling breaks __dirname paths.
+  serverExternalPackages: ["pdfkit"],
 };
 
 export default nextConfig;

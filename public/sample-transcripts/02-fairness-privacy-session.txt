@@ -1,0 +1,38 @@
+Acme Financial Services — AI Governance Workshop
+Session 2: Fairness, Impact Assessment & Privacy
+Date: June 15, 2026 | Facilitator: Jordan Rivera
+Participants: Priya Nair (Head of Data), Elena Vasquez (Legal/DPO), James Okonkwo (ML Platform)
+
+[00:01:05] Facilitator: Which systems affect fundamental rights or access to services?
+
+[00:01:12] Priya Nair: Credit scoring and our HR screening pilot definitely affect access. We have criteria for when to do impact assessment but — I'll be honest — we apply them inconsistently. The customer chatbot went out with an informal waiver.
+
+[00:02:40] Facilitator: Do you have a formal fundamental-rights impact assessment template?
+
+[00:02:48] Elena Vasquez: Not enterprise-wide. Legal does ad hoc reviews. We don't have a standardized methodology. DPO participation is informal. We don't routinely consult affected communities.
+
+[00:04:02] Facilitator: Walk through a completed impact assessment for credit scoring.
+
+[00:04:10] Elena Vasquez: There's a partial legal review from 2024 but not a complete fundamental-rights assessment. I don't think we have a signed approval record for proceeding. Re-assessment triggers aren't documented.
+
+[00:05:30] Facilitator: Fairness metrics and bias testing?
+
+[00:05:38] James Okonkwo: We don't have approved enterprise fairness metrics. For credit we informally look at demographic parity. No formal thresholds — nobody's approved them. Chatbot and HR pilot have no bias testing at all.
+
+[00:06:55] Priya Nair: Credit model gets annual pre-release bias testing. Production monitoring is manual quarterly reviews — ad hoc, not automated.
+
+[00:08:10] Facilitator: Privacy and personal data in AI pipelines?
+
+[00:08:18] Elena Vasquez: PII detection runs on training and inference. Data classification labels enforced. Personal data inventory maintained. Legal basis documented per use case. Privacy impact assessments done for credit and chatbot.
+
+[00:09:35] Priya Nair: Data governance policy requires provenance and quality checks for training data. Feature store has schema validation and lineage. Data stewards per domain — that's documented and working.
+
+[00:10:50] Facilitator: HR screening pilot privacy?
+
+[00:10:58] Elena Vasquez: The HR pilot processes employee data without an updated privacy notice. Fix is planned — in progress.
+
+[00:12:00] Facilitator: Credit decisions — disclosure to customers?
+
+[00:12:08] Elena Vasquez: Credit includes AI disclosure per regulatory requirements. Right to explanation process for Article 22 requests — that's established.
+
+[END SESSION 2]
