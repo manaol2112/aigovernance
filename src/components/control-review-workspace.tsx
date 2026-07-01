@@ -7,6 +7,7 @@ import {
   Layers,
   Loader2,
   Maximize2,
+  MessageCircle,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -17,7 +18,9 @@ import { PillarWorkshopGuidePanel, DepartmentWorkshopGuidePanel } from "@/compon
 import { WorkshopCaptureWorkspace } from "@/components/workshop-capture-workspace";
 import { ControlReviewPanel, type ReviewLeaveGuard } from "@/components/control-review-panel";
 import { AssessmentReportingPanel } from "@/components/assessment-reporting-panel";
+import { SourceNotebookChatLauncher } from "@/components/source-notebook-chat";
 import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
+import { WORKSHOP_WORKSPACE_PHASES } from "@/lib/workshop-workspace-phases";
 import type { PillarWorkshopGuide } from "@/lib/pillar-workshop-guide";
 import type { DepartmentWorkshopGuide } from "@/lib/department-workshop-guide";
 import { ALL_DEPARTMENTS } from "@/lib/workshop-department";
@@ -81,12 +84,7 @@ type ControlEval = {
   }>;
 };
 
-const WORKSPACE_PHASES = [
-  { id: "workshop" as const, label: "Facilitate" },
-  { id: "notes" as const, label: "Capture" },
-  { id: "review" as const, label: "Review" },
-  { id: "reporting" as const, label: "Reporting" },
-];
+const WORKSPACE_PHASES = WORKSHOP_WORKSPACE_PHASES;
 
 type Props = {
   assessmentId: string;
@@ -134,6 +132,8 @@ export function ControlReviewWorkspace({
   const [analysisStale, setAnalysisStale] = useState(false);
   const [lastAnalyzedAt, setLastAnalyzedAt] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [captureChunkCount, setCaptureChunkCount] = useState(0);
+  const [validationChatOpen, setValidationChatOpen] = useState(false);
   const [pillarGuide, setPillarGuide] = useState<PillarWorkshopGuide | null>(null);
   const [pillarGuideLoading, setPillarGuideLoading] = useState(false);
   const [departmentGuide, setDepartmentGuide] = useState<DepartmentWorkshopGuide | null>(null);
@@ -190,6 +190,7 @@ export function ControlReviewWorkspace({
     setAnalysisSummary(capture.analysisSummary ?? null);
     setAnalysisStale(Boolean(capture.analysisStale));
     setLastAnalyzedAt(capture.lastAnalyzedAt ?? null);
+    setCaptureChunkCount(capture.chunkCount ?? 0);
     const s = review.stats ?? {};
     setStats({
       total: s.total ?? 0,
@@ -388,7 +389,7 @@ export function ControlReviewWorkspace({
             onInitWorkshop ? (
               <Button onClick={onInitWorkshop} disabled={initWorkshopLoading}>
                 {initWorkshopLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Initialize Workshop & Analysis
+                Initialize workshop workspace
               </Button>
             ) : undefined
           }
@@ -443,19 +444,36 @@ export function ControlReviewWorkspace({
     <div className="flex h-[calc(100dvh-11.5rem)] min-h-[420px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Compact toolbar */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-3 py-2">
-        <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+        <div className="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg bg-slate-100 p-0.5">
           {WORKSPACE_PHASES.map((phase) => (
             <button
               key={phase.id}
               type="button"
+              title={phase.subtitle}
               onClick={() => void requestTabChange(phase.id)}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-md px-2.5 py-1.5 text-left transition-all sm:px-3 ${
                 tab === phase.id
                   ? "bg-white text-indigo-700 shadow-sm"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              {phase.label}
+              <span className="block text-[11px] font-semibold leading-tight sm:text-xs">
+                {"shortLabel" in phase && phase.shortLabel ? (
+                  <>
+                    <span className="sm:hidden">{phase.shortLabel}</span>
+                    <span className="hidden sm:inline">{phase.label}</span>
+                  </>
+                ) : (
+                  phase.label
+                )}
+              </span>
+              <span
+                className={`mt-0.5 hidden text-[10px] font-normal leading-tight xl:block ${
+                  tab === phase.id ? "text-indigo-600/80" : "text-slate-400"
+                }`}
+              >
+                {phase.subtitle}
+              </span>
             </button>
           ))}
         </div>
@@ -524,7 +542,7 @@ export function ControlReviewWorkspace({
 
         <div
           className="hidden items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600 sm:flex"
-          title="Review progress"
+          title="Validation progress"
         >
           <span className="font-semibold text-slate-900">{stats.confirmed}</span>
           <span className="text-slate-400">/</span>
@@ -590,13 +608,27 @@ export function ControlReviewWorkspace({
             onClick={() => void requestTabChange("notes")}
             className="h-7 px-2 text-xs text-indigo-600"
           >
-            Capture
+            <span className="hidden sm:inline">Evidence &amp; Analysis</span>
+            <span className="sm:hidden">Evidence</span>
             <ArrowRight className="ml-1 h-3 w-3" />
+          </Button>
+        )}
+
+        {tab === "review" && captureChunkCount > 0 && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setValidationChatOpen(true)}
+            className="h-7 gap-1.5 px-2 text-xs"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Ask sources</span>
           </Button>
         )}
       </div>
 
-      {/* Secondary stats — hidden on Facilitate to maximize question space */}
+      {/* Secondary stats — hidden on Workshop tab to maximize question space */}
       {tab !== "workshop" && (
         <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 border-b border-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
           <span>{stats.pillarCount} pillars</span>
@@ -695,20 +727,35 @@ export function ControlReviewWorkspace({
         )}
 
         {tab === "review" && (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <ControlReviewPanel
-            assessmentId={assessmentId}
-            pillars={pillars}
-            evaluations={evaluations}
-            stats={stats}
-            evidenceTexts={evidenceTexts}
-            workshopNotes={workshopNotes}
-            facilitatorNotes={facilitatorNotes}
-            onReload={load}
-            onRegisterLeaveGuard={(guard) => {
-              reviewLeaveGuardRef.current = guard;
-            }}
-          />
+              assessmentId={assessmentId}
+              pillars={pillars}
+              evaluations={evaluations}
+              stats={stats}
+              evidenceTexts={evidenceTexts}
+              workshopNotes={workshopNotes}
+              facilitatorNotes={facilitatorNotes}
+              departmentQuery={departmentQuery}
+              onReload={load}
+              onRegisterLeaveGuard={(guard) => {
+                reviewLeaveGuardRef.current = guard;
+              }}
+            />
+            <SourceNotebookChatLauncher
+              assessmentId={assessmentId}
+              chunkCount={captureChunkCount}
+              disabled={!!saving}
+              evidenceTexts={evidenceTexts}
+              open={validationChatOpen}
+              onOpenChange={setValidationChatOpen}
+              suggestedPrompts={[
+                "What evidence supports the selected control finding?",
+                "Was this control topic discussed in the workshop?",
+                "What did participants say about documented vs informal practices?",
+                "Which source excerpts relate to this control area?",
+              ]}
+            />
           </div>
         )}
 

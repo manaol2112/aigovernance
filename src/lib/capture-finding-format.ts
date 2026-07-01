@@ -33,12 +33,92 @@ const FILLER_PATTERNS = [
   /^as mentioned above,?\s+/i,
 ];
 
+const MALFORMED_FINDING = /\[object Object\]/;
+
+/** True when persisted findings were stringified from objects (legacy bad AI parse). */
+export function isMalformedFindingText(text: string): boolean {
+  return MALFORMED_FINDING.test(text);
+}
+
+function joinLabelParts(prefix: string, body: string, suffixLabel: string, suffix: string): string {
+  const main = body.trim();
+  const tail = suffix.trim();
+  if (!main) return tail;
+  if (!tail) return main.startsWith(prefix) ? main : `${prefix} ${main}`;
+  if (main.startsWith(prefix)) {
+    return main.includes(suffixLabel) ? main : `${main} ${suffixLabel} ${tail}`;
+  }
+  return `${prefix} ${main}. ${suffixLabel} ${tail}`;
+}
+
+/** Coerce LLM JSON finding entries (string or structured object) to display text. */
+export function coerceFindingItem(item: unknown): string {
+  if (typeof item === "string") return item.trim();
+  if (item == null) return "";
+  if (typeof item === "number" || typeof item === "boolean") return String(item);
+  if (Array.isArray(item)) {
+    return item.map(coerceFindingItem).filter(Boolean).join(" ").trim();
+  }
+  if (typeof item !== "object") return String(item).trim();
+
+  const o = item as Record<string, unknown>;
+  if (typeof o.text === "string") return o.text.trim();
+  if (typeof o.finding === "string") return o.finding.trim();
+  if (typeof o.claimText === "string") return o.claimText.trim();
+  if (typeof o.content === "string") return o.content.trim();
+
+  const observed = o.observedPractice ?? o.observed ?? o.observed_practice;
+  if (typeof observed === "string") {
+    const evidence = o.evidence ?? o.basis ?? o.support;
+    return typeof evidence === "string" && evidence.trim()
+      ? joinLabelParts("Observed practice:", observed, "Evidence:", evidence)
+      : observed.trim();
+  }
+
+  if (typeof o.gap === "string") {
+    const basis = o.basis ?? o.evidence ?? o.support;
+    return typeof basis === "string" && basis.trim()
+      ? joinLabelParts("Gap:", o.gap, "Basis:", basis)
+      : o.gap.trim();
+  }
+
+  if (typeof o.recommendation === "string") {
+    const rationale = o.rationale ?? o.reason;
+    return typeof rationale === "string" && rationale.trim()
+      ? joinLabelParts("Recommendation:", o.recommendation, "Rationale:", rationale)
+      : o.recommendation.trim();
+  }
+
+  const stringValues = Object.values(o).filter((v) => typeof v === "string") as string[];
+  if (stringValues.length > 0) return stringValues.join(" ").trim();
+
+  try {
+    return JSON.stringify(o);
+  } catch {
+    return "";
+  }
+}
+
+/** Coerce LLM finding arrays (or a single string) into normalized string items. */
+export function coerceFindingItems(items: unknown): string[] {
+  if (items == null) return [];
+  if (typeof items === "string") {
+    const trimmed = items.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  if (!Array.isArray(items)) {
+    const one = coerceFindingItem(items);
+    return one ? [one] : [];
+  }
+  return items.map(coerceFindingItem).map((s) => s.trim()).filter(Boolean);
+}
+
 /** Normalize LLM finding bullets for consistent enterprise presentation. */
-export function normalizeFindingItems(items: string[]): string[] {
+export function normalizeFindingItems(items: string[] | unknown[]): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
 
-  for (const raw of items) {
+  for (const raw of coerceFindingItems(items)) {
     const trimmed = raw.replace(/\s+/g, " ").trim();
     if (!trimmed) continue;
 

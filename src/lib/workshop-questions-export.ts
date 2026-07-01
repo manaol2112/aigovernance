@@ -17,7 +17,7 @@ export type WorkshopExportMeta = {
   includeEvidence?: boolean;
 };
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -26,7 +26,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function slugify(value: string): string {
+export function slugify(value: string): string {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -183,7 +183,7 @@ function renderDepartmentGuide(guide: DepartmentWorkshopGuide, includeEvidence: 
   </section>`;
 }
 
-const EXPORT_STYLES = `
+export const WORKSHOP_EXPORT_STYLES = `
   :root {
     --ink: #0f172a;
     --muted: #64748b;
@@ -524,7 +524,7 @@ export function buildWorkshopQuestionsHtml(
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(meta.exportTitle)} — ${escapeHtml(meta.assessmentName)}</title>
-  <style>${EXPORT_STYLES}</style>
+  <style>${WORKSHOP_EXPORT_STYLES}</style>
 </head>
 <body>
   <div class="doc">

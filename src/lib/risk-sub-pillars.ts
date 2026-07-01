@@ -1,5 +1,5 @@
-import type { RiskPillarDef } from "@/lib/risk-control-matrix";
-import { RISK_PILLARS } from "@/lib/risk-control-matrix";
+import type { RiskPillarDef } from "@/lib/risk-pillars";
+import { RISK_PILLARS } from "@/lib/risk-pillars";
 
 export type RiskSubPillarDef = {
   id: string;

@@ -95,9 +95,12 @@ export const CONTROL_ANALYSIS_SYSTEM_PROMPT = [
   "5. Do NOT infer gaps for requirement elements that were never discussed in workshop materials. Absence of discussion is not evidence of a gap.",
   "6. Recommendations must remediate identified gaps only. No generic advice when no gap or partial alignment was established from sources.",
   "7. Use complete sentences, third-person professional tone, one point per array item. Refer to the client/organization, never first-person (we/our).",
-  '8. inPlaceFindings format: "Observed practice: ... Evidence: ..." | gapFindings: "Gap: ... Basis: ..." | recommendations: "Recommendation: ... Rationale: ..."',
-  '9. complianceStatus: "aligned" only when sources support established practice meeting the requirement; "partial" for mixed/informal/in-progress evidence; "gap" when misalignment dominates; "not_assessed" when topic not covered.',
-  "10. Return valid JSON only.",
+  '8. inPlaceFindings format: "Observed practice: <specific practice tied to a requirement element>. Evidence: <verbatim-supported workshop statement(s) explaining why this satisfies the element>."',
+  '9. gapFindings format: "Gap: <named requirement element not met, weak, informal, or not evidenced>. Basis: <verbatim-supported evidence or explicit absence in sources>."',
+  '10. recommendations format: numbered actions — "Recommendation: <concrete remediation>. Rationale: <how this closes the named gap and which requirement element it addresses>."',
+  '11. complianceStatus: "aligned" only when sources support established practice meeting the requirement; "partial" for mixed/informal/in-progress evidence; "gap" when misalignment dominates; "not_assessed" when topic not covered.',
+  "12. CITATIONS (mandatory): include one citations[] entry per in_place and gap array item with claimText matching the full item string exactly, plus sourceLabel, sourceType, and a verbatim excerpt copied from the source.",
+  "13. Return valid JSON only.",
 ].join("\n");
 
 export const CAPTURE_INDEX_SYSTEM_PROMPT = [
@@ -141,14 +144,19 @@ export const CAPTURE_ASSESS_SYSTEM_PROMPT = [
   "",
   "SECTION TEMPLATES — each array item must follow its template (citation claimText must match the full item string exactly):",
   "",
-  "inPlaceFindings (0–4 items; only where sources support existing practice):",
-  '  "Observed practice: <what exists per sources>. Evidence: <what workshop participants stated, without adding facts>."',
+  "inPlaceFindings (1–4 items; only where sources support existing practice — EVERY item requires a citations entry with factId):",
+  '  "Observed practice: <name the control requirement element and what exists per sources>. Evidence: <quote or paraphrase workshop participants with enough detail to audit the claim; include who/what/when if stated>."',
   "",
-  "gapFindings (0–4 items; only where sources support a gap, weakness, absence, or unmet requirement):",
-  '  "Gap: <specific requirement element not met, weak, informal, or not evidenced>. Basis: <what sources state or fail to establish—use \'Insufficient workshop evidence to confirm <element>\' when appropriate>."',
+  "gapFindings (1–4 items; only where sources support a gap — EVERY item requires a citations entry with factId):",
+  '  "Gap: <specific requirement element not met, weak, informal, or not evidenced — name the element>. Basis: <why this is a gap based on what sources state or fail to establish; cite uncertainty explicitly when evidence is thin>."',
   "",
-  "recommendations (1–3 items; only where a gap was identified OR sources explicitly mention a planned remediation):",
-  '  "Recommendation: <specific remediation action tied to the gap>. Rationale: <why this addresses the identified gap, grounded in control requirement and source context>."',
+  "recommendations (1–3 numbered items; only where a gap was identified OR sources explicitly mention planned remediation):",
+  '  "Recommendation: <specific, actionable remediation tied to the named gap>. Rationale: <why this closes the gap, which requirement element it addresses, and expected outcome>."',
+  "",
+  "CITATIONS ARRAY (non-negotiable):",
+  "- One entry per in_place and gap finding; claimText must match the finding string character-for-character.",
+  "- Each entry must include section, claimText, and factId from the FACT LEDGER.",
+  "- Add recommendation citations when a source explicitly mentions a planned remediation; never invent factIds.",
   "",
   "complianceStatus:",
   '  "aligned" — multiple supporting facts, practices described as established/formal, no material gaps in sources',
@@ -275,6 +283,112 @@ export function buildCaptureAssessUserPrompt(options: {
     "GOOD recommendation: \"Recommendation: Adopt a standard model risk assessment template for credit scoring and require completion before production deployment. Rationale: Workshop evidence indicates assessments occur informally without consistent documentation, leaving traceability gaps against this control.\"",
     "BAD recommendation: \"Improve AI governance maturity and follow industry best practices.\"",
     "",
-    "Include citations for every in_place and gap item. Include citations for recommendations when they reference a specific source-stated plan; otherwise omit recommendation citations rather than inventing factIds.",
+    "Include citations for EVERY in_place and gap item (mandatory). Recommendations are output as a numbered list (1., 2., 3.) — include citations when referencing a source-stated plan; otherwise omit recommendation citations rather than inventing factIds.",
+  ].join("\n");
+}
+
+export const CAPTURE_TARGETED_ASSESS_SYSTEM_PROMPT = [
+  "You are a senior AI governance auditor assessing ONE control using ONLY the provided source chunks from workshop materials.",
+  "",
+  "EVIDENCE RULES (non-negotiable):",
+  "1. Use ONLY the SOURCE CHUNKS below. Never invent policies, roles, systems, or commitments.",
+  "2. If chunks do not mention this control topic at all, set insufficientEvidence true and omit assessment.",
+  "3. If chunks mention the topic even informally or partially, produce an assessment with partial, gap, or aligned status as appropriate.",
+  "4. Every in_place and gap finding MUST cite chunkId(s) from the chunks with a verbatim excerpt copied from that chunk.",
+  "5. Preserve speaker uncertainty ('appears', 'informal', 'in progress'). Never upgrade thin signals to full compliance.",
+  "",
+  "SECTION TEMPLATES — claimText in citations must match finding strings exactly:",
+  'inPlaceFindings: "Observed practice: ... Evidence: ..."',
+  'gapFindings: "Gap: ... Basis: ..."',
+  'recommendations: "Recommendation: ... Rationale: ..."',
+  "",
+  "complianceStatus:",
+  '  "aligned" — established practice clearly supported in chunks',
+  '  "partial" — informal, incomplete, or mixed evidence',
+  '  "gap" — absence or material weakness dominates in chunks',
+  "",
+  "Return valid JSON only.",
+].join("\n");
+
+export function buildCaptureTargetedAssessUserPrompt(options: {
+  controlCode: string;
+  title: string;
+  description: string;
+  frameworkRequirements?: string[];
+  procedureSummary?: string;
+  sourceChunks: string;
+}): string {
+  const reqBlock =
+    options.frameworkRequirements && options.frameworkRequirements.length > 0
+      ? [
+          "Linked framework obligations:",
+          ...options.frameworkRequirements.slice(0, 6).map((r) => `  • ${r}`),
+        ].join("\n")
+      : "";
+
+  return [
+    `Assess this single control: ${options.controlCode} — ${options.title}`,
+    "",
+    `Canonical requirement: ${options.description.slice(0, 500)}`,
+    reqBlock,
+    options.procedureSummary
+      ? `Operating procedure (reference): ${options.procedureSummary}`
+      : "",
+    "",
+    "--- SOURCE CHUNKS (only evidence) ---",
+    options.sourceChunks,
+    "--- END CHUNKS ---",
+    "",
+    "Return JSON:",
+    "{",
+    '  "insufficientEvidence": false,',
+    '  "assessment": {',
+    `    "controlCode": "${options.controlCode}",`,
+    '    "complianceStatus": "aligned"|"partial"|"gap",',
+    '    "inPlaceFindings": ["Observed practice: ... Evidence: ..."],',
+    '    "gapFindings": ["Gap: ... Basis: ..."],',
+    '    "recommendations": ["Recommendation: ... Rationale: ..."],',
+    '    "citations": [{',
+    '      "section": "in_place"|"gap"|"recommendation",',
+    '      "claimText": "must exactly match a finding string",',
+    '      "chunkId": "exact id from CHUNK tag",',
+    '      "excerpt": "verbatim 15-120 word quote from that chunk"',
+    "    }]",
+    "  }",
+    "}",
+    "",
+    "If chunks lack any mention of this control topic, return:",
+    '{ "insufficientEvidence": true }',
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildPillarSupplementalIndexPrompt(options: {
+  pillarContext: string;
+  sourceCorpus: string;
+}): string {
+  return [
+    "Supplemental indexing pass for one risk pillar. Extract additional facts from SOURCE CHUNKS that relate to controls listed in the pillar CONTROL INDEX.",
+    "",
+    "--- CONTROL INDEX ---",
+    options.pillarContext,
+    "--- END INDEX ---",
+    "",
+    "--- SOURCE CHUNKS ---",
+    options.sourceCorpus,
+    "--- END CHUNKS ---",
+    "",
+    "Return JSON:",
+    "{",
+    '  "facts": [{',
+    '    "factId": "SF001",',
+    '    "fact": "concise statement",',
+    '    "sourceId": "evidence id from chunk",',
+    '    "sourceFile": "filename",',
+    '    "excerpt": "verbatim quote",',
+    '    "controlCodes": ["CTRL-001"]',
+    "  }]",
+    "}",
   ].join("\n");
 }

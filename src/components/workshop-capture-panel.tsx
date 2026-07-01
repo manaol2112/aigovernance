@@ -382,14 +382,14 @@ export function WorkshopCapturePanel({
               >
                 Edit notes
               </button>{" "}
-              to customize, then Save and auto-map (or use Sample &amp; map to jump to Review).
+              to customize, then Save and auto-map (or use Sample &amp; map to jump to Validation).
             </p>
           )}
           {mapResult && (
             <p className="text-xs text-emerald-800">
               {mapResult}
               <button type="button" className="ml-2 font-medium underline hover:no-underline" onClick={onGoToReview}>
-                View in Review →
+                View in Validation →
               </button>
             </p>
           )}

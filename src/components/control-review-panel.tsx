@@ -22,6 +22,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CitedAnalysis, SourceEvidenceDialog, type Citation } from "@/components/cited-analysis";
+import { ControlFollowUpInline } from "@/components/control-follow-up-inline";
+import { FollowUpQuestionsExportButton } from "@/components/follow-up-questions-export-button";
+import { isMalformedFindingText } from "@/lib/capture-finding-format";
 
 export type ReviewPillarGroup = {
   pillarId: string;
@@ -48,6 +51,7 @@ export type ReviewControlEval = {
   complianceStatus: string;
   status: string;
   aiGenerated: boolean;
+  analyzedAt?: string | null;
   reviewerComplete: boolean | null;
   reviewerAccurate: boolean | null;
   reviewerNoHallucination: boolean | null;
@@ -172,6 +176,7 @@ type Props = {
   evidenceTexts: Record<string, { fileName: string; text: string }>;
   workshopNotes: string;
   facilitatorNotes: string;
+  departmentQuery?: string;
   onReload: () => Promise<void>;
   onRegisterLeaveGuard?: (guard: ReviewLeaveGuard | null) => void;
 };
@@ -184,6 +189,7 @@ export function ControlReviewPanel({
   evidenceTexts,
   workshopNotes,
   facilitatorNotes,
+  departmentQuery = "",
   onReload,
   onRegisterLeaveGuard,
 }: Props) {
@@ -278,11 +284,14 @@ export function ControlReviewPanel({
     if (!selectedControlId) return;
     const ev = evalByControl.get(selectedControlId);
     if (!ev) return;
-    if (loadedControlRef.current === selectedControlId) return;
+    const analyzedKey = ev.analyzedAt ?? "";
+    const contentKey = `${ev.inPlaceFindings}|${ev.gapFindings}|${ev.recommendations}`;
+    const syncKey = `${selectedControlId}:${analyzedKey}:${contentKey}`;
+    if (loadedControlRef.current === syncKey) return;
 
-    setDraftInPlace(ev.inPlaceFindings);
-    setDraftGaps(ev.gapFindings);
-    setDraftRecs(ev.recommendations);
+    setDraftInPlace(isMalformedFindingText(ev.inPlaceFindings) ? "" : ev.inPlaceFindings);
+    setDraftGaps(isMalformedFindingText(ev.gapFindings) ? "" : ev.gapFindings);
+    setDraftRecs(isMalformedFindingText(ev.recommendations) ? "" : ev.recommendations);
     setDraftCompliance(ev.complianceStatus);
     setReviewChecks({
       complete: ev.reviewerComplete ?? false,
@@ -292,7 +301,7 @@ export function ControlReviewPanel({
     setReviewNotes(ev.reviewerNotes ?? "");
     setFindingsDirty(false);
     setSaveStatus("idle");
-    loadedControlRef.current = selectedControlId;
+    loadedControlRef.current = syncKey;
   }, [selectedControlId, evalByControl]);
 
   useEffect(() => {
@@ -528,15 +537,35 @@ export function ControlReviewPanel({
     });
   }
 
+  function hasReviewableFindings(ev: ReviewControlEval): boolean {
+    const inPlace = ev.inPlaceFindings?.trim() ?? "";
+    return (
+      ev.status !== "pending" &&
+      !!inPlace &&
+      !isMalformedFindingText(inPlace) &&
+      !isMalformedFindingText(ev.gapFindings) &&
+      !isMalformedFindingText(ev.recommendations)
+    );
+  }
+
   async function analyzeControl(controlId: string) {
     setSaving(`analyze-${controlId}`);
-    await fetch(`/api/assessments/${assessmentId}/control-review`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "analyze_one", controlId }),
-    });
-    await onReload();
-    setSaving("");
+    try {
+      const res = await fetch(`/api/assessments/${assessmentId}/control-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "analyze_one", controlId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        window.alert(data.error ?? "AI analysis failed. Check that workshop notes or evidence exist for this control.");
+        return;
+      }
+      loadedControlRef.current = null;
+      await onReload();
+    } finally {
+      setSaving("");
+    }
   }
 
   async function saveFindings(controlId: string) {
@@ -609,7 +638,11 @@ export function ControlReviewPanel({
               Edit in-place, gap, and recommendation wording. Only signed-off controls flow to formal reporting.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <FollowUpQuestionsExportButton
+              assessmentId={assessmentId}
+              departmentQuery={departmentQuery}
+            />
             <div className="text-right">
               <p className="text-2xl font-bold tabular-nums text-slate-900">
                 {stats.confirmed}
@@ -784,7 +817,7 @@ export function ControlReviewPanel({
           </div>
         </aside>
 
-        {/* Review workspace */}
+        {/* Validation workspace */}
         <main className="flex min-h-0 flex-col overflow-hidden lg:col-span-8">
           {reviewMode === "batch" && batchReviewable.length > 0 && (
             <div className="shrink-0 border-b border-indigo-200 bg-indigo-50/80 px-5 py-3">
@@ -872,11 +905,24 @@ export function ControlReviewPanel({
                   </div>
                 </div>
 
-                {selectedEval.status === "pending" || !selectedEval.inPlaceFindings.trim() ? (
+                {draftCompliance === "not_assessed" && selectedControl && (
+                  <ControlFollowUpInline
+                    assessmentId={assessmentId}
+                    controlId={selectedControl.id}
+                    active
+                    departmentQuery={departmentQuery}
+                  />
+                )}
+
+                {!hasReviewableFindings(selectedEval) ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
                     <Brain className="mx-auto h-10 w-10 text-slate-300" />
                     <p className="mt-3 font-medium text-slate-700">No findings to review yet</p>
-                    <p className="mt-1 text-sm text-slate-500">Run AI analysis from Capture or re-analyze this control.</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {isMalformedFindingText(selectedEval.inPlaceFindings)
+                        ? "The last analysis did not format correctly. Run AI analysis again."
+                        : "Run AI analysis from Evidence & Analysis or re-analyze this control."}
+                    </p>
                     <Button className="mt-4" size="sm" onClick={() => analyzeControl(selectedControl.id)} disabled={!!saving}>
                       Run AI analysis
                     </Button>
@@ -938,12 +984,12 @@ export function ControlReviewPanel({
                             markFindingsDirty();
                           }}
                         />
-                        {section.key === "in_place" && selectedEval.citations.length > 0 && (
+                        {selectedEval.citations.filter((c) => c.section === section.key).length > 0 && (
                           <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3">
                             <p className="mb-2 text-[10px] font-semibold uppercase text-slate-500">Citation preview</p>
                             <CitedAnalysis
-                              text={draftInPlace}
-                              citations={selectedEval.citations.filter((c) => c.section === "in_place")}
+                              text={section.value}
+                              citations={selectedEval.citations.filter((c) => c.section === section.key)}
                               activeCitation={activeCitation}
                               onCitationClick={openEvidenceCitation}
                               className="text-sm"

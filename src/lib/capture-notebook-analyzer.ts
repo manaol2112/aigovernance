@@ -1,14 +1,15 @@
-import { prisma } from "@/lib/db";
 import { callOpenAIJson } from "@/lib/openai-client";
 import {
   CAPTURE_ASSESS_SYSTEM_PROMPT,
   CAPTURE_INDEX_SYSTEM_PROMPT,
   buildCaptureAssessUserPrompt,
   buildCaptureIndexUserPrompt,
+  buildPillarSupplementalIndexPrompt,
 } from "@/lib/transcript-analysis-prompts";
 import {
   buildTranscriptAnalysisContext,
   formatContextForPrompt,
+  formatPillarIndexContext,
 } from "@/lib/transcript-analysis-context";
 import { getPillarControlTreeForAssessment, type PillarControlGroup } from "@/lib/pillar-control-tree";
 import type { CitationDraft } from "@/lib/control-analyzer";
@@ -21,7 +22,6 @@ import {
 } from "@/lib/capture-vector-index";
 import {
   buildEvidenceTextMap,
-  findExcerptSpan,
   formatSourceCorpusForPrompt,
   toCaptureSourceDocs,
   type CaptureSourceDoc,
@@ -29,32 +29,21 @@ import {
 import {
   normalizeFindingItems,
   resolveCaptureSectionFallbacks,
+  coerceFindingItems,
 } from "@/lib/capture-finding-format";
+import { formatFindingSectionWithCitations } from "@/lib/finding-citations";
 import { loadControlRequirementSummaries } from "@/lib/control-requirement-context";
+import type { GroundedFact, PersistedControlAssessment } from "@/lib/capture-analysis-types";
+import { persistControlAssessment } from "@/lib/capture-control-persist";
+import { runTargetedControlPass } from "@/lib/capture-targeted-assess";
 import type { TranscriptSource } from "@/lib/transcript-processor";
 
+export type { GroundedFact, PersistedControlAssessment } from "@/lib/capture-analysis-types";
+
 const PILLAR_CONCURRENCY = 4;
-
-export type GroundedFact = {
-  factId: string;
-  fact: string;
-  sourceId: string;
-  sourceFile: string;
-  excerpt: string;
-  controlCodes: string[];
-  pillarLabel?: string;
-};
-
-export type PersistedControlAssessment = {
-  controlId: string;
-  controlCode: string;
-  inPlaceFindings: string;
-  gapFindings: string;
-  recommendations: string;
-  complianceStatus: "aligned" | "partial" | "gap" | "not_assessed";
-  citations: CitationDraft[];
-  workshopNotes: string;
-};
+const SUPPLEMENTAL_INDEX_CONCURRENCY = 3;
+const PILLAR_CHUNK_TOP_K = 10;
+const INITIAL_INDEX_TOP_K = 36;
 
 export type NotebookAnalysisResult = {
   summary: string;
@@ -67,6 +56,7 @@ export type NotebookAnalysisResult = {
   sourceDocs: CaptureSourceDoc[];
   vectorChunksUsed: number;
   usedVectorRetrieval: boolean;
+  targetedAssessedCount: number;
 };
 
 type IndexResponse = {
@@ -95,109 +85,46 @@ type AssessResponse = {
   assessments?: AssessmentRow[];
 };
 
-function formatSectionWithCitations(
-  section: CitationDraft["section"],
-  items: string[],
-  rawCitations: AssessmentCitation[] | undefined,
-  factById: Map<string, GroundedFact>,
-  sourceById: Map<string, CaptureSourceDoc>,
-  citations: CitationDraft[],
-  citationCounter: { value: number }
-): string {
-  const sectionCitations = rawCitations?.filter((c) => c.section === section) ?? [];
-  const lines: string[] = [];
-
-  items.forEach((claim, claimIndex) => {
-    const meta =
-      sectionCitations.find((c) => c.claimText === claim) ?? sectionCitations[claimIndex];
-    const fact = meta ? factById.get(meta.factId) : undefined;
-    const source = fact ? sourceById.get(fact.sourceId) : undefined;
-
-    if (fact && source) {
-      const span = findExcerptSpan(source.text, fact.excerpt);
-      if (span) {
-        const idx = citationCounter.value;
-        citations.push({
-          section,
-          claimIndex,
-          claimText: claim,
-          sourceType: "evidence",
-          sourceId: fact.sourceId,
-          sourceLabel: `Transcript: ${fact.sourceFile}`,
-          excerpt: source.text.slice(span.startOffset, span.endOffset),
-          startOffset: span.startOffset,
-          endOffset: span.endOffset,
-          citationIndex: idx,
-        });
-        lines.push(`${claim} [{${idx}}]`);
-        citationCounter.value++;
-        return;
-      }
-    }
-    lines.push(claim);
-  });
-
-  return lines.join("\n");
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
-async function persistAssessment(
-  assessmentId: string,
-  controlId: string,
-  result: Omit<PersistedControlAssessment, "controlId" | "controlCode">
-): Promise<void> {
-  await prisma.evaluationCitation.deleteMany({
-    where: { controlEvaluation: { assessmentId, controlId } },
-  });
+function dedupeFacts(facts: GroundedFact[]): GroundedFact[] {
+  const seen = new Set<string>();
+  const out: GroundedFact[] = [];
+  for (const fact of facts) {
+    const key = normalizeWhitespace(fact.excerpt).slice(0, 120).toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(fact);
+  }
+  return out;
+}
 
-  const evaluation = await prisma.controlEvaluation.upsert({
-    where: { assessmentId_controlId: { assessmentId, controlId } },
-    create: {
-      assessmentId,
-      controlId,
-      workshopNotes: result.workshopNotes,
-      inPlaceFindings: result.inPlaceFindings,
-      gapFindings: result.gapFindings,
-      recommendations: result.recommendations,
-      complianceStatus: result.complianceStatus,
-      status: "ai_draft",
-      aiGenerated: true,
-      analyzedAt: new Date(),
-    },
-    update: {
-      workshopNotes: result.workshopNotes,
-      inPlaceFindings: result.inPlaceFindings,
-      gapFindings: result.gapFindings,
-      recommendations: result.recommendations,
-      complianceStatus: result.complianceStatus,
-      status: "ai_draft",
-      aiGenerated: true,
-      analyzedAt: new Date(),
-    },
-  });
+function mergeFacts(existing: GroundedFact[], incoming: GroundedFact[], idPrefix: string): GroundedFact[] {
+  const merged = [...existing];
+  const seen = new Set(
+    existing.map((f) => normalizeWhitespace(f.excerpt).slice(0, 120).toLowerCase())
+  );
+  let counter = existing.length + 1;
 
-  if (result.citations.length > 0) {
-    await prisma.evaluationCitation.createMany({
-      data: result.citations.map((c) => ({
-        controlEvaluationId: evaluation.id,
-        section: c.section,
-        claimIndex: c.claimIndex,
-        claimText: c.claimText,
-        sourceType: c.sourceType,
-        sourceId: c.sourceId,
-        sourceLabel: c.sourceLabel,
-        excerpt: c.excerpt,
-        startOffset: c.startOffset,
-        endOffset: c.endOffset,
-        citationIndex: c.citationIndex,
-      })),
+  for (const fact of incoming) {
+    const key = normalizeWhitespace(fact.excerpt).slice(0, 120).toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push({
+      ...fact,
+      factId: fact.factId?.trim() ? `${idPrefix}${fact.factId}` : `${idPrefix}${counter++}`,
     });
   }
+
+  return merged;
 }
 
 function normalizeAssessmentRow(row: AssessmentRow): AssessmentRow {
-  const inPlaceRaw = row.inPlaceFindings ?? [];
-  const gapRaw = row.gapFindings ?? [];
-  const recRaw = row.recommendations ?? [];
+  const inPlaceRaw = coerceFindingItems(row.inPlaceFindings);
+  const gapRaw = coerceFindingItems(row.gapFindings);
+  const recRaw = coerceFindingItems(row.recommendations);
 
   const inPlaceFindings = normalizeFindingItems(inPlaceRaw);
   const gapFindings = normalizeFindingItems(gapRaw);
@@ -206,15 +133,15 @@ function normalizeAssessmentRow(row: AssessmentRow): AssessmentRow {
   const citations = row.citations?.map((c) => {
     const originals =
       c.section === "in_place" ? inPlaceRaw : c.section === "gap" ? gapRaw : recRaw;
-    const normalized =
+    const normalizedItems =
       c.section === "in_place"
         ? inPlaceFindings
         : c.section === "gap"
           ? gapFindings
           : recommendations;
     const idx = originals.findIndex((o) => o === c.claimText);
-    if (idx >= 0 && normalized[idx]) {
-      return { ...c, claimText: normalized[idx] };
+    if (idx >= 0 && normalizedItems[idx]) {
+      return { ...c, claimText: normalizedItems[idx] };
     }
     return c;
   });
@@ -236,51 +163,70 @@ function buildAssessmentFromRow(
   sourceById: Map<string, CaptureSourceDoc>
 ): PersistedControlAssessment {
   const normalized = normalizeAssessmentRow(row);
-  const citations: CitationDraft[] = [];
-  const counter = { value: 1 };
-
-  const inPlace = formatSectionWithCitations(
-    "in_place",
-    normalized.inPlaceFindings ?? [],
-    normalized.citations,
-    factById,
-    sourceById,
-    citations,
-    counter
-  );
-  const gaps = formatSectionWithCitations(
-    "gap",
-    normalized.gapFindings ?? [],
-    normalized.citations,
-    factById,
-    sourceById,
-    citations,
-    counter
-  );
-  const recs = formatSectionWithCitations(
-    "recommendation",
-    normalized.recommendations ?? [],
-    normalized.citations,
-    factById,
-    sourceById,
-    citations,
-    counter
-  );
+  const inPlaceItems = normalized.inPlaceFindings ?? [];
+  const gapItems = normalized.gapFindings ?? [];
+  const recItems = normalized.recommendations ?? [];
 
   const relatedFacts = facts.filter((f) =>
     f.controlCodes.some((code) => code.toUpperCase() === row.controlCode.toUpperCase())
   );
+
+  for (const cite of normalized.citations ?? []) {
+    if (!cite.factId) continue;
+    const fact = factById.get(cite.factId) ?? factById.get(cite.factId.toUpperCase());
+    if (fact && !relatedFacts.some((f) => f.factId === fact.factId)) {
+      relatedFacts.push(fact);
+    }
+  }
   const hasWorkshopCoverage = relatedFacts.length > 0;
+
+  const citations: CitationDraft[] = [];
+  const counter = { value: 1 };
+
+  const inPlace = formatFindingSectionWithCitations({
+    section: "in_place",
+    items: inPlaceItems,
+    rawCitations: normalized.citations,
+    factById,
+    sourceById,
+    controlFacts: relatedFacts,
+    outCitations: citations,
+    citationCounter: counter,
+  });
+
+  const gaps = formatFindingSectionWithCitations({
+    section: "gap",
+    items: gapItems,
+    rawCitations: normalized.citations,
+    factById,
+    sourceById,
+    controlFacts: relatedFacts,
+    outCitations: citations,
+    citationCounter: counter,
+  });
+
+  const recs = formatFindingSectionWithCitations({
+    section: "recommendation",
+    items: recItems,
+    rawCitations: normalized.citations,
+    factById,
+    sourceById,
+    controlFacts: relatedFacts,
+    outCitations: citations,
+    citationCounter: counter,
+    numberRecommendations: true,
+  });
+
   const workshopNotes = relatedFacts
     .map((f) => `[${f.sourceFile}] ${f.fact}\n"${f.excerpt}"`)
     .join("\n\n");
 
   const fallbacks = resolveCaptureSectionFallbacks({
     hasWorkshopCoverage,
-    gapItems: normalized.gapFindings ?? [],
-    inPlaceItems: normalized.inPlaceFindings ?? [],
-    recommendationItems: normalized.recommendations ?? [],
-    complianceStatus: row.complianceStatus,
+    gapItems,
+    inPlaceItems,
+    recommendationItems: recItems,
+    complianceStatus: normalized.complianceStatus ?? row.complianceStatus,
   });
 
   return {
@@ -290,7 +236,7 @@ function buildAssessmentFromRow(
     gapFindings: gaps || fallbacks.gap,
     recommendations: recs || fallbacks.recommendation,
     complianceStatus: hasWorkshopCoverage
-      ? (row.complianceStatus ?? "not_assessed")
+      ? (normalized.complianceStatus ?? row.complianceStatus ?? "not_assessed")
       : "not_assessed",
     citations,
     workshopNotes,
@@ -324,11 +270,44 @@ async function assessPillarBatch(options: {
       }),
     }),
     temperature: 0.1,
-    maxTokens: 8_000,
+    maxTokens: 12_000,
   });
 
   if (!assessResult.ok) return null;
   return assessResult.data;
+}
+
+async function indexSupplementalPillarFacts(
+  assessmentId: string,
+  pillar: PillarControlGroup
+): Promise<GroundedFact[]> {
+  const query = [
+    pillar.pillarLabel,
+    ...pillar.controls.map((c) => `${c.code} ${c.title}`),
+  ].join(" ");
+
+  const chunks = await retrieveRelevantChunks(assessmentId, query, PILLAR_CHUNK_TOP_K);
+  if (chunks.length === 0) return [];
+
+  const indexResult = await callOpenAIJson<IndexResponse>({
+    system: CAPTURE_INDEX_SYSTEM_PROMPT,
+    user: buildPillarSupplementalIndexPrompt({
+      pillarContext: formatPillarIndexContext(
+        pillar.pillarLabel,
+        pillar.controls.map((c) => ({
+          code: c.code,
+          title: c.title,
+          description: c.description,
+        }))
+      ),
+      sourceCorpus: formatChunksForPrompt(chunks),
+    }),
+    temperature: 0.1,
+    maxTokens: 8_000,
+  });
+
+  if (!indexResult.ok) return [];
+  return indexResult.data.facts ?? [];
 }
 
 export async function runCaptureNotebookAnalysis(
@@ -349,7 +328,7 @@ export async function runCaptureNotebookAnalysis(
     indexQuery,
     fullCorpus,
     totalChars,
-    28
+    INITIAL_INDEX_TOP_K
   );
 
   const context = await buildTranscriptAnalysisContext(assessmentId);
@@ -375,11 +354,29 @@ export async function runCaptureNotebookAnalysis(
   }
   model = indexResult.model;
 
-  const facts = indexResult.data.facts ?? [];
+  let facts = dedupeFacts(indexResult.data.facts ?? []);
+  const pillarsWithControls = (await getPillarControlTreeForAssessment(assessmentId)).filter(
+    (p) => p.controls.length > 0
+  );
+
+  const supplementalResults = await runWithConcurrency(
+    pillarsWithControls,
+    SUPPLEMENTAL_INDEX_CONCURRENCY,
+    async (pillar) => indexSupplementalPillarFacts(assessmentId, pillar)
+  );
+  apiCalls += pillarsWithControls.length;
+
+  for (let i = 0; i < supplementalResults.length; i++) {
+    const pillarFacts = supplementalResults[i];
+    if (pillarFacts.length === 0) continue;
+    facts = mergeFacts(facts, pillarFacts, `P${i + 1}-`);
+  }
+  facts = dedupeFacts(facts);
+
   const factById = new Map(facts.map((f) => [f.factId, f]));
   const factLedgerJson = JSON.stringify({ facts }, null, 0);
 
-  const pillarTree = await getPillarControlTreeForAssessment(assessmentId);
+  const pillarTree = pillarsWithControls;
   const codeToId = new Map<string, string>();
   for (const pillar of pillarTree) {
     for (const c of pillar.controls) {
@@ -387,8 +384,7 @@ export async function runCaptureNotebookAnalysis(
     }
   }
 
-  const pillarsWithControls = pillarTree.filter((p) => p.controls.length > 0);
-  const allControlIds = pillarsWithControls.flatMap((p) => p.controls.map((c) => c.id));
+  const allControlIds = pillarTree.flatMap((p) => p.controls.map((c) => c.id));
   const requirementSummaries = await loadControlRequirementSummaries(allControlIds);
   const requirementByCode = new Map(
     [...requirementSummaries.values()].map((summary) => [
@@ -401,7 +397,7 @@ export async function runCaptureNotebookAnalysis(
   );
 
   const pillarResults = await runWithConcurrency(
-    pillarsWithControls,
+    pillarTree,
     PILLAR_CONCURRENCY,
     async (pillar) => {
       const controlQuery = [
@@ -409,11 +405,8 @@ export async function runCaptureNotebookAnalysis(
         ...pillar.controls.map((c) => `${c.code} ${c.title}`),
       ].join(" ");
 
-      let pillarContext = "";
-      if (corpusSelection.usedVectorRetrieval) {
-        const chunks = await retrieveRelevantChunks(assessmentId, controlQuery, 8);
-        pillarContext = formatChunksForPrompt(chunks);
-      }
+      const chunks = await retrieveRelevantChunks(assessmentId, controlQuery, PILLAR_CHUNK_TOP_K);
+      const pillarContext = chunks.length > 0 ? formatChunksForPrompt(chunks) : "";
 
       const data = await assessPillarBatch({
         pillar,
@@ -437,26 +430,53 @@ export async function runCaptureNotebookAnalysis(
       if (!controlId) continue;
 
       const assessment = buildAssessmentFromRow(row, controlId, facts, factById, sourceById);
-      await persistAssessment(assessmentId, controlId, assessment);
+      await persistControlAssessment(assessmentId, controlId, {
+        workshopNotes: assessment.workshopNotes,
+        inPlaceFindings: assessment.inPlaceFindings,
+        gapFindings: assessment.gapFindings,
+        recommendations: assessment.recommendations,
+        complianceStatus: assessment.complianceStatus,
+        citations: assessment.citations,
+      });
       allAssessments.push(assessment);
     }
   }
 
-  const warnings = [...(indexResult.data.processingWarnings ?? [])];
+  const targetedPass = await runTargetedControlPass({
+    assessmentId,
+    pillarTree,
+    existingAssessments: allAssessments,
+    requirementByCode,
+  });
+  apiCalls += targetedPass.apiCalls;
+
+  const mergedByCode = new Map(allAssessments.map((a) => [a.controlCode.toUpperCase(), a]));
+  for (const targeted of targetedPass.assessed) {
+    mergedByCode.set(targeted.controlCode.toUpperCase(), targeted);
+  }
+  const finalAssessments = [...mergedByCode.values()];
+
+  const warnings = [
+    ...(indexResult.data.processingWarnings ?? []),
+    targetedPass.assessed.length > 0
+      ? `Targeted retrieval pass mapped ${targetedPass.assessed.length} additional control(s) from workshop sources.`
+      : "",
+  ].filter(Boolean);
 
   return {
     summary:
       indexResult.data.summary?.trim() ||
-      `Indexed ${facts.length} facts from ${sources.length} source(s), assessed ${allAssessments.length} control(s) using ${apiCalls} API call(s).`,
+      `Indexed ${facts.length} facts from ${sources.length} source(s); assessed ${finalAssessments.length} control(s) (${targetedPass.assessed.length} via targeted retrieval) using ${apiCalls} API call(s).`,
     topicsNotDiscussed: indexResult.data.topicsNotDiscussed ?? [],
     processingWarnings: warnings,
     factsIndexed: facts.length,
     apiCalls,
     model,
-    assessments: allAssessments,
+    assessments: finalAssessments,
     sourceDocs,
     vectorChunksUsed: corpusSelection.chunkCount,
     usedVectorRetrieval: corpusSelection.usedVectorRetrieval,
+    targetedAssessedCount: targetedPass.assessed.length,
   };
 }
 

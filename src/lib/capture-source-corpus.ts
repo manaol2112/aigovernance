@@ -6,6 +6,34 @@ export type CaptureSourceDoc = {
   text: string;
 };
 
+/** Resolve a source doc by evidence id and/or filename (AI sometimes returns file name as id). */
+export function resolveCaptureSource(
+  sourceId: string | undefined,
+  sourceFile: string | undefined,
+  sourceById: Map<string, CaptureSourceDoc>
+): CaptureSourceDoc | undefined {
+  if (sourceId) {
+    const direct = sourceById.get(sourceId);
+    if (direct) return direct;
+  }
+
+  const fileHint = sourceFile?.trim() || sourceId?.trim();
+  if (fileHint) {
+    const lower = fileHint.toLowerCase();
+    for (const doc of sourceById.values()) {
+      if (
+        doc.fileName === fileHint ||
+        doc.fileName.toLowerCase() === lower ||
+        lower.endsWith(doc.fileName.toLowerCase())
+      ) {
+        return doc;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 export function toCaptureSourceDocs(sources: TranscriptSource[]): CaptureSourceDoc[] {
   return sources.map((s) => ({ id: s.id, fileName: s.fileName, text: s.text }));
 }
@@ -50,6 +78,19 @@ export function findExcerptSpan(
   const short = trimmed.slice(0, Math.min(80, trimmed.length));
   idx = sourceText.indexOf(short);
   if (idx >= 0) return { startOffset: idx, endOffset: idx + short.length };
+
+  // Word-sequence fuzzy match — handles lightly edited AI excerpts
+  const words = trimmed.split(/\s+/).filter((w) => w.length > 3);
+  if (words.length >= 4) {
+    const pattern = words.slice(0, 6).join(" ");
+    idx = sourceText.indexOf(pattern);
+    if (idx >= 0) {
+      return {
+        startOffset: idx,
+        endOffset: Math.min(sourceText.length, idx + Math.max(trimmed.length, pattern.length + 40)),
+      };
+    }
+  }
 
   return null;
 }

@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db";
 import { getScopedControlsForAssessment } from "@/lib/control-scoping";
 import { CONTROL_ANALYSIS_SYSTEM_PROMPT } from "@/lib/transcript-analysis-prompts";
 import { formatRequirementBlockFromControl } from "@/lib/control-requirement-context";
-import { resolveCaptureSectionFallbacks } from "@/lib/capture-finding-format";
+import { coerceFindingItems, resolveCaptureSectionFallbacks } from "@/lib/capture-finding-format";
+import { formatFindingSectionWithCitations, formatNumberedRecommendations } from "@/lib/finding-citations";
 
 export type TextSource = {
   id: string | null;
@@ -333,7 +334,12 @@ export async function analyzeControlGrounded(
       ? formatWithCitations(gapClaims)
       : sectionFallbacks.gap,
     recommendations: recClaims.length
-      ? formatWithCitations(recClaims)
+      ? formatWithCitations(
+          formatNumberedRecommendations(recClaims.map((c) => c.text)).map((text, i) => ({
+            text,
+            citationIndex: recClaims[i]?.citationIndex ?? null,
+          }))
+        )
       : sectionFallbacks.recommendation,
     complianceStatus,
     citations,
@@ -383,10 +389,10 @@ ${sourceBlock}
 Return JSON:
 {
   "complianceStatus": "aligned"|"partial"|"gap"|"not_assessed",
-  "inPlaceFindings": ["Observed practice: ... Evidence: ..."],
-  "gapFindings": ["Gap: <requirement element not met/evidenced>. Basis: <verbatim-supported workshop evidence>"],
-  "recommendations": ["Recommendation: ... Rationale: ... — only when a gap was identified from sources"],
-  "citations": [{"section":"in_place|gap|recommendation","claimText":"must match a finding string exactly","sourceLabel":"...","sourceType":"...","excerpt":"exact verbatim excerpt copied from source — required for in_place and gap"}]
+  "inPlaceFindings": ["Observed practice: <requirement element + practice>. Evidence: <verbatim-supported detail>"],
+  "gapFindings": ["Gap: <requirement element not met>. Basis: <verbatim-supported evidence>"],
+  "recommendations": ["Recommendation: <action>. Rationale: <closes named gap> — numbered 1., 2., 3. in output"],
+  "citations": [{"section":"in_place|gap|recommendation","claimText":"must match a finding string exactly","sourceLabel":"...","sourceType":"...","excerpt":"exact verbatim excerpt — required for every in_place and gap item"}]
 }`;
 
   try {
@@ -411,12 +417,12 @@ Return JSON:
     const data = (await res.json()) as { choices: Array<{ message: { content: string } }> };
     const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}") as {
       complianceStatus?: ControlAnalysisResult["complianceStatus"];
-      inPlaceFindings?: string[];
-      gapFindings?: string[];
-      recommendations?: string[];
+      inPlaceFindings?: unknown;
+      gapFindings?: unknown;
+      recommendations?: unknown;
       citations?: Array<{
         section: CitationDraft["section"];
-        claimText: string;
+        claimText: unknown;
         sourceLabel: string;
         sourceType: string;
         excerpt: string;
@@ -424,43 +430,59 @@ Return JSON:
     };
 
     const citations: CitationDraft[] = [];
-    let citationCounter = 1;
-    const sections: Array<{ key: CitationDraft["section"]; items: string[] }> = [
-      { key: "in_place", items: parsed.inPlaceFindings ?? [] },
-      { key: "gap", items: parsed.gapFindings ?? [] },
-      { key: "recommendation", items: parsed.recommendations ?? [] },
-    ];
+    const counter = { value: 1 };
+    const textSources = sources.map((s) => ({
+      id: s.id,
+      type: s.type,
+      label: s.label,
+      text: s.text,
+    }));
 
-    const formatted: Record<string, string> = {};
+    const rawCitations = (parsed.citations ?? []).map((c) => ({
+      ...c,
+      claimText: typeof c.claimText === "string" ? c.claimText : String(c.claimText ?? ""),
+    }));
 
-    for (const { key, items } of sections) {
-      const lines: string[] = [];
-      items.forEach((claim, claimIndex) => {
-        const rawCites = (parsed.citations ?? []).filter((c) => c.section === key && c.claimText === claim);
-        const citeMeta = rawCites[0];
-        if (citeMeta) {
-          const source = sources.find((s) => s.label === citeMeta.sourceLabel || s.type === citeMeta.sourceType);
-          if (source) {
-            const cite = makeCitation(key, claimIndex, claim, source, citeMeta.excerpt, citationCounter);
-            if (cite) {
-              citations.push(cite);
-              lines.push(`${claim} [{${citationCounter}}]`);
-              citationCounter++;
-              return;
-            }
-          }
-        }
-        lines.push(claim);
-      });
-      formatted[key] = lines.join("\n");
-    }
+    const inPlaceFindings = formatFindingSectionWithCitations({
+      section: "in_place",
+      items: parsed.inPlaceFindings,
+      rawCitations,
+      textSources,
+      outCitations: citations,
+      citationCounter: counter,
+    });
+
+    const gapFindings = formatFindingSectionWithCitations({
+      section: "gap",
+      items: parsed.gapFindings,
+      rawCitations,
+      textSources,
+      outCitations: citations,
+      citationCounter: counter,
+    });
+
+    const recommendations = formatFindingSectionWithCitations({
+      section: "recommendation",
+      items: parsed.recommendations,
+      rawCitations,
+      textSources,
+      outCitations: citations,
+      citationCounter: counter,
+      numberRecommendations: true,
+    });
+
+    const fallbacks = resolveCaptureSectionFallbacks({
+      hasWorkshopCoverage: sources.length > 0,
+      gapItems: coerceFindingItems(parsed.gapFindings),
+      inPlaceItems: coerceFindingItems(parsed.inPlaceFindings),
+      recommendationItems: coerceFindingItems(parsed.recommendations),
+      complianceStatus: parsed.complianceStatus,
+    });
 
     return {
-      inPlaceFindings: formatted.in_place || "No in-place findings from AI analysis.",
-      gapFindings: formatted.gap || "This control was not addressed in workshop materials.",
-      recommendations:
-        formatted.recommendation ||
-        "No remediation action applies until workshop evidence establishes a specific gap.",
+      inPlaceFindings: inPlaceFindings || fallbacks.inPlace,
+      gapFindings: gapFindings || fallbacks.gap,
+      recommendations: recommendations || fallbacks.recommendation,
       complianceStatus: parsed.complianceStatus ?? "not_assessed",
       citations,
       aiGenerated: true,

@@ -276,13 +276,13 @@ export function AssessmentReportingPanel({
                     {report.reviewStats.pendingReview} control(s) not yet signed off
                   </p>
                   <p className="mt-0.5 text-sm text-amber-800/90">
-                    Reports reflect {report.reviewStats.confirmed} confirmed control(s). Complete review
+                    Reports reflect {report.reviewStats.confirmed} confirmed control(s). Complete validation
                     for a full package.
                   </p>
                 </div>
               </div>
               <Button size="sm" variant="outline" className="border-amber-300 bg-white" onClick={onGoToReview}>
-                Complete review
+                Complete validation
               </Button>
             </div>
           ) : (
@@ -292,8 +292,8 @@ export function AssessmentReportingPanel({
                 {isDeliverablesStage
                   ? workflowStage === "finalized"
                     ? "Assessment finalized — package approved for client delivery"
-                    : "Assessment review complete — formal deliverable package ready"
-                  : "Assessment review complete — deliverable package ready for distribution"}
+                    : "Assessment validation complete — formal deliverable package ready"
+                  : "Assessment validation complete — deliverable package ready for distribution"}
               </p>
             </div>
           )}
@@ -802,9 +802,9 @@ function EmptyReportState({ onGoToReview }: { onGoToReview: () => void }) {
     <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-16 text-center">
       <FileText className="mx-auto h-12 w-12 text-slate-300" />
       <p className="mt-4 font-medium text-slate-700">No signed-off controls yet</p>
-      <p className="mt-1 text-sm text-slate-500">Complete control review to populate formal reporting.</p>
+      <p className="mt-1 text-sm text-slate-500">Complete control validation to populate formal reports.</p>
       <Button className="mt-6" size="sm" onClick={onGoToReview}>
-        Go to review
+        Go to validation
       </Button>
     </div>
   );

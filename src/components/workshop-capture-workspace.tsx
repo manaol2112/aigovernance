@@ -15,22 +15,18 @@ import {
   Layers,
   Loader2,
   MessageCircle,
-  Search,
   Sparkles,
   Trash2,
   Upload,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
-import { CitedAnalysis, SourceEvidenceDialog, type Citation } from "@/components/cited-analysis";
+import { CitedAnalysis, CitationReferenceBar, SourceEvidenceDialog, type Citation } from "@/components/cited-analysis";
+import { SourceNotebookChatLauncher } from "@/components/source-notebook-chat";
+import { FollowUpQuestionsExportButton } from "@/components/follow-up-questions-export-button";
 import { isTranscriptEvidence } from "@/lib/transcript-evidence";
-import { RISK_PILLARS } from "@/lib/risk-control-matrix";
+import { RISK_PILLARS } from "@/lib/risk-pillars";
 import type { CaptureAnalysisSummary, ControlMappingEntry } from "@/lib/capture-analysis-types";
-import type { CaptureQueryCitation } from "@/lib/capture-qa";
 
 const ACCEPT =
   ".pdf,.txt,.docx,.jpeg,.jpg,.png,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png";
@@ -243,7 +239,6 @@ type Props = {
 };
 
 type IndexStats = { chunkCount: number; sourceCount: number; totalChars: number };
-type QueryHistoryItem = { question: string; answer: string; askedAt?: string };
 
 function formatBytes(bytes?: number): string {
   if (!bytes) return "—";
@@ -255,7 +250,7 @@ function formatBytes(bytes?: number): string {
 function fileIcon(name: string) {
   const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : "";
   if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
-    return <FileImage className="h-4 w-4 text-violet-500" />;
+    return <FileImage className="h-4 w-4 text-indigo-500" />;
   }
   return <FileText className="h-4 w-4 text-indigo-500" />;
 }
@@ -284,7 +279,7 @@ function WorkflowRail({
           : "Controls mapped"
         : "Pending",
     },
-    { id: "review", label: "Review", done: false, detail: "Confirm in Review" },
+    { id: "validate", label: "Validate", done: false, detail: "Sign off in Validation" },
   ];
 
   return (
@@ -344,6 +339,7 @@ function CitedFindingBlock({
   title,
   content,
   citations,
+  section,
   activeCitation,
   onCitationClick,
   tone,
@@ -351,6 +347,7 @@ function CitedFindingBlock({
   title: string;
   content: string;
   citations: Citation[];
+  section: "in_place" | "gap" | "recommendation";
   activeCitation: number | null;
   onCitationClick: (index: number) => void;
   tone: "positive" | "warning" | "action";
@@ -361,314 +358,39 @@ function CitedFindingBlock({
     action: { ring: "ring-indigo-100", bg: "bg-indigo-50/35", label: "text-indigo-900", dot: "bg-indigo-500" },
   }[tone];
 
+  const sectionCitations = citations.filter((c) => c.section === section);
+
   return (
     <div className={`rounded-xl p-4 ring-1 ${styles.ring} ${styles.bg}`}>
       <div className="mb-2 flex items-center gap-2">
         <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
         <p className={`text-xs font-semibold uppercase tracking-wide ${styles.label}`}>{title}</p>
+        {sectionCitations.length > 0 && (
+          <span className="ml-auto text-[10px] font-medium text-slate-500">
+            {sectionCitations.length} source{sectionCitations.length === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
       <CitedAnalysis
         text={content}
-        citations={citations}
+        citations={sectionCitations}
         activeCitation={activeCitation}
         onCitationClick={onCitationClick}
         className="text-[15px] leading-relaxed text-slate-800"
       />
-    </div>
-  );
-}
-
-function CaptureSourceQueryPanel({
-  assessmentId,
-  chunkCount,
-  disabled,
-  evidenceTexts,
-  variant = "default",
-  embedded = false,
-}: {
-  assessmentId: string;
-  chunkCount: number;
-  disabled: boolean;
-  evidenceTexts: Record<string, { fileName: string; text: string }>;
-  variant?: "default" | "hero";
-  embedded?: boolean;
-}) {
-  const [question, setQuestion] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [citations, setCitations] = useState<CaptureQueryCitation[]>([]);
-  const [activeCitation, setActiveCitation] = useState<number | null>(null);
-  const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
-  const [history, setHistory] = useState<QueryHistoryItem[]>([]);
-  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
-
-  function openEvidenceCitation(index: number) {
-    setActiveCitation(index);
-    setEvidenceDialogOpen(true);
-  }
-
-  useEffect(() => {
-    fetch(`/api/assessments/${assessmentId}/capture`)
-      .then((r) => r.json())
-      .then((data: { queries?: QueryHistoryItem[] }) => {
-        if (Array.isArray(data.queries)) setHistory(data.queries);
-      })
-      .catch(() => undefined);
-  }, [assessmentId]);
-
-  async function ask() {
-    const q = question.trim();
-    if (!q || loading) return;
-    setLoading(true);
-    setError(null);
-    setActiveCitation(null);
-    try {
-      const res = await fetch(`/api/assessments/${assessmentId}/capture`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "query", question: q }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Query failed");
-      setAnswer(data.answer);
-      setCitations(data.citations ?? []);
-      setLastQuestion(q);
-      setHistory((prev) => [{ question: q, answer: data.answer }, ...prev].slice(0, 10));
-      setQuestion("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Query failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const activeCitationObj = useMemo((): Citation | null => {
-    if (activeCitation == null) return null;
-    return citations.find((c) => c.citationIndex === activeCitation) ?? null;
-  }, [activeCitation, citations]);
-
-  const suggested = [
-    "What did they say about model validation?",
-    "Which policies are documented vs informal?",
-    "What governance gaps were admitted?",
-    "Who owns AI risk oversight?",
-  ];
-
-  const isHero = variant === "hero";
-  const shellClass = embedded
-    ? "flex min-h-0 flex-1 flex-col"
-    : `flex flex-col overflow-hidden rounded-2xl shadow-sm ${
-        isHero
-          ? "border-2 border-violet-200/90 bg-gradient-to-b from-violet-50/80 via-white to-white ring-4 ring-violet-100/50"
-          : "border border-slate-200/80 bg-white"
-      }`;
-
-  return (
-    <div className={shellClass}>
-      {isHero ? (
-        <div className="border-b border-violet-100/80 bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-5 text-white">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-              <MessageCircle className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-violet-200">Source notebook</p>
-              <h3 className="mt-0.5 text-xl font-semibold tracking-tight">Ask anything about your sources</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-violet-100/90">
-                Your team can query workshop materials in plain language. Every answer includes citation links to the
-                exact source excerpt — no re-analysis required.
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <SectionHeader
-          step="2"
-          title="Ask your sources"
-          description="Query indexed workshop materials without re-running analysis. Answers include citation bubbles you can verify against source documents."
-          icon={<MessageCircle className="h-5 w-5" />}
+      {sectionCitations.length > 0 ? (
+        <CitationReferenceBar
+          citations={sectionCitations}
+          activeCitation={activeCitation}
+          onCitationClick={onCitationClick}
+          className="mt-3"
         />
-      )}
-      <div className={`flex min-h-0 flex-1 flex-col space-y-5 ${isHero ? "p-6" : "p-6"}`}>
-        <div className="flex flex-col gap-3">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void ask()}
-              disabled={disabled || loading || chunkCount === 0}
-              placeholder={
-                isHero
-                  ? "e.g. What did leadership say about third-party AI vendors?"
-                  : "What did the workshop cover about risk management?"
-              }
-              className={`w-full rounded-xl border py-3.5 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 disabled:opacity-50 ${
-                isHero
-                  ? "border-violet-200 bg-white focus:border-violet-400 focus:ring-violet-100"
-                  : "border-slate-200 bg-slate-50/50 focus:border-violet-400 focus:bg-white focus:ring-violet-100"
-              }`}
-            />
-          </div>
-          <Button
-            type="button"
-            size="lg"
-            disabled={disabled || loading || chunkCount === 0 || !question.trim()}
-            onClick={() => void ask()}
-            className={`w-full shrink-0 gap-2 ${isHero ? "bg-violet-600 hover:bg-violet-700" : "bg-violet-600 px-8 hover:bg-violet-700"}`}
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
-            {loading ? "Searching sources…" : "Ask sources"}
-          </Button>
-        </div>
-
-        {chunkCount === 0 && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Upload readable sources in Step 1 — they are vector-indexed automatically and become queryable here.
-          </p>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          {suggested.map((s) => (
-            <button
-              key={s}
-              type="button"
-              disabled={disabled || loading || chunkCount === 0}
-              onClick={() => setQuestion(s)}
-              className="rounded-full border border-violet-100 bg-violet-50/50 px-3 py-1.5 text-xs font-medium text-violet-800 transition-colors hover:bg-violet-100 disabled:opacity-50"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>
-        )}
-
-        {answer && lastQuestion && (
-          <div className="min-h-0 flex-1">
-            <div className="mb-3 rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600">Your question</p>
-              <p className="mt-0.5 text-sm font-medium text-slate-800">{lastQuestion}</p>
-            </div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Answer</p>
-            <div
-              className={`rounded-2xl border p-5 ${
-                isHero ? "border-violet-100 bg-white shadow-inner" : "border-slate-100 bg-slate-50/60"
-              }`}
-            >
-              <CitedAnalysis
-                text={answer}
-                citations={citations}
-                activeCitation={activeCitation}
-                onCitationClick={openEvidenceCitation}
-                className="text-[15px] leading-relaxed"
-              />
-              <p className="mt-3 text-xs text-violet-600/80">
-                Click a citation number to open the source excerpt.
-              </p>
-            </div>
-            <SourceEvidenceDialog
-              open={evidenceDialogOpen}
-              onOpenChange={setEvidenceDialogOpen}
-              citation={activeCitationObj}
-              workshopNotes=""
-              facilitatorNotes=""
-              evidenceTexts={evidenceTexts}
-            />
-          </div>
-        )}
-
-        {history.length > 0 && (
-          <div className={`border-t pt-4 ${isHero ? "border-violet-100" : "border-slate-100"}`}>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-              {answer ? "Earlier questions" : "Recent questions"}
-            </p>
-            <div className="max-h-48 space-y-2 overflow-y-auto">
-              {(answer ? history.slice(1) : history).slice(0, 6).map((item, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    setQuestion(item.question);
-                    setAnswer(item.answer);
-                    setCitations([]);
-                  }}
-                  className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
-                    isHero
-                      ? "border-violet-100/80 bg-white hover:border-violet-200 hover:bg-violet-50/30"
-                      : "border-slate-100 bg-slate-50/50 hover:border-violet-200 hover:bg-violet-50/40"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-slate-800">{item.question}</p>
-                  {!answer && (
-                    <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.answer}</p>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      ) : content.trim().length > 0 && !content.includes("[{") ? (
+        <p className="mt-2 text-xs text-amber-700">
+          No source citations linked for this section — re-run analysis or verify evidence coverage.
+        </p>
+      ) : null}
     </div>
-  );
-}
-
-function SourceNotebookChatLauncher({
-  assessmentId,
-  chunkCount,
-  disabled,
-  evidenceTexts,
-  open,
-  onOpenChange,
-}: {
-  assessmentId: string;
-  chunkCount: number;
-  disabled: boolean;
-  evidenceTexts: Record<string, { fileName: string; text: string }>;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const ready = chunkCount > 0 && !disabled;
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => onOpenChange(true)}
-        disabled={!ready}
-        className={`fixed bottom-6 right-6 z-50 flex h-[3.75rem] w-[3.75rem] items-center justify-center rounded-full shadow-lg shadow-violet-900/20 transition-all focus:outline-none focus:ring-4 focus:ring-violet-200 ${
-          ready
-            ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white hover:scale-105 hover:shadow-xl hover:shadow-violet-500/30"
-            : "cursor-not-allowed bg-slate-200 text-slate-400"
-        }`}
-        aria-label="Ask your sources"
-        title={ready ? "Ask your sources — cited answers from workshop materials" : "Upload and index sources first"}
-      >
-        <MessageCircle className="h-7 w-7" strokeWidth={2} />
-        {ready && (
-          <span className="absolute right-1 top-1 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-white" />
-        )}
-      </button>
-
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[min(90vh,780px)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <CaptureSourceQueryPanel
-              assessmentId={assessmentId}
-              chunkCount={chunkCount}
-              disabled={disabled}
-              evidenceTexts={evidenceTexts}
-              variant="hero"
-              embedded
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }
 
@@ -684,7 +406,7 @@ function SourceNotebookTeaser({
   const ready = chunkCount > 0 && !disabled;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-violet-200/60 bg-gradient-to-r from-violet-50/50 to-white shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-50/80 to-white shadow-sm">
       <SectionHeader
         step="2"
         title="Source notebook"
@@ -701,7 +423,7 @@ function SourceNotebookTeaser({
           type="button"
           disabled={!ready}
           onClick={onOpen}
-          className="shrink-0 gap-2 bg-violet-600 hover:bg-violet-700"
+          className="shrink-0 gap-2 bg-indigo-600 hover:bg-indigo-700"
         >
           <MessageCircle className="h-4 w-4" />
           Open source notebook
@@ -878,9 +600,9 @@ export function WorkshopCaptureWorkspace({
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Ready</p>
           <p className="mt-1 text-2xl font-bold text-emerald-700">{readyCount}</p>
         </div>
-        <div className="rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600">Indexed chunks</p>
-          <p className="mt-1 text-2xl font-bold text-violet-900">{indexStats.chunkCount}</p>
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600/90">Indexed chunks</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">{indexStats.chunkCount}</p>
         </div>
       </div>
 
@@ -1096,14 +818,14 @@ export function WorkshopCaptureWorkspace({
       <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Workshop capture</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Evidence &amp; Analysis</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-              {isResultsMode ? "Governance analysis & source notebook" : "Evidence intake & control mapping"}
+              {isResultsMode ? "Control findings & source notebook" : "Upload sources & map controls"}
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               {isResultsMode
-                ? "Review control findings below. Use the chat button to ask follow-up questions against your sources with cited evidence."
-                : "Upload sources, query them like a notebook, then run governance analysis with full evidence traceability."}
+                ? "Validate control findings below, then open Validation to sign off. Use the chat button to query sources with cited evidence."
+                : "Upload workshop transcripts, query indexed sources, then run governance analysis with full evidence traceability."}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -1112,7 +834,7 @@ export function WorkshopCaptureWorkspace({
                 variant="outline"
                 onClick={() => setChatOpen(true)}
                 disabled={isAnalyzing || isUploading}
-                className="gap-2 border-violet-200 bg-violet-50/50 text-violet-800 hover:bg-violet-100"
+                className="gap-2 border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
               >
                 <MessageCircle className="h-4 w-4" />
                 Ask sources
@@ -1125,7 +847,7 @@ export function WorkshopCaptureWorkspace({
             )}
             {analysisSummary && (
               <Button onClick={onGoToReview} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
-                Continue to Review
+                Continue to Validation
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}
@@ -1323,6 +1045,7 @@ export function WorkshopCaptureWorkspace({
                               <CitedFindingBlock
                                 title="In place"
                                 content={selectedControl.inPlaceFindings}
+                                section="in_place"
                                 citations={selectedControl.citations}
                                 activeCitation={
                                   traceSelection?.controlId === selectedControl.controlId
@@ -1337,6 +1060,7 @@ export function WorkshopCaptureWorkspace({
                               <CitedFindingBlock
                                 title="Gaps"
                                 content={selectedControl.gapFindings}
+                                section="gap"
                                 citations={selectedControl.citations}
                                 activeCitation={
                                   traceSelection?.controlId === selectedControl.controlId
@@ -1351,6 +1075,7 @@ export function WorkshopCaptureWorkspace({
                               <CitedFindingBlock
                                 title="Recommendations"
                                 content={selectedControl.recommendations}
+                                section="recommendation"
                                 citations={selectedControl.citations}
                                 activeCitation={
                                   traceSelection?.controlId === selectedControl.controlId
@@ -1393,6 +1118,10 @@ export function WorkshopCaptureWorkspace({
                       </div>
                     </div>
                   )}
+
+                  <div className="flex justify-end">
+                    <FollowUpQuestionsExportButton assessmentId={assessmentId} />
+                  </div>
               </div>
 
               <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">

@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/db";
 import { CAPTURE_FINDING_FALLBACKS } from "@/lib/capture-finding-format";
 import { getPillarControlTreeForAssessment } from "@/lib/pillar-control-tree";
+import { rehydrateEvaluationFindings } from "@/lib/finding-citations";
+import { toCaptureSourceDocs } from "@/lib/capture-source-corpus";
+import { getTranscriptSources } from "@/lib/transcript-processor";
 import type { TranscriptExtractionItem } from "@/lib/transcript-processor";
 import type { CaptureAnalysisSummary, ControlMappingEntry } from "@/lib/capture-analysis-types";
 
@@ -88,6 +91,9 @@ export async function buildCaptureAnalysisSummary(
 
   const evalByControlId = new Map(evaluations.map((e) => [e.controlId, e]));
 
+  const transcriptSources = await getTranscriptSources(assessmentId);
+  const sourceById = new Map(toCaptureSourceDocs(transcriptSources).map((s) => [s.id, s]));
+
   const extractionByCode = new Map<string, TranscriptExtractionItem[]>();
   for (const ext of options.extractions) {
     for (const code of ext.relatedControlCodes ?? []) {
@@ -113,6 +119,55 @@ export async function buildCaptureAnalysisSummary(
         .map((c) => c.sourceLabel.replace(/^Transcript:\s*/i, ""))
         .filter(Boolean);
 
+      let inPlaceFindings =
+        evalRow?.inPlaceFindings?.trim() ||
+        CAPTURE_FINDING_FALLBACKS.inPlace;
+      let gapFindings =
+        evalRow?.gapFindings?.trim() ||
+        CAPTURE_FINDING_FALLBACKS.gap;
+      let recommendations =
+        evalRow?.recommendations?.trim() ||
+        CAPTURE_FINDING_FALLBACKS.recommendation;
+      let citationRows: ControlMappingEntry["citations"] = (evalRow?.citations ?? []).map((c) => ({
+        id: c.id,
+        citationIndex: c.citationIndex,
+        section: c.section,
+        claimText: c.claimText,
+        sourceType: c.sourceType,
+        sourceId: c.sourceId,
+        sourceLabel: c.sourceLabel,
+        excerpt: c.excerpt,
+        startOffset: c.startOffset,
+        endOffset: c.endOffset,
+      }));
+
+      if (citationRows.length === 0 && evalRow?.workshopNotes?.trim() && sourceById.size > 0) {
+        const rehydrated = rehydrateEvaluationFindings({
+          inPlaceFindings,
+          gapFindings,
+          recommendations,
+          workshopNotes: evalRow.workshopNotes,
+          sourceById,
+        });
+        if (rehydrated.citations.length > 0) {
+          inPlaceFindings = rehydrated.inPlaceFindings;
+          gapFindings = rehydrated.gapFindings;
+          recommendations = rehydrated.recommendations;
+          citationRows = rehydrated.citations.map((c, i) => ({
+            id: `rehydrated-${control.id}-${i}`,
+            citationIndex: c.citationIndex,
+            section: c.section,
+            claimText: c.claimText,
+            sourceType: c.sourceType,
+            sourceId: c.sourceId,
+            sourceLabel: c.sourceLabel,
+            excerpt: c.excerpt,
+            startOffset: c.startOffset,
+            endOffset: c.endOffset,
+          }));
+        }
+      }
+
       mappings.push({
         controlId: control.id,
         controlCode: control.code,
@@ -124,36 +179,20 @@ export async function buildCaptureAnalysisSummary(
         pillarId: pillar.pillarId,
         pillarLabel: pillar.pillarLabel,
         narrative: notes ?? aiItems.map((i) => i.answer).join("\n\n"),
-        inPlaceFindings:
-          evalRow?.inPlaceFindings?.trim() ||
-          CAPTURE_FINDING_FALLBACKS.inPlace,
-        gapFindings:
-          evalRow?.gapFindings?.trim() ||
-          CAPTURE_FINDING_FALLBACKS.gap,
-        recommendations:
-          evalRow?.recommendations?.trim() ||
-          CAPTURE_FINDING_FALLBACKS.recommendation,
+        inPlaceFindings,
+        gapFindings,
+        recommendations,
         complianceStatus:
           (evalRow?.complianceStatus as ControlMappingEntry["complianceStatus"]) || "not_assessed",
         sourceFiles: [
           ...new Set([
             ...aiItems.map((i) => i.sourceFile).filter(Boolean),
             ...citationSourceFiles,
+            ...citationRows.map((c) => c.sourceLabel.replace(/^Transcript:\s*/i, "")).filter(Boolean),
           ]),
         ],
         excerpts: aiItems.map((i) => i.sourceExcerpt).filter(Boolean),
-        citations: (evalRow?.citations ?? []).map((c) => ({
-          id: c.id,
-          citationIndex: c.citationIndex,
-          section: c.section,
-          claimText: c.claimText,
-          sourceType: c.sourceType,
-          sourceId: c.sourceId,
-          sourceLabel: c.sourceLabel,
-          excerpt: c.excerpt,
-          startOffset: c.startOffset,
-          endOffset: c.endOffset,
-        })),
+        citations: citationRows,
       });
     }
   }

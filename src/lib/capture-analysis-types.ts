@@ -1,3 +1,5 @@
+import type { CitationDraft } from "@/lib/control-analyzer";
+
 export type CaptureCitation = {
   id: string;
   citationIndex: number;
@@ -9,6 +11,27 @@ export type CaptureCitation = {
   excerpt: string;
   startOffset: number;
   endOffset: number;
+};
+
+export type GroundedFact = {
+  factId: string;
+  fact: string;
+  sourceId: string;
+  sourceFile: string;
+  excerpt: string;
+  controlCodes: string[];
+  pillarLabel?: string;
+};
+
+export type PersistedControlAssessment = {
+  controlId: string;
+  controlCode: string;
+  inPlaceFindings: string;
+  gapFindings: string;
+  recommendations: string;
+  complianceStatus: "aligned" | "partial" | "gap" | "not_assessed";
+  citations: CitationDraft[];
+  workshopNotes: string;
 };
 
 export type ControlMappingEntry = {

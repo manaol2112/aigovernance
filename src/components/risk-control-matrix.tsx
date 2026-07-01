@@ -5,10 +5,8 @@ import Link from "next/link";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, titleCase } from "@/lib/utils";
-import {
-  FRAMEWORK_COLUMNS,
-  type PillarMatrixRow,
-} from "@/lib/risk-control-matrix";
+import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
+import type { PillarMatrixRow } from "@/lib/risk-control-matrix";
 
 function CoverageCell({
   frameworkCode,

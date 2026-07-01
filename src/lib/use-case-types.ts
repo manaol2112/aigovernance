@@ -157,7 +157,7 @@ export const WORKFLOW_STEPS = [
   { stage: "client_setup", label: "Client & Frameworks", number: 1 },
   { stage: "use_cases", label: "Use Cases", number: 2 },
   { stage: "requirement_scoping", label: "Requirement Scoping", number: 3 },
-  { stage: "workshop", label: "Workshop & Analysis", number: 4 },
+  { stage: "workshop", label: "Workshop", number: 4 },
   { stage: "deliverables", label: "Deliverables", number: 5 },
   { stage: "finalized", label: "Finalized", number: 6 },
 ] as const;

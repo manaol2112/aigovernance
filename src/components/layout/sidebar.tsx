@@ -50,7 +50,7 @@ const nav = [
   {
     href: "/assessments",
     label: "Assessments",
-    title: "Workshop capture, analysis, and review",
+    title: "Workshop, evidence analysis, validation, and reports",
     icon: ClipboardCheck,
   },
 ];

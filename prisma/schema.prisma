@@ -631,6 +631,7 @@ model AssessmentRepository {
   departmentNotes  Json     @default("{}") @map("department_notes")
   captureQueries       Json     @default("[]") @map("capture_queries")
   captureAnalysisMeta  Json?    @map("capture_analysis_meta")
+  followUpQuestions    Json     @default("{}") @map("follow_up_questions")
   reportNarrativeCache Json?   @map("report_narrative_cache")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")

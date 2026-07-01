@@ -1,4 +1,4 @@
-import { RISK_PILLARS, type RiskPillarDef } from "@/lib/risk-control-matrix";
+import { RISK_PILLARS, type RiskPillarDef } from "@/lib/risk-pillars";
 
 type RequirementLike = {
   id: string;

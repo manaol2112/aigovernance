@@ -55,12 +55,26 @@ export async function buildTranscriptAnalysisContext(
       controls: p.controls.slice(0, 12).map((c) => ({ code: c.code, title: c.title })),
     })),
     topics,
-    controlIndex: controls.slice(0, 80).map((c) => ({
+    controlIndex: controls.map((c) => ({
       code: c.code,
       title: c.title,
       description: c.description.slice(0, 200),
     })),
   };
+}
+
+export function formatPillarIndexContext(
+  pillarLabel: string,
+  controls: Array<{ code: string; title: string; description: string }>
+): string {
+  return [
+    `Risk pillar: ${pillarLabel}`,
+    "",
+    "CONTROL INDEX (tag each fact with relevant codes from this list only when transcript evidence supports the link):",
+    controls
+      .map((c) => `- ${c.code}: ${c.title} — ${c.description.slice(0, 220)}`)
+      .join("\n"),
+  ].join("\n");
 }
 
 export function formatContextForPrompt(ctx: TranscriptAnalysisContext): string {

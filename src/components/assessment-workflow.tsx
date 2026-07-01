@@ -535,7 +535,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
                 {scopingCheckpoint?.status === "approved" && (
                   <Button onClick={() => workflowAction("init_control_review")} disabled={!!actionLoading}>
                     {actionLoading === "init_control_review" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Start Workshop & Analysis ({totalScoped} reqs → controls)
+                    Start workshop ({totalScoped} reqs → controls)
                   </Button>
                 )}
                 {scopingCheckpoint?.status === "pending" && (
@@ -547,7 +547,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
         </Card>
       )}
 
-      {/* Stage: Workshop & Analysis (combined) */}
+      {/* Stage: Workshop (evidence, validation, reports) */}
       {isAnalysisStage(data.workflowStage) && (
         <ControlReviewWorkspace
           assessmentId={assessmentId}

@@ -320,3 +320,61 @@ function parseCitedText(text: string): Array<{ type: "text" | "citation" | "line
 
   return parts;
 }
+
+type CitationReferenceBarProps = {
+  citations: Citation[];
+  activeCitation: number | null;
+  onCitationClick: (index: number) => void;
+  className?: string;
+};
+
+/** Always-visible source reference row — complements inline [{n}] bubbles. */
+export function CitationReferenceBar({
+  citations,
+  activeCitation,
+  onCitationClick,
+  className = "",
+}: CitationReferenceBarProps) {
+  if (citations.length === 0) return null;
+
+  return (
+    <div className={`rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 ${className}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        Source references ({citations.length})
+      </p>
+      <div className="mt-2 flex flex-col gap-2">
+        {citations.map((cite) => (
+          <button
+            key={cite.citationIndex}
+            type="button"
+            onClick={() => onCitationClick(cite.citationIndex)}
+            className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
+              activeCitation === cite.citationIndex
+                ? "border-indigo-300 bg-indigo-50 ring-2 ring-indigo-100"
+                : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
+            }`}
+          >
+            <span
+              className={`inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
+                activeCitation === cite.citationIndex
+                  ? "bg-indigo-600 text-white"
+                  : "bg-indigo-100 text-indigo-700"
+              }`}
+            >
+              {cite.citationIndex}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-slate-800">
+                {cite.sourceLabel.replace(/^Transcript:\s*/i, "")}
+              </span>
+              <span className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-500">
+                &ldquo;{cite.excerpt.slice(0, 140)}
+                {cite.excerpt.length > 140 ? "…" : ""}&rdquo;
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -58,14 +58,16 @@ function appendFacilitatorAuditTrail(
   sources: TranscriptSource[],
   warnings: string[],
   topicsNotDiscussed: string[],
-  meta: { factsIndexed: number; apiCalls: number; controlsAssessed: number }
+  meta: { factsIndexed: number; apiCalls: number; controlsAssessed: number; targetedAssessed?: number }
 ): string {
   const lines = [base.trim()];
   lines.push("");
   lines.push("# Capture Analysis Log");
   lines.push(`Indexed ${sources.length} source file(s): ${sources.map((s) => s.fileName).join(", ")}`);
   lines.push(
-    `Notebook pass: ${meta.factsIndexed} facts indexed · ${meta.controlsAssessed} controls assessed · ${meta.apiCalls} API call(s)`
+    `Notebook pass: ${meta.factsIndexed} facts indexed · ${meta.controlsAssessed} controls assessed · ${meta.apiCalls} API call(s)${
+      meta.targetedAssessed ? ` · ${meta.targetedAssessed} via targeted retrieval` : ""
+    }`
   );
   lines.push(`Timestamp: ${new Date().toISOString()}`);
   if (warnings.length > 0) {
@@ -112,6 +114,7 @@ export async function processWorkshopTranscripts(
       factsIndexed: notebook.factsIndexed,
       apiCalls: notebook.apiCalls,
       controlsAssessed: notebook.assessments.length,
+      targetedAssessed: notebook.targetedAssessedCount,
     }
   );
 
