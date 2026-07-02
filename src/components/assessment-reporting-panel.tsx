@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Eye,
   ArrowRight,
   BarChart3,
   CheckCircle2,
@@ -28,6 +29,9 @@ import {
   RoadmapTimeline,
 } from "@/components/report-visualizations";
 import { MaturityGovernanceDashboard } from "@/components/maturity-charts";
+import { toast } from "@/components/ui/toast";
+import { PreviewReadinessPanel } from "@/components/preview-readiness-panel";
+import { DeliverablePreviewDialog } from "@/components/deliverable-preview-dialog";
 
 type ReportTab = "overview" | "gaps" | "maturity" | "roadmap";
 
@@ -86,6 +90,9 @@ type Props = {
   onApproveDeliverablePackage?: (confirmedBy: string) => Promise<void>;
   onFinalizeAssessment?: () => Promise<void>;
   actionLoading?: string;
+  hasAnalysis?: boolean;
+  analysisStale?: boolean;
+  onGoToEvidence?: () => void;
 };
 
 export function AssessmentReportingPanel({
@@ -103,6 +110,9 @@ export function AssessmentReportingPanel({
   onApproveDeliverablePackage,
   onFinalizeAssessment,
   actionLoading = "",
+  hasAnalysis = false,
+  analysisStale = false,
+  onGoToEvidence,
 }: Props) {
   const [report, setReport] = useState<ControlReviewReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +121,7 @@ export function AssessmentReportingPanel({
   const [activeTab, setActiveTab] = useState<ReportTab>("overview");
   const [expandedGap, setExpandedGap] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<(typeof DELIVERABLES)[number] | null>(null);
   const [attestationName, setAttestationName] = useState("");
   const [deliveryApproverName, setDeliveryApproverName] = useState("");
   const reportRef = useRef<ControlReviewReportData | null>(null);
@@ -184,7 +195,7 @@ export function AssessmentReportingPanel({
       URL.revokeObjectURL(link.href);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not generate PDF report.";
-      window.alert(`${message} Please try again.`);
+      toast(`${message} Please try again.`, { variant: "error" });
     } finally {
       setDownloading(null);
     }
@@ -300,6 +311,20 @@ export function AssessmentReportingPanel({
         </div>
       </div>
 
+      <div className="mx-auto max-w-6xl px-6 pt-6">
+        <PreviewReadinessPanel
+          controlConfirmed={reviewProgress.confirmed}
+          controlTotal={reviewProgress.total}
+          hasAnalysis={hasAnalysis}
+          analysisStale={analysisStale}
+          evaluationReviewApproved={evaluationReviewApproved}
+          workflowStage={workflowStage}
+          deliverableCheckpointStatus={deliverableCheckpoint?.status}
+          onGoToReview={onGoToReview}
+          onGoToEvidence={onGoToEvidence}
+        />
+      </div>
+
       {/* Document package */}
       <div className="shrink-0 border-b border-slate-200/80 bg-white/80 px-6 py-5 backdrop-blur-sm">
         <div className="mx-auto max-w-6xl">
@@ -336,20 +361,30 @@ export function AssessmentReportingPanel({
                     <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-500">
                       {doc.description}
                     </p>
-                    <Button
-                      size="sm"
-                      className="mt-4 w-full"
-                      variant="outline"
-                      disabled={!!downloading}
-                      onClick={() => void downloadPdf(doc.type)}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Download className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      PDF
-                    </Button>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!!downloading}
+                        onClick={() => setPreviewType(doc)}
+                      >
+                        <Eye className="mr-1.5 h-3.5 w-3.5" />
+                        Preview
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!!downloading}
+                        onClick={() => void downloadPdf(doc.type)}
+                      >
+                        {isLoading ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        PDF
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
@@ -604,7 +639,9 @@ export function AssessmentReportingPanel({
                 loading={proceedLoading}
                 onProceed={async () => {
                   if (!evaluationReviewApproved && !attestationName.trim()) {
-                    window.alert("Enter your name to attest the completed assessment review.");
+                    toast("Enter your name to attest the completed assessment review.", {
+                      variant: "error",
+                    });
                     return;
                   }
                   await onProceedToDeliverables(attestationName.trim());
@@ -621,7 +658,9 @@ export function AssessmentReportingPanel({
               actionLoading={actionLoading}
               onApprove={async () => {
                 if (!deliveryApproverName.trim()) {
-                  window.alert("Enter your name before approving the package for delivery.");
+                  toast("Enter your name before approving the package for delivery.", {
+                    variant: "error",
+                  });
                   return;
                 }
                 await onApproveDeliverablePackage?.(deliveryApproverName.trim());
@@ -631,6 +670,16 @@ export function AssessmentReportingPanel({
           )}
         </div>
       </div>
+
+      {previewType && (
+        <DeliverablePreviewDialog
+          assessmentId={assessmentId}
+          deliverableType={previewType.type}
+          deliverableTitle={previewType.title}
+          open={Boolean(previewType)}
+          onOpenChange={(open) => !open && setPreviewType(null)}
+        />
+      )}
     </div>
   );
 }

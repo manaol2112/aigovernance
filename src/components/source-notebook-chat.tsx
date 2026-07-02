@@ -5,6 +5,7 @@ import { Loader2, MessageCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CitedAnalysis, CitationReferenceBar, SourceEvidenceDialog, type Citation } from "@/components/cited-analysis";
+import { openSharedEvidenceCitation, useEvidenceDrawer } from "@/components/evidence-drawer";
 import type { CaptureQueryCitation, CaptureQueryHistoryItem } from "@/lib/capture-qa";
 
 type QueryHistoryItem = CaptureQueryHistoryItem;
@@ -38,10 +39,14 @@ export function CaptureSourceQueryPanel({
   const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
+  const evidenceDrawer = useEvidenceDrawer();
 
   function openEvidenceCitation(index: number) {
     setActiveCitation(index);
-    setEvidenceDialogOpen(true);
+    const cite = citations.find((c) => c.citationIndex === index) ?? null;
+    if (!openSharedEvidenceCitation(evidenceDrawer, cite as Citation | null)) {
+      setEvidenceDialogOpen(true);
+    }
   }
 
   useEffect(() => {
@@ -232,14 +237,16 @@ export function CaptureSourceQueryPanel({
               )}
               <p className="mt-3 text-xs text-slate-500">Click a citation number to open the source excerpt.</p>
             </div>
-            <SourceEvidenceDialog
-              open={evidenceDialogOpen}
-              onOpenChange={setEvidenceDialogOpen}
-              citation={activeCitationObj}
-              workshopNotes=""
-              facilitatorNotes=""
-              evidenceTexts={evidenceTexts}
-            />
+            {!evidenceDrawer && (
+              <SourceEvidenceDialog
+                open={evidenceDialogOpen}
+                onOpenChange={setEvidenceDialogOpen}
+                citation={activeCitationObj}
+                workshopNotes=""
+                facilitatorNotes=""
+                evidenceTexts={evidenceTexts}
+              />
+            )}
           </div>
         )}
 

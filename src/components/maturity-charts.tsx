@@ -1,7 +1,7 @@
 "use client";
 
 import type { ControlReviewReportData, PillarMaturityRecord } from "@/lib/control-review-reports";
-import { MATURITY_LABELS } from "@/lib/control-review-reports";
+import { MATURITY_LABELS } from "@/lib/maturity-survey-constants";
 import type { MaturityLevel } from "@prisma/client";
 
 const COMPLIANCE = {

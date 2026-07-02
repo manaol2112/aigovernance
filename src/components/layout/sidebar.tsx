@@ -7,9 +7,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  Gauge,
   GitCompareArrows,
   Grid3x3,
   LayoutDashboard,
+  Palette,
   Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,6 +54,18 @@ const nav = [
     label: "Assessments",
     title: "Workshop, evidence analysis, validation, and reports",
     icon: ClipboardCheck,
+  },
+  {
+    href: "/maturity-assessment",
+    label: "Maturity Survey",
+    title: "Rapid pillar & control self-assessment with roadmap",
+    icon: Gauge,
+  },
+  {
+    href: "/admin",
+    label: "Admin",
+    title: "Appearance, branding, and color theme settings",
+    icon: Palette,
   },
 ];
 
@@ -133,7 +147,8 @@ export function Sidebar({ pathname }: { pathname: string }) {
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-white transition-[width] duration-200 ease-in-out",
+        "relative z-40 flex shrink-0 flex-col overflow-visible border-r border-theme text-[var(--theme-sidebar-fg)] transition-[width] duration-200 ease-in-out",
+        "bg-[var(--theme-sidebar-bg)]",
         expanded ? "w-72" : "w-[4.25rem]"
       )}
     >

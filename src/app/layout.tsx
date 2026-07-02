@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getColorTheme } from "@/lib/theme-settings";
+import { ThemeBootScript } from "@/components/theme-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,14 +19,24 @@ export const metadata: Metadata = {
   description: "Enterprise AI governance crosswalk and assessment platform",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const colorTheme = await getColorTheme();
+
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
-      <body className="min-h-full bg-slate-50 font-sans antialiased">{children}</body>
+    <html
+      lang="en"
+      data-theme={colorTheme}
+      className={`${geistSans.variable} ${geistMono.variable} h-full`}
+      suppressHydrationWarning
+    >
+      <head>
+        <ThemeBootScript theme={colorTheme} />
+      </head>
+      <body className="min-h-full font-sans antialiased">{children}</body>
     </html>
   );
 }

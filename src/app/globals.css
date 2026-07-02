@@ -1,12 +1,207 @@
 @import "tailwindcss";
 
+/* ── Theme tokens (Light default) ───────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --theme-brand: #4f46e5;
+  --theme-brand-hover: #4338ca;
+  --theme-brand-muted: #eef2ff;
+  --theme-brand-subtle: #e0e7ff;
+  --theme-brand-ring: #c7d2fe;
+  --theme-page-bg: #f8fafc;
+  --theme-page-fg: #0f172a;
+  --theme-card-bg: #ffffff;
+  --theme-card-fg: #0f172a;
+  --theme-border: #e2e8f0;
+  --theme-border-strong: #cbd5e1;
+  --theme-text: #0f172a;
+  --theme-text-muted: #64748b;
+  --theme-sidebar-bg: #020617;
+  --theme-sidebar-fg: #f8fafc;
+  --theme-hero-bg: #020617;
+  --theme-shimmer-from: #a5b4fc;
+  --theme-shimmer-via: #e0e7ff;
+  --theme-shimmer-to: #6ee7b7;
+
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-700: #4338ca;
+  --color-indigo-800: #3730a3;
+  --color-indigo-900: #312e81;
+  --color-indigo-950: #1e1b4b;
+}
+
+/* ── Dark theme ─────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --theme-brand: #818cf8;
+  --theme-brand-hover: #a5b4fc;
+  --theme-brand-muted: #1e1b4b;
+  --theme-brand-subtle: #312e81;
+  --theme-brand-ring: #4338ca;
+  --theme-page-bg: #0f172a;
+  --theme-page-fg: #f1f5f9;
+  --theme-card-bg: #1e293b;
+  --theme-card-fg: #f8fafc;
+  --theme-border: #334155;
+  --theme-border-strong: #475569;
+  --theme-text: #f1f5f9;
+  --theme-text-muted: #94a3b8;
+  --theme-sidebar-bg: #020617;
+  --theme-sidebar-fg: #f8fafc;
+  --theme-hero-bg: #020617;
+  --theme-shimmer-from: #a5b4fc;
+  --theme-shimmer-via: #c7d2fe;
+  --theme-shimmer-to: #34d399;
+
+  --color-indigo-50: #1e1b4b;
+  --color-indigo-100: #312e81;
+  --color-indigo-200: #3730a3;
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4f46e5;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #818cf8;
+  --color-indigo-700: #a5b4fc;
+  --color-indigo-800: #c7d2fe;
+  --color-indigo-900: #e0e7ff;
+  --color-indigo-950: #eef2ff;
+
+  --color-slate-50: #0f172a;
+  --color-slate-100: #1e293b;
+  --color-slate-200: #334155;
+  --color-slate-300: #475569;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #cbd5e1;
+  --color-slate-700: #e2e8f0;
+  --color-slate-800: #f1f5f9;
+  --color-slate-900: #f8fafc;
+  --color-slate-950: #ffffff;
+}
+
+/* ── Deloitte brand theme ───────────────────────────────────────────────── */
+[data-theme="deloitte"] {
+  color-scheme: light;
+
+  --theme-brand: #86bc25;
+  --theme-brand-hover: #6b9620;
+  --theme-brand-muted: #f3f9e8;
+  --theme-brand-subtle: #e5f2d0;
+  --theme-brand-ring: #c5e39a;
+  --theme-page-bg: #fafafa;
+  --theme-page-fg: #000000;
+  --theme-card-bg: #ffffff;
+  --theme-card-fg: #000000;
+  --theme-border: #e5e5e5;
+  --theme-border-strong: #d4d4d4;
+  --theme-text: #000000;
+  --theme-text-muted: #525252;
+  --theme-sidebar-bg: #000000;
+  --theme-sidebar-fg: #ffffff;
+  --theme-hero-bg: #000000;
+  --theme-shimmer-from: #a8d462;
+  --theme-shimmer-via: #f5f5f5;
+  --theme-shimmer-to: #86bc25;
+
+  --color-indigo-50: #f3f9e8;
+  --color-indigo-100: #e5f2d0;
+  --color-indigo-200: #cbe5a1;
+  --color-indigo-300: #b0d872;
+  --color-indigo-400: #96cb43;
+  --color-indigo-500: #86bc25;
+  --color-indigo-600: #86bc25;
+  --color-indigo-700: #6b9620;
+  --color-indigo-800: #507018;
+  --color-indigo-900: #364a10;
+  --color-indigo-950: #1c2508;
+
+  --color-violet-300: #b0d872;
+  --color-violet-500: #86bc25;
+  --color-violet-600: #6b9620;
+}
+
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-brand: var(--theme-brand);
+  --color-brand-hover: var(--theme-brand-hover);
+  --color-brand-muted: var(--theme-brand-muted);
+  --color-surface: var(--theme-page-bg);
+  --color-surface-card: var(--theme-card-bg);
 }
 
 body {
   font-family: var(--font-sans), system-ui, sans-serif;
+  background-color: var(--theme-page-bg);
+  color: var(--theme-page-fg);
+}
+
+/* Semantic utilities for theme-aware components */
+.bg-theme-page {
+  background-color: var(--theme-page-bg);
+}
+.bg-theme-card {
+  background-color: var(--theme-card-bg);
+}
+.bg-theme-brand {
+  background-color: var(--theme-brand);
+}
+.bg-theme-brand-muted {
+  background-color: var(--theme-brand-muted);
+}
+.text-theme {
+  color: var(--theme-text);
+}
+.text-theme-muted {
+  color: var(--theme-text-muted);
+}
+.text-theme-brand {
+  color: var(--theme-brand);
+}
+.border-theme {
+  border-color: var(--theme-border);
+}
+.ring-theme-brand {
+  --tw-ring-color: var(--theme-brand-ring);
+}
+
+/* Dark theme: invert common surface utilities */
+[data-theme="dark"] .bg-white {
+  background-color: var(--theme-card-bg) !important;
+}
+[data-theme="dark"] .bg-slate-50 {
+  background-color: var(--theme-page-bg) !important;
+}
+[data-theme="dark"] .text-slate-900 {
+  color: var(--theme-text) !important;
+}
+[data-theme="dark"] .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+[data-theme="dark"] .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+[data-theme="dark"] .text-slate-600 {
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-200\/90,
+[data-theme="dark"] .border-slate-200\/80 {
+  border-color: var(--theme-border) !important;
+}
+
+/* Deloitte: sidebar + portal chrome */
+[data-theme="deloitte"] aside.border-r {
+  background-color: var(--theme-sidebar-bg) !important;
+  border-color: #262626 !important;
 }
 
 .line-clamp-2 {
@@ -14,4 +209,153 @@ body {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Maturity assessment landing — premium motion */
+@keyframes maturity-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(2rem, -1.25rem) scale(1.06);
+  }
+  66% {
+    transform: translate(-1.25rem, 1rem) scale(0.94);
+  }
+}
+
+@keyframes maturity-float-delayed {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  40% {
+    transform: translate(-1.5rem, 1.25rem) scale(1.08);
+  }
+  70% {
+    transform: translate(1.25rem, -0.75rem) scale(0.96);
+  }
+}
+
+@keyframes maturity-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@keyframes maturity-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes maturity-pulse-ring {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes maturity-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-maturity-float {
+  animation: maturity-float 14s ease-in-out infinite;
+}
+
+.animate-maturity-float-delayed {
+  animation: maturity-float-delayed 18s ease-in-out infinite;
+}
+
+.animate-maturity-shimmer {
+  background-size: 200% auto;
+  animation: maturity-shimmer 6s linear infinite;
+}
+
+.animate-maturity-marquee {
+  animation: maturity-marquee 32s linear infinite;
+}
+
+.animate-maturity-pulse-ring {
+  animation: maturity-pulse-ring 5s ease-in-out infinite;
+}
+
+.animate-maturity-fade-in-up {
+  animation: maturity-fade-in-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes maturity-report-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes maturity-heatmap-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+  }
+}
+
+@keyframes maturity-typewriter-line {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-maturity-report-progress {
+  animation: maturity-report-progress linear forwards;
+}
+
+.animate-maturity-heatmap-pulse {
+  animation: maturity-heatmap-pulse 2.5s ease-in-out infinite;
+}
+
+.animate-maturity-typewriter-line {
+  animation: maturity-typewriter-line 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-maturity-float,
+  .animate-maturity-float-delayed,
+  .animate-maturity-shimmer,
+  .animate-maturity-marquee,
+  .animate-maturity-pulse-ring,
+  .animate-maturity-fade-in-up,
+  .animate-maturity-report-progress,
+  .animate-maturity-heatmap-pulse,
+  .animate-maturity-typewriter-line {
+    animation: none !important;
+  }
 }

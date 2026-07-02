@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateDeliverable } from "@/lib/report-generator";
 import { generateDeliverablePdf } from "@/lib/report-pdf-generator";
+import { buildDeliverableHtmlDocument } from "@/lib/deliverable-html-preview";
 import type { DeliverableType } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -43,6 +44,15 @@ export async function GET(
     }
 
     const generated = await generateDeliverable(id, type);
+    if (format === "html") {
+      const html = buildDeliverableHtmlDocument(generated.title, generated.content);
+      return new NextResponse(html, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
     if (format === "json") {
       return NextResponse.json({ title: generated.title, content: generated.content });
     }

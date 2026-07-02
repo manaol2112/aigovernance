@@ -2,7 +2,7 @@
 
 import type { ControlReviewReportData } from "@/lib/control-review-reports";
 import type { MaturityLevel } from "@prisma/client";
-import { MATURITY_LABELS } from "@/lib/control-review-reports";
+import { MATURITY_LABELS } from "@/lib/maturity-survey-constants";
 
 const COMPLIANCE_COLORS = {
   aligned: "#059669",

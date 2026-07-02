@@ -22,10 +22,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CitedAnalysis, CitationReferenceBar, SourceEvidenceDialog, type Citation } from "@/components/cited-analysis";
+import { EvidencePipelineStepper } from "@/components/evidence-pipeline-stepper";
+import { openSharedEvidenceCitation, useEvidenceDrawer } from "@/components/evidence-drawer";
 import { SourceNotebookChatLauncher } from "@/components/source-notebook-chat";
 import { FollowUpQuestionsExportButton } from "@/components/follow-up-questions-export-button";
 import { isTranscriptEvidence } from "@/lib/transcript-evidence";
 import { RISK_PILLARS } from "@/lib/risk-pillars";
+import type { EvidencePipelineStepId } from "@/lib/evidence-pipeline";
 import type { CaptureAnalysisSummary, ControlMappingEntry } from "@/lib/capture-analysis-types";
 
 const ACCEPT =
@@ -255,61 +258,6 @@ function fileIcon(name: string) {
   return <FileText className="h-4 w-4 text-indigo-500" />;
 }
 
-function WorkflowRail({
-  readyCount,
-  hasIndex,
-  hasAnalysis,
-  analysisStale,
-}: {
-  readyCount: number;
-  hasIndex: boolean;
-  hasAnalysis: boolean;
-  analysisStale: boolean;
-}) {
-  const steps = [
-    { id: "sources", label: "Sources", done: readyCount > 0, detail: `${readyCount} file${readyCount === 1 ? "" : "s"}` },
-    { id: "index", label: "Indexed", done: hasIndex, detail: hasIndex ? "Vector ready" : "On upload" },
-    {
-      id: "analyze",
-      label: "Analyzed",
-      done: hasAnalysis && !analysisStale,
-      detail: hasAnalysis
-        ? analysisStale
-          ? "Re-analyze needed"
-          : "Controls mapped"
-        : "Pending",
-    },
-    { id: "validate", label: "Validate", done: false, detail: "Sign off in Validation" },
-  ];
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm">
-      {steps.map((step, i) => (
-        <div key={step.id} className="flex items-center gap-2">
-          <div
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 ${
-              step.done ? "bg-indigo-50 text-indigo-900" : "bg-slate-50 text-slate-500"
-            }`}
-          >
-            <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
-                step.done ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-600"
-              }`}
-            >
-              {step.done ? "✓" : i + 1}
-            </span>
-            <div>
-              <p className="text-xs font-semibold">{step.label}</p>
-              <p className="text-[10px] opacity-80">{step.detail}</p>
-            </div>
-          </div>
-          {i < steps.length - 1 && <ChevronRight className="hidden h-4 w-4 text-slate-300 sm:block" />}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function SectionHeader({
   step,
   title,
@@ -459,6 +407,7 @@ export function WorkshopCaptureWorkspace({
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [expandedPillars, setExpandedPillars] = useState<Set<string>>(new Set());
+  const evidenceDrawer = useEvidenceDrawer();
 
   const captureFiles = useMemo(
     () => evidence.filter((f) => isTranscriptEvidence(f.description)),
@@ -535,6 +484,31 @@ export function WorkshopCaptureWorkspace({
     }
   }, [selectedControlId, pillarGroups]);
 
+  const mappedControlCount = analysisSummary?.controlsMapped ?? analysisSummary?.mappings.length ?? 0;
+
+  function scrollToPipelineSection(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function handlePipelineStepClick(stepId: EvidencePipelineStepId) {
+    switch (stepId) {
+      case "upload":
+      case "index":
+        setSourcesExpanded(true);
+        scrollToPipelineSection("pipeline-upload");
+        break;
+      case "analyze":
+        scrollToPipelineSection(isResultsMode ? "pipeline-analyze-results" : "pipeline-analyze");
+        break;
+      case "review_mapping":
+        scrollToPipelineSection("pipeline-review");
+        if (analysisSummary?.mappings[0]) {
+          selectControl(analysisSummary.mappings[0]);
+        }
+        break;
+    }
+  }
+
   function togglePillar(pillarId: string) {
     setExpandedPillars((prev) => {
       const next = new Set(prev);
@@ -586,7 +560,12 @@ export function WorkshopCaptureWorkspace({
 
   function openControlCitation(controlId: string, citationIndex: number) {
     setTraceSelection({ controlId, citationIndex });
-    setEvidenceDialogOpen(true);
+    if (!analysisSummary) return;
+    const ctrl = analysisSummary.mappings.find((m) => m.controlId === controlId);
+    const cite = ctrl?.citations.find((c) => c.citationIndex === citationIndex) ?? null;
+    if (!openSharedEvidenceCitation(evidenceDrawer, cite)) {
+      setEvidenceDialogOpen(true);
+    }
   }
 
   const sourcesPanelContent = (
@@ -710,7 +689,7 @@ export function WorkshopCaptureWorkspace({
   );
 
   const onboardingSourcesSection = (
-    <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+    <section id="pipeline-upload" className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm scroll-mt-6">
       <SectionHeader
         step="1"
         title="Source library"
@@ -723,7 +702,8 @@ export function WorkshopCaptureWorkspace({
 
   const onboardingAnalyzeSection = (
     <section
-      className={`overflow-hidden rounded-2xl border shadow-lg ${
+      id="pipeline-analyze"
+      className={`overflow-hidden rounded-2xl border shadow-lg scroll-mt-6 ${
         analysisUpToDate
           ? "border-emerald-200/80 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-emerald-200"
           : needsReanalyze
@@ -855,11 +835,26 @@ export function WorkshopCaptureWorkspace({
         </div>
         {!isResultsMode && (
           <div className="mx-auto mt-5 max-w-[1440px]">
-            <WorkflowRail
+            <EvidencePipelineStepper
               readyCount={readyCount}
               hasIndex={indexStats.chunkCount > 0}
               hasAnalysis={hasAnalysis}
               analysisStale={analysisStale}
+              mappedControlCount={mappedControlCount}
+              onStepClick={handlePipelineStepClick}
+            />
+          </div>
+        )}
+        {isResultsMode && (
+          <div className="mx-auto mt-5 max-w-[1440px]">
+            <EvidencePipelineStepper
+              readyCount={readyCount}
+              hasIndex={indexStats.chunkCount > 0}
+              hasAnalysis={hasAnalysis}
+              analysisStale={analysisStale}
+              mappedControlCount={mappedControlCount}
+              onStepClick={handlePipelineStepClick}
+              compact
             />
           </div>
         )}
@@ -870,7 +865,10 @@ export function WorkshopCaptureWorkspace({
           {isResultsMode && analysisSummary ? (
             <div className="space-y-6">
               {needsReanalyze && (
-                <div className="flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div
+                  id="pipeline-analyze-results"
+                  className="flex scroll-mt-6 flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <div className="flex items-start gap-3">
                     <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                     <div>
@@ -891,7 +889,10 @@ export function WorkshopCaptureWorkspace({
               )}
 
               <div className="space-y-5">
-                  <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                  <section
+                    id="pipeline-review"
+                    className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm scroll-mt-6"
+                  >
                     <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-50/80 to-white px-6 py-5">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="flex items-start gap-3">
@@ -1124,7 +1125,7 @@ export function WorkshopCaptureWorkspace({
                   </div>
               </div>
 
-              <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+              <section id="pipeline-upload" className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm scroll-mt-6">
                 <button
                   type="button"
                   onClick={() => setSourcesExpanded((v) => !v)}
@@ -1195,14 +1196,16 @@ export function WorkshopCaptureWorkspace({
             </div>
           )}
 
-          <SourceEvidenceDialog
-            open={evidenceDialogOpen}
-            onOpenChange={setEvidenceDialogOpen}
-            citation={activeCitationObj}
-            workshopNotes=""
-            facilitatorNotes=""
-            evidenceTexts={evidenceTexts}
-          />
+          {!evidenceDrawer && (
+            <SourceEvidenceDialog
+              open={evidenceDialogOpen}
+              onOpenChange={setEvidenceDialogOpen}
+              citation={activeCitationObj}
+              workshopNotes=""
+              facilitatorNotes=""
+              evidenceTexts={evidenceTexts}
+            />
+          )}
 
           <SourceNotebookChatLauncher
             assessmentId={assessmentId}

@@ -262,7 +262,7 @@ STRICT GROUNDING RULES (non-negotiable):
 8. Board actions must be derived ONLY from provided recommendations — do not add generic governance platitudes unless no recommendations exist.
 9. Do NOT include a separate businessImpact field — only rewrite the provided gap findings.
 10. Do not introduce new concepts (e.g., "bias", "regulatory fines", "reputational harm") unless those exact concepts appear in the source findings.
-11. FORMAL VOICE: Write in third-party advisory tone for board distribution. Never use first-person pronouns (we, our, us, I, my) or personal pronouns (he, she, his, her, they, their). Refer to the client using the provided clientName (e.g., "Acme Corp does not…", "Acme Corp's policy…"). Use "the organization" only if clientName is empty.
+11. FORMAL VOICE: Write in third-party advisory tone for board distribution. Never use first-person pronouns (we, our, us, I, my) or personal pronouns (he, she, his, her, they, their). Refer to the client using the provided clientName (e.g., "[Client Name] does not…", "[Client Name]'s policy…"). Use "the organization" only if clientName is empty.
 
 Return valid JSON with this exact shape:
 {

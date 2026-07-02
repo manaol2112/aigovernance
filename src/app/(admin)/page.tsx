@@ -2,8 +2,10 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, GitCompareArrows, Shield, AlertTriangle, ArrowRight, Grid3x3 } from "lucide-react";
+import { BookOpen, GitCompareArrows, Shield, AlertTriangle, ArrowRight, Grid3x3, ClipboardList } from "lucide-react";
 import { getMatrixSummary } from "@/lib/risk-control-matrix";
+import { getMissionControlSnapshot } from "@/lib/mission-control";
+import { titleCase } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +39,7 @@ async function getStats() {
 export default async function DashboardPage() {
   const stats = await getStats();
   const matrixSummary = await getMatrixSummary();
+  const mission = await getMissionControlSnapshot();
   const frameworks = await prisma.framework.findMany({ orderBy: { name: "asc" } });
 
   const cards = [
@@ -56,6 +59,68 @@ export default async function DashboardPage() {
           Source-verified crosswalk across NIST AI RMF, ISO 42001, EU AI Act, OECD, and COSO ERM.
         </p>
       </div>
+
+      <Card className="border-indigo-200/80 bg-gradient-to-br from-indigo-50/50 to-white">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-slate-900">
+            <ClipboardList className="h-5 w-5 text-indigo-600" />
+            Mission control
+          </CardTitle>
+          <CardDescription>
+            Active client engagements needing facilitator or reviewer attention.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "Active engagements", value: mission.activeEngagements },
+              { label: "Pending approvals", value: mission.pendingApprovals },
+              { label: "Controls to sign off", value: mission.controlsAwaitingSignOff },
+              { label: "Ready for delivery", value: mission.readyForDelivery },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  {item.label}
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {mission.attentionItems.length === 0 ? (
+            <p className="text-sm text-slate-500">No engagements need immediate attention.</p>
+          ) : (
+            <div className="space-y-2">
+              {mission.attentionItems.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/assessments/${item.id}/workflow`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition-colors hover:border-indigo-200 hover:bg-indigo-50/30"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900">{item.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {item.clientName ?? "Client"} · {titleCase(item.workflowStage.replace(/_/g, " "))}
+                      {item.controlTotal > 0 && (
+                        <> · Validation {item.controlConfirmed}/{item.controlTotal}</>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-xs text-indigo-600">{item.nextActionHint}</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="shrink-0 gap-1">
+                    {item.nextActionLabel}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          <Button asChild variant="outline" size="sm">
+            <Link href="/assessments">View all assessments</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => {

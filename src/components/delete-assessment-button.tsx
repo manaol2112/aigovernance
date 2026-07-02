@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 
 type Props = {
   assessmentId: string;
@@ -30,7 +31,7 @@ export function DeleteAssessmentButton({
       const res = await fetch(`/api/assessments/${assessmentId}`, { method: "DELETE" });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(result.error ?? "Failed to delete assessment");
+        toast(result.error ?? "Failed to delete assessment", { variant: "error" });
         return;
       }
       router.push("/assessments");

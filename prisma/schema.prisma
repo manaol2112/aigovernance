@@ -273,6 +273,17 @@ model RequirementRiskLink {
   @@map("requirement_risk_links")
 }
 
+enum MaturitySurveyStatus {
+  draft
+  in_progress
+  completed
+}
+
+enum MaturitySurveyMode {
+  quick
+  deep_dive
+}
+
 model CanonicalControl {
   id                 String             @id @default(cuid())
   code               String             @unique
@@ -294,6 +305,7 @@ model CanonicalControl {
   responses        AssessmentResponse[]
   gapFindings      GapFinding[]
   controlEvaluations ControlEvaluation[]
+  maturitySurveyResponses MaturitySurveyResponse[]
 
   @@map("canonical_controls")
 }
@@ -732,4 +744,56 @@ model EvaluationCitation {
 
   @@index([controlEvaluationId])
   @@map("evaluation_citations")
+}
+
+model MaturitySurvey {
+  id                 String               @id @default(cuid())
+  title              String
+  organizationName   String?              @map("organization_name")
+  respondentName     String?              @map("respondent_name")
+  respondentRole     String?              @map("respondent_role")
+  frameworkCodes     String[]             @map("framework_codes")
+  surveyMode         MaturitySurveyMode   @default(quick) @map("survey_mode")
+  status             MaturitySurveyStatus @default(draft)
+  currentStepIndex   Int                  @default(0) @map("current_step_index")
+  submittedAt        DateTime?            @map("submitted_at")
+  reportCache        Json?                @map("report_cache")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  responses MaturitySurveyResponse[]
+
+  @@map("maturity_surveys")
+}
+
+enum ColorTheme {
+  light
+  dark
+  deloitte
+}
+
+model AppSetting {
+  id         String     @id @default("singleton")
+  colorTheme ColorTheme @default(light) @map("color_theme")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+model MaturitySurveyResponse {
+  id        String        @id @default(cuid())
+  surveyId  String        @map("survey_id")
+  pillarId  String        @map("pillar_id")
+  controlId String        @map("control_id")
+  maturity  MaturityLevel @default(not_implemented)
+  notes     String?       @db.Text
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  survey  MaturitySurvey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  control CanonicalControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@unique([surveyId, controlId])
+  @@index([surveyId])
+  @@map("maturity_survey_responses")
 }

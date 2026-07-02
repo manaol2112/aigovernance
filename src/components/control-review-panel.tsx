@@ -24,7 +24,11 @@ import { Badge } from "@/components/ui/badge";
 import { CitedAnalysis, SourceEvidenceDialog, type Citation } from "@/components/cited-analysis";
 import { ControlFollowUpInline } from "@/components/control-follow-up-inline";
 import { FollowUpQuestionsExportButton } from "@/components/follow-up-questions-export-button";
+import { openSharedEvidenceCitation, useEvidenceDrawer } from "@/components/evidence-drawer";
+import { ValidationQueuePanel } from "@/components/validation-queue-panel";
+import { buildValidationQueue } from "@/lib/validation-queue";
 import { isMalformedFindingText } from "@/lib/capture-finding-format";
+import { toast } from "@/components/ui/toast";
 
 export type ReviewPillarGroup = {
   pillarId: string;
@@ -212,6 +216,7 @@ export function ControlReviewPanel({
   const [activeCitation, setActiveCitation] = useState<number | null>(null);
   const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
   const [expandedPillars, setExpandedPillars] = useState<Set<string>>(new Set());
+  const evidenceDrawer = useEvidenceDrawer();
 
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedControlRef = useRef<string | null>(null);
@@ -237,18 +242,28 @@ export function ControlReviewPanel({
 
   const evalByControl = useMemo(() => new Map(evaluations.map((e) => [e.controlId, e])), [evaluations]);
 
-  const allControls = useMemo(
-    () =>
-      pillars.flatMap((p) =>
-        p.controls.map((c) => ({
+  const allControls = useMemo(() => {
+    const byId = new Map<
+      string,
+      (typeof pillars)[0]["controls"][0] & {
+        pillarId: string;
+        pillarLabel: string;
+        pillarDescription: string;
+      }
+    >();
+    for (const p of pillars) {
+      for (const c of p.controls) {
+        if (byId.has(c.id)) continue;
+        byId.set(c.id, {
           ...c,
           pillarId: p.pillarId,
           pillarLabel: p.pillarLabel,
           pillarDescription: p.pillarDescription,
-        }))
-      ),
-    [pillars]
-  );
+        });
+      }
+    }
+    return [...byId.values()];
+  }, [pillars]);
 
   const progressPct = stats.total > 0 ? Math.round((stats.confirmed / stats.total) * 100) : 0;
 
@@ -264,6 +279,20 @@ export function ControlReviewPanel({
       return true;
     });
   }, [allControls, evalByControl, statusFilter]);
+
+  const validationQueue = useMemo(
+    () =>
+      buildValidationQueue(
+        allControls.map((c) => ({
+          id: c.id,
+          code: c.code,
+          title: c.title,
+          pillarLabel: c.pillarLabel,
+        })),
+        evalByControl
+      ),
+    [allControls, evalByControl]
+  );
 
   const selectedEval = selectedControlId ? evalByControl.get(selectedControlId) ?? null : null;
   const selectedControl = allControls.find((c) => c.id === selectedControlId) ?? null;
@@ -419,7 +448,7 @@ export function ControlReviewPanel({
 
     const saved = await persistFindings(controlId, { manual: true });
     if (!saved && stateRef.current.findingsDirty) {
-      window.alert("Could not save your edits. Please try again before leaving.");
+      toast("Could not save your edits. Please try again before leaving.", { variant: "error" });
       return false;
     }
     return true;
@@ -487,7 +516,10 @@ export function ControlReviewPanel({
 
   function openEvidenceCitation(index: number) {
     setActiveCitation(index);
-    setEvidenceDialogOpen(true);
+    const cite = selectedEval?.citations.find((c) => c.citationIndex === index) ?? null;
+    if (!openSharedEvidenceCitation(evidenceDrawer, cite)) {
+      setEvidenceDialogOpen(true);
+    }
   }
 
   function selectControl(controlId: string) {
@@ -558,7 +590,10 @@ export function ControlReviewPanel({
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        window.alert(data.error ?? "AI analysis failed. Check that workshop notes or evidence exist for this control.");
+        toast(
+          data.error ?? "AI analysis failed. Check that workshop notes or evidence exist for this control.",
+          { variant: "error" }
+        );
         return;
       }
       loadedControlRef.current = null;
@@ -709,6 +744,11 @@ export function ControlReviewPanel({
       <div className="grid min-h-0 flex-1 lg:grid-cols-12">
         {/* Control navigator */}
         <aside className="flex max-h-[40vh] flex-col overflow-hidden border-b border-slate-200 bg-white lg:col-span-4 lg:max-h-none lg:border-b-0 lg:border-r">
+          <ValidationQueuePanel
+            queue={validationQueue}
+            selectedControlId={selectedControlId}
+            onSelectControl={selectControl}
+          />
           <div className="min-h-0 flex-1 overflow-y-auto">
             {pillars.map((pillar) => {
               const pillarControls = pillar.controls.filter((c) =>
@@ -1175,14 +1215,16 @@ export function ControlReviewPanel({
         </main>
       </div>
 
-      <SourceEvidenceDialog
-        open={evidenceDialogOpen}
-        onOpenChange={setEvidenceDialogOpen}
-        citation={activeCitationObj}
-        workshopNotes={workshopNotes}
-        facilitatorNotes={facilitatorNotes}
-        evidenceTexts={evidenceTexts}
-      />
+      {!evidenceDrawer && (
+        <SourceEvidenceDialog
+          open={evidenceDialogOpen}
+          onOpenChange={setEvidenceDialogOpen}
+          citation={activeCitationObj}
+          workshopNotes={workshopNotes}
+          facilitatorNotes={facilitatorNotes}
+          evidenceTexts={evidenceTexts}
+        />
+      )}
     </div>
   );
 }

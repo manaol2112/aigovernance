@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ArrowRight,
   Download,
@@ -20,12 +29,15 @@ import { ControlReviewPanel, type ReviewLeaveGuard } from "@/components/control-
 import { AssessmentReportingPanel } from "@/components/assessment-reporting-panel";
 import { SourceNotebookChatLauncher } from "@/components/source-notebook-chat";
 import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
-import { WORKSHOP_WORKSPACE_PHASES } from "@/lib/workshop-workspace-phases";
+import { WORKSHOP_WORKSPACE_PHASES, type WorkshopWorkspacePhaseId } from "@/lib/workshop-workspace-phases";
+import { toast } from "@/components/ui/toast";
 import type { PillarWorkshopGuide } from "@/lib/pillar-workshop-guide";
 import type { DepartmentWorkshopGuide } from "@/lib/department-workshop-guide";
 import { ALL_DEPARTMENTS } from "@/lib/workshop-department";
 import { openWorkshopPresenter } from "@/lib/workshop-present-url";
 import type { WorkshopDepartmentOption } from "@/lib/workshop-departments";
+import { EvidenceDrawerProvider } from "@/components/evidence-drawer";
+import { PersonaFocusSwitcher } from "@/components/persona-focus-switcher";
 
 type EvidenceFile = {
   id: string;
@@ -86,6 +98,10 @@ type ControlEval = {
 
 const WORKSPACE_PHASES = WORKSHOP_WORKSPACE_PHASES;
 
+export type ControlReviewWorkspaceHandle = {
+  navigateToTab: (tab: WorkshopWorkspacePhaseId) => Promise<void>;
+};
+
 type Props = {
   assessmentId: string;
   onProgressChange?: (stats: { confirmed: number; total: number }) => void;
@@ -96,20 +112,34 @@ type Props = {
   evaluationReviewApproved?: boolean;
   onProceedToDeliverables?: (confirmedBy: string) => Promise<void>;
   proceedLoading?: boolean;
+  hideWorkspacePhaseTabs?: boolean;
+  onWorkspaceTabChange?: (tab: WorkshopWorkspacePhaseId) => void;
+  onWorkspaceMetaChange?: (meta: {
+    initialized: boolean;
+    analysisStale: boolean;
+    hasAnalysis: boolean;
+  }) => void;
 };
 
-export function ControlReviewWorkspace({
-  assessmentId,
-  onProgressChange,
-  knownScopedCount = 0,
-  onGoToStage,
-  onInitWorkshop,
-  initWorkshopLoading = false,
-  evaluationReviewApproved = false,
-  onProceedToDeliverables,
-  proceedLoading = false,
-}: Props) {
-  const [tab, setTab] = useState<"workshop" | "notes" | "review" | "reporting">("workshop");
+export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, Props>(
+  function ControlReviewWorkspace(
+    {
+      assessmentId,
+      onProgressChange,
+      knownScopedCount = 0,
+      onGoToStage,
+      onInitWorkshop,
+      initWorkshopLoading = false,
+      evaluationReviewApproved = false,
+      onProceedToDeliverables,
+      proceedLoading = false,
+      hideWorkspacePhaseTabs = false,
+      onWorkspaceTabChange,
+      onWorkspaceMetaChange,
+    },
+    ref
+  ) {
+  const [tab, setTab] = useState<WorkshopWorkspacePhaseId>("workshop");
   const [workshopNotes, setWorkshopNotes] = useState("");
   const [facilitatorNotes, setFacilitatorNotes] = useState("");
   const [evidence, setEvidence] = useState<EvidenceFile[]>([]);
@@ -145,18 +175,50 @@ export function ControlReviewWorkspace({
   const [useCaseCountByDepartment, setUseCaseCountByDepartment] = useState<Record<string, number>>({});
   const [exportLoading, setExportLoading] = useState<"current" | "all" | null>(null);
   const reviewLeaveGuardRef = useRef<ReviewLeaveGuard | null>(null);
+  const onWorkspaceMetaChangeRef = useRef(onWorkspaceMetaChange);
+  const onProgressChangeRef = useRef(onProgressChange);
+  const lastWorkspaceMetaRef = useRef<{
+    initialized: boolean;
+    analysisStale: boolean;
+    hasAnalysis: boolean;
+  } | null>(null);
+
+  onWorkspaceMetaChangeRef.current = onWorkspaceMetaChange;
+  onProgressChangeRef.current = onProgressChange;
 
   const requestTabChange = useCallback(
-    async (nextTab: "workshop" | "notes" | "review" | "reporting") => {
+    async (nextTab: WorkshopWorkspacePhaseId) => {
       if (nextTab === tab) return;
       if (tab === "review" && reviewLeaveGuardRef.current?.hasUnsavedChanges()) {
         const ok = await reviewLeaveGuardRef.current.promptSaveBeforeLeave();
         if (!ok) return;
       }
       setTab(nextTab);
+      onWorkspaceTabChange?.(nextTab);
     },
-    [tab]
+    [tab, onWorkspaceTabChange]
   );
+
+  useImperativeHandle(ref, () => ({ navigateToTab: requestTabChange }), [requestTabChange]);
+
+  useEffect(() => {
+    const meta = {
+      initialized: stats.scopedRequirements > 0 && stats.total > 0,
+      analysisStale,
+      hasAnalysis: Boolean(analysisSummary),
+    };
+    const prev = lastWorkspaceMetaRef.current;
+    if (
+      prev &&
+      prev.initialized === meta.initialized &&
+      prev.analysisStale === meta.analysisStale &&
+      prev.hasAnalysis === meta.hasAnalysis
+    ) {
+      return;
+    }
+    lastWorkspaceMetaRef.current = meta;
+    onWorkspaceMetaChangeRef.current?.(meta);
+  }, [stats.scopedRequirements, stats.total, analysisStale, analysisSummary]);
 
   const departmentQuery =
     selectedDepartment !== ALL_DEPARTMENTS
@@ -201,9 +263,9 @@ export function ControlReviewWorkspace({
       pillarCount: s.pillarCount ?? 0,
       scopedRequirements: s.scopedRequirements ?? 0,
     });
-    onProgressChange?.({ confirmed: s.confirmed ?? 0, total: s.total ?? 0 });
+    onProgressChangeRef.current?.({ confirmed: s.confirmed ?? 0, total: s.total ?? 0 });
     setLoading(false);
-  }, [assessmentId, departmentQuery, onProgressChange]);
+  }, [assessmentId, departmentQuery]);
 
   useEffect(() => {
     setLoading(true);
@@ -351,7 +413,9 @@ export function ControlReviewWorkspace({
       const res = await fetch(url);
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(err.error ?? "Could not generate export. Ensure workshop content is in scope.");
+        toast(err.error ?? "Could not generate export. Ensure workshop content is in scope.", {
+          variant: "error",
+        });
         return;
       }
 
@@ -441,44 +505,46 @@ export function ControlReviewWorkspace({
   }
 
   return (
+    <EvidenceDrawerProvider
+      workshopNotes={workshopNotes}
+      facilitatorNotes={facilitatorNotes}
+      evidenceTexts={evidenceTexts}
+    >
     <div className="flex h-[calc(100dvh-11.5rem)] min-h-[420px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Compact toolbar */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-3 py-2">
-        <div className="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg bg-slate-100 p-0.5">
-          {WORKSPACE_PHASES.map((phase) => (
-            <button
-              key={phase.id}
-              type="button"
-              title={phase.subtitle}
-              onClick={() => void requestTabChange(phase.id)}
-              className={`rounded-md px-2.5 py-1.5 text-left transition-all sm:px-3 ${
-                tab === phase.id
-                  ? "bg-white text-indigo-700 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <span className="block text-[11px] font-semibold leading-tight sm:text-xs">
-                {"shortLabel" in phase && phase.shortLabel ? (
-                  <>
+        {!hideWorkspacePhaseTabs && (
+          <>
+            <div className="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg bg-slate-100 p-0.5">
+              {WORKSPACE_PHASES.map((phase) => (
+                <button
+                  key={phase.id}
+                  type="button"
+                  title={phase.subtitle}
+                  onClick={() => void requestTabChange(phase.id)}
+                  className={`rounded-md px-2.5 py-1.5 text-left transition-all sm:px-3 ${
+                    tab === phase.id
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <span className="block text-[11px] font-semibold leading-tight sm:text-xs">
                     <span className="sm:hidden">{phase.shortLabel}</span>
                     <span className="hidden sm:inline">{phase.label}</span>
-                  </>
-                ) : (
-                  phase.label
-                )}
-              </span>
-              <span
-                className={`mt-0.5 hidden text-[10px] font-normal leading-tight xl:block ${
-                  tab === phase.id ? "text-indigo-600/80" : "text-slate-400"
-                }`}
-              >
-                {phase.subtitle}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <div className="hidden h-4 w-px bg-slate-200 sm:block" />
+                  </span>
+                  <span
+                    className={`mt-0.5 hidden text-[10px] font-normal leading-tight xl:block ${
+                      tab === phase.id ? "text-indigo-600/80" : "text-slate-400"
+                    }`}
+                  >
+                    {phase.subtitle}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="hidden h-4 w-px bg-slate-200 sm:block" />
+          </>
+        )}
 
         {tab === "workshop" && (
           <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
@@ -507,6 +573,17 @@ export function ControlReviewWorkspace({
         )}
 
         <div className="flex-1" />
+
+        {hideWorkspacePhaseTabs && (
+          <PersonaFocusSwitcher
+            activeTab={tab}
+            onSelectTab={(next) => void requestTabChange(next)}
+          />
+        )}
+
+        {hideWorkspacePhaseTabs && departmentOptions.length > 0 && (
+          <div className="hidden h-4 w-px bg-slate-200 sm:block" />
+        )}
 
         {departmentOptions.length > 0 && (
           <select
@@ -773,12 +850,16 @@ export function ControlReviewWorkspace({
             evaluationReviewApproved={evaluationReviewApproved}
             onProceedToDeliverables={onProceedToDeliverables}
             proceedLoading={proceedLoading}
+            hasAnalysis={Boolean(analysisSummary)}
+            analysisStale={analysisStale}
+            onGoToEvidence={() => void requestTabChange("notes")}
           />
         </div>
       </div>
     </div>
+    </EvidenceDrawerProvider>
   );
-}
+});
 
 function EmptyState({
   tone,

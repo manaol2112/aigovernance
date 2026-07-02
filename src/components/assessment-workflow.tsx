@@ -1,11 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft,
   CheckCircle2,
-  Circle,
   Loader2,
   Lock,
   Plus,
@@ -17,14 +14,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FrameworkScopeNotice } from "@/components/framework-scope-notice";
 import { Badge } from "@/components/ui/badge";
-import { WORKFLOW_STEPS, USE_CASE_TYPES, getUseCaseTypeDef, displayStepIndex, isAnalysisStage } from "@/lib/use-case-types";
-import { ControlReviewWorkspace } from "@/components/control-review-workspace";
+import { USE_CASE_TYPES, getUseCaseTypeDef, isAnalysisStage } from "@/lib/use-case-types";
+import {
+  ControlReviewWorkspace,
+  type ControlReviewWorkspaceHandle,
+} from "@/components/control-review-workspace";
 import { AssessmentReportingPanel } from "@/components/assessment-reporting-panel";
 import { DepartmentSelect } from "@/components/department-select";
 import { titleCase } from "@/lib/utils";
 import type { WorkshopDepartmentOption } from "@/lib/workshop-departments-catalog";
 import { getDepartmentsForFrameworks } from "@/lib/workshop-departments-catalog";
 import { DeleteAssessmentButton } from "@/components/delete-assessment-button";
+import {
+  AssessmentEngagementHeader,
+  AssessmentJourneyRail,
+} from "@/components/assessment-journey-rail";
+import {
+  resolveNextAction,
+  type JourneyPhaseId,
+} from "@/lib/assessment-journey";
+import {
+  journeyIdToWorkspacePhase,
+  type WorkshopWorkspacePhaseId,
+} from "@/lib/workshop-workspace-phases";
+import { toast } from "@/components/ui/toast";
 
 type Checkpoint = {
   id: string;
@@ -90,6 +103,9 @@ const STAGE_EXIT_CHECKPOINT: Record<string, string> = {
   deliverables: "deliverable_approval",
 };
 
+const SCOPE_STAGES = new Set(["client_setup", "use_cases", "requirement_scoping"]);
+const DELIVER_STAGES = new Set(["deliverables", "finalized"]);
+
 export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
   const [data, setData] = useState<AssessmentData | null>(null);
   const [controlProgress, setControlProgress] = useState({ confirmed: 0, total: 0 });
@@ -106,6 +122,13 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [departmentOptions, setDepartmentOptions] = useState<WorkshopDepartmentOption[]>([]);
+  const [workspaceTab, setWorkspaceTab] = useState<WorkshopWorkspacePhaseId>("workshop");
+  const [workspaceInitialized, setWorkspaceInitialized] = useState(false);
+  const [workspaceMeta, setWorkspaceMeta] = useState({
+    analysisStale: false,
+    hasAnalysis: false,
+  });
+  const workspaceRef = useRef<ControlReviewWorkspaceHandle>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -126,13 +149,20 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
 
       if (
         parsed &&
-        (parsed.workflowStage === "deliverables" || parsed.workflowStage === "finalized")
+        (isAnalysisStage(parsed.workflowStage) ||
+          parsed.workflowStage === "deliverables" ||
+          parsed.workflowStage === "finalized")
       ) {
         const crRes = await fetch(`/api/assessments/${assessmentId}/control-review`);
         if (crRes.ok) {
-          const cr = (await crRes.json()) as { stats?: { confirmed: number; total: number } };
+          const cr = (await crRes.json()) as {
+            stats?: { confirmed: number; total: number; scopedRequirements?: number };
+          };
           if (cr.stats) {
             setControlProgress({ confirmed: cr.stats.confirmed, total: cr.stats.total });
+            setWorkspaceInitialized(
+              (cr.stats.total ?? 0) > 0 || (cr.stats.scopedRequirements ?? 0) > 0
+            );
           }
         }
       }
@@ -151,6 +181,25 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
     }
   }, [assessmentId]);
 
+  const handleWorkspaceMetaChange = useCallback(
+    (meta: { initialized: boolean; analysisStale: boolean; hasAnalysis: boolean }) => {
+      setWorkspaceMeta((prev) => {
+        if (
+          prev.analysisStale === meta.analysisStale &&
+          prev.hasAnalysis === meta.hasAnalysis
+        ) {
+          return prev;
+        }
+        return {
+          analysisStale: meta.analysisStale,
+          hasAnalysis: meta.hasAnalysis,
+        };
+      });
+      setWorkspaceInitialized((prev) => (prev === meta.initialized ? prev : meta.initialized));
+    },
+    []
+  );
+
   useEffect(() => { load(); }, [load]);
 
   async function workflowAction(action: string, extra?: Record<string, unknown>) {
@@ -163,7 +212,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
       });
       const result = await res.json();
       if (!res.ok) {
-        alert(result.error ?? "Action failed");
+        toast(result.error ?? "Action failed", { variant: "error" });
         return;
       }
       await load();
@@ -179,7 +228,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
 
   async function approveCheckpointAction(checkpointType: string) {
     if (!reviewerName.trim()) {
-      alert("Enter your name as reviewer before approving.");
+      toast("Enter your name as reviewer before approving.", { variant: "error" });
       return;
     }
     await workflowAction("approve_checkpoint", { checkpointType, confirmedBy: reviewerName });
@@ -191,7 +240,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
 
   async function addUseCase() {
     if (!newUseCase.name.trim() || !newUseCase.description.trim()) {
-      alert("Name and description are required.");
+      toast("Name and description are required.", { variant: "error" });
       return;
     }
     const def = getUseCaseTypeDef(newUseCase.useCaseType as Parameters<typeof getUseCaseTypeDef>[0]);
@@ -212,7 +261,11 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(result.error ?? `Failed to create use case (${res.status}). Try restarting the dev server after schema changes.`);
+        toast(
+          result.error ??
+            `Failed to create use case (${res.status}). Try restarting the dev server after schema changes.`,
+          { variant: "error" }
+        );
         return;
       }
       setNewUseCase({ name: "", description: "", useCaseType: "client_facing_product", department: "" });
@@ -259,7 +312,6 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
     );
   }
 
-  const currentStep = displayStepIndex(data.workflowStage);
   const activeCheckpoint =
     data.checkpoints.find((c) => c.status === "pending")
     ?? CHECKPOINT_ORDER.map((t) => data.checkpoints.find((c) => c.checkpointType === t))
@@ -270,76 +322,159 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
   const totalScoped = data.useCases.reduce((s, u) => s + u._count.scopedRequirements, 0);
   const canEditUseCases =
     data.workflowStage === "use_cases" || data.workflowStage === "requirement_scoping";
+  const pendingCheckpointCount = data.checkpoints.filter((c) => c.status === "pending").length;
+
+  const nextAction = resolveNextAction({
+    workflowStage: data.workflowStage,
+    useCaseCount: data.useCases.length,
+    totalScoped,
+    scopingCheckpointStatus: scopingCheckpoint?.status,
+    evaluationCheckpointStatus: evaluationCheckpoint?.status,
+    deliverableCheckpointStatus: deliverableCheckpoint?.status,
+    controlProgress,
+    pendingCheckpointTitle: activeCheckpoint?.status === "pending" ? activeCheckpoint.title : null,
+    workspaceTab,
+    analysisStale: workspaceMeta.analysisStale,
+    hasAnalysis: workspaceMeta.hasAnalysis,
+  });
+
+  async function navigateJourneyPhase(phase: JourneyPhaseId) {
+    if (!data) return;
+
+    if (phase === "scope") {
+      if (data.workflowStage === "client_setup") {
+        await goToStage("use_cases");
+      } else if (isAnalysisStage(data.workflowStage) || DELIVER_STAGES.has(data.workflowStage)) {
+        await goToStage("requirement_scoping");
+      } else if (data.workflowStage !== "use_cases" && data.workflowStage !== "requirement_scoping") {
+        await goToStage("use_cases");
+      }
+      return;
+    }
+
+    if (phase === "deliver") {
+      if (data.workflowStage === "deliverables" || data.workflowStage === "finalized") return;
+      if (isAnalysisStage(data.workflowStage)) {
+        await goToStage("deliverables");
+      }
+      return;
+    }
+
+    const wsTab = journeyIdToWorkspacePhase(phase);
+    if (!wsTab) return;
+
+    if (!isAnalysisStage(data.workflowStage)) {
+      if (scopingCheckpoint?.status === "approved") {
+        if (controlProgress.total === 0) {
+          await workflowAction("init_control_review");
+        }
+        await goToStage("workshop");
+      } else {
+        await goToStage("requirement_scoping");
+      }
+    }
+
+    if (workspaceRef.current) {
+      await workspaceRef.current.navigateToTab(wsTab);
+    } else {
+      setWorkspaceTab(wsTab);
+    }
+  }
+
+  async function handleNextAction() {
+    if (!data) return;
+
+    const nextAction = resolveNextAction({
+      workflowStage: data.workflowStage,
+      useCaseCount: data.useCases.length,
+      totalScoped,
+      scopingCheckpointStatus: scopingCheckpoint?.status,
+      evaluationCheckpointStatus: evaluationCheckpoint?.status,
+      deliverableCheckpointStatus: deliverableCheckpoint?.status,
+      controlProgress,
+      pendingCheckpointTitle: activeCheckpoint?.status === "pending" ? activeCheckpoint.title : null,
+      workspaceTab,
+      analysisStale: workspaceMeta.analysisStale,
+      hasAnalysis: workspaceMeta.hasAnalysis,
+    });
+
+    if (data.workflowStage === "requirement_scoping" && totalScoped === 0 && data.useCases.length > 0) {
+      await workflowAction("scope_requirements");
+      return;
+    }
+
+    if (
+      data.workflowStage === "requirement_scoping" &&
+      scopingCheckpoint?.status === "approved" &&
+      controlProgress.total === 0
+    ) {
+      await workflowAction("init_control_review");
+      await goToStage("workshop");
+      return;
+    }
+
+    if (data.useCases.length === 0 && SCOPE_STAGES.has(data.workflowStage)) {
+      setShowAddUseCase(true);
+      return;
+    }
+
+    if (activeCheckpoint?.status === "pending" && SCOPE_STAGES.has(data.workflowStage)) {
+      document.getElementById("approval-checkpoint")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
+    if (nextAction.journeyPhase) {
+      await navigateJourneyPhase(nextAction.journeyPhase);
+    }
+    if (nextAction.workspaceTab && workspaceRef.current) {
+      await workspaceRef.current.navigateToTab(nextAction.workspaceTab);
+    } else if (nextAction.workspaceTab) {
+      setWorkspaceTab(nextAction.workspaceTab);
+    }
+  }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
-          <Link href="/assessments"><ArrowLeft className="mr-1 h-4 w-4" /> Assessments</Link>
-        </Button>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{data.name}</h1>
-              <Badge variant="outline">{titleCase(data.workflowStage.replace(/_/g, " "))}</Badge>
-            </div>
-            <p className="mt-1 text-slate-500">
-              {data.clientName}{data.clientIndustry ? ` · ${data.clientIndustry}` : ""}
-            </p>
-          </div>
+    <div className="space-y-6">
+      <AssessmentEngagementHeader
+        assessmentName={data.name}
+        clientName={data.clientName}
+        clientIndustry={data.clientIndustry}
+        frameworkCodes={data.scope?.frameworkCodes ?? []}
+        controlProgress={controlProgress}
+        nextActionLabel={nextAction.label}
+        nextActionHint={nextAction.hint}
+        onNextAction={
+          nextAction.label === "Assessment complete" ? undefined : () => void handleNextAction()
+        }
+        nextActionLoading={!!actionLoading}
+        pendingCheckpointCount={pendingCheckpointCount}
+        deleteButton={
           <DeleteAssessmentButton
             assessmentId={assessmentId}
             assessmentName={data.name}
             variant="workflow"
           />
-        </div>
-      </div>
+        }
+      />
 
-      {/* Stepper — click any completed or current step to revisit */}
-      <div className="flex gap-1 overflow-x-auto pb-2">
-        {WORKFLOW_STEPS.map((step, i) => {
-          const isPast = i < currentStep;
-          const isCurrent = i === currentStep;
-          const canNavigate = i <= currentStep;
-          return (
-            <button
-              key={step.stage}
-              type="button"
-              disabled={!canNavigate || !!actionLoading}
-              onClick={() => canNavigate && goToStage(step.stage)}
-              title={canNavigate ? `Go to ${step.label}` : "Complete earlier stages first"}
-              className={`flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                isPast
-                  ? "bg-emerald-700 text-white hover:bg-emerald-800"
-                  : isCurrent
-                    ? "bg-slate-900 text-white ring-2 ring-slate-300 ring-offset-1"
-                    : "cursor-not-allowed bg-slate-100 text-slate-400"
-              } ${canNavigate && !isCurrent ? "cursor-pointer" : ""}`}
-            >
-              {isPast ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
-              {step.number}. {step.label}
-            </button>
-          );
-        })}
-      </div>
-      {currentStep > 0 && (
-        <p className="text-xs text-slate-500">
-          Click any completed step above to revisit earlier stages (e.g. edit use cases or re-run scoping).
-        </p>
-      )}
-      {isAnalysisStage(data.workflowStage) && controlProgress.total > 0 && (
-        <p className="text-xs font-medium text-indigo-600">
-          Review progress: {controlProgress.confirmed} of {controlProgress.total} controls confirmed
-        </p>
-      )}
+      <AssessmentJourneyRail
+        workflowStage={data.workflowStage}
+        workspaceTab={isAnalysisStage(data.workflowStage) ? workspaceTab : undefined}
+        workspaceInitialized={workspaceInitialized || controlProgress.total > 0}
+        disabled={!!actionLoading}
+        onNavigate={(phase) => void navigateJourneyPhase(phase)}
+      />
 
       {/* Active checkpoint — only show when pending and reviewable */}
       {activeCheckpoint && activeCheckpoint.status === "pending" && (
-        <Card className="border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm">
+        <Card
+          id="approval-checkpoint"
+          className="border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm"
+        >
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-amber-700" />
-              <CardTitle className="text-amber-900">Human Review Required</CardTitle>
+              <CardTitle className="text-amber-900">Approval required</CardTitle>
             </div>
             <CardDescription className="text-amber-800">
               Review the summary below, then approve to continue to the next stage.
@@ -550,7 +685,11 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
       {/* Stage: Workshop (evidence, validation, reports) */}
       {isAnalysisStage(data.workflowStage) && (
         <ControlReviewWorkspace
+          ref={workspaceRef}
           assessmentId={assessmentId}
+          hideWorkspacePhaseTabs
+          onWorkspaceTabChange={setWorkspaceTab}
+          onWorkspaceMetaChange={handleWorkspaceMetaChange}
           onProgressChange={setControlProgress}
           knownScopedCount={totalScoped}
           onGoToStage={goToStage}
