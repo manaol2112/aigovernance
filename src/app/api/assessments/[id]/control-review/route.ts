@@ -8,6 +8,9 @@ import {
 import { analyzeAndPersistControl, analyzeAllControls } from "@/lib/control-analyzer";
 import { bulkMapNotesToControls } from "@/lib/bulk-note-mapper";
 import { processWorkshopTranscripts } from "@/lib/transcript-processor";
+import { syncGovernanceEvidenceFromCaptureAnalysis } from "@/lib/governance-v2/capture-evidence-sync";
+import { syncDocumentationValidationForAssessment } from "@/lib/governance-v2/assessment-documentation-sync";
+import { mapEvidenceToControls } from "@/lib/governance-v2/control-mapping-v2";
 import {
   ALL_DEPARTMENTS,
   buildUseCaseWhereForDepartment,
@@ -17,6 +20,7 @@ import {
   getSuggestedDepartmentsForAssessment,
   mergeDepartmentOptions,
 } from "@/lib/workshop-departments";
+import { syncDisagreementFromReview } from "@/lib/governance-v2/reviewer-disagreement";
 
 export const maxDuration = 300;
 
@@ -153,7 +157,19 @@ export async function POST(
         if (runControlAnalysis) {
           analyzedCount = await analyzeAllControls(id);
         }
-        return NextResponse.json({ ...result, analyzedCount });
+        const evidenceSync = await syncGovernanceEvidenceFromCaptureAnalysis(id);
+        const mapping = await mapEvidenceToControls(id);
+        const docSync = await syncDocumentationValidationForAssessment(id, {
+          useAi: true,
+          limit: 80,
+        });
+        return NextResponse.json({
+          ...result,
+          analyzedCount,
+          evidenceSynced: evidenceSync.createdEvidence.length,
+          controlsMapped: mapping.mappedCount,
+          documentationValidated: docSync.validated,
+        });
       } catch (error) {
         return NextResponse.json(
           { error: error instanceof Error ? error.message : "Transcript processing failed" },
@@ -264,6 +280,13 @@ export async function PATCH(
       where: { assessmentId: id, controlId: { in: ids } },
       include: evalInclude,
     });
+
+    if (!allChecked) {
+      for (const ev of updated) {
+        await syncDisagreementFromReview(id, ev.id, ev);
+      }
+    }
+
     return NextResponse.json({ updated, count: updated.length });
   }
 
@@ -367,6 +390,10 @@ export async function PATCH(
       },
       include: evalInclude,
     });
+
+    if (!allChecked) {
+      await syncDisagreementFromReview(id, updated.id, updated);
+    }
 
     return NextResponse.json(updated);
   }

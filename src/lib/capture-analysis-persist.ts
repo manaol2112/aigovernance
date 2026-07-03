@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db";
 import { buildCaptureAnalysisSummary } from "@/lib/capture-analysis-summary";
 import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
-import { isTranscriptEvidence } from "@/lib/transcript-evidence";
-import { getTranscriptSources } from "@/lib/transcript-processor";
+import { isAnalyzableEvidence } from "@/lib/transcript-evidence";
+import { getCaptureSources } from "@/lib/capture-sources";
 
 export type CaptureAnalysisMeta = {
   summary: string;
@@ -67,17 +67,17 @@ export async function computeCaptureAnalysisStaleness(
     orderBy: { uploadedAt: "asc" },
   });
 
-  const transcriptFiles = evidence.filter(
-    (e) => isTranscriptEvidence(e.description) && e.extractedText?.trim()
+  const analyzableFiles = evidence.filter((e) =>
+    isAnalyzableEvidence(e.description, e.extractedText)
   );
-  const currentSourceIds = transcriptFiles.map((e) => e.id);
-  const fileNames = transcriptFiles.map((e) => e.fileName);
+  const currentSourceIds = analyzableFiles.map((e) => e.id);
+  const fileNames = analyzableFiles.map((e) => e.fileName);
   const analyzedAtIso = meta?.analyzedAt ?? fallbackAnalyzedAt ?? null;
   const analyzedAt = analyzedAtIso ? new Date(analyzedAtIso).getTime() : 0;
 
   let storedIds = new Set(meta?.sourceEvidenceIds ?? []);
   if (storedIds.size === 0 && analyzedAt > 0) {
-    for (const file of transcriptFiles) {
+    for (const file of analyzableFiles) {
       if (file.uploadedAt.getTime() <= analyzedAt + 1000) {
         storedIds.add(file.id);
       }
@@ -136,7 +136,7 @@ export async function loadCaptureAnalysisState(assessmentId: string): Promise<Ca
     };
   }
 
-  const sources = await getTranscriptSources(assessmentId);
+  const sources = await getCaptureSources(assessmentId);
   const fileNames =
     staleness.fileNames.length > 0 ? staleness.fileNames : sources.map((s) => s.fileName);
 

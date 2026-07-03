@@ -5,7 +5,17 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /** Models every page needs — keep minimal so hot-reload never bricks unrelated routes. */
-const CORE_DELEGATES = ["assessment", "canonicalControl", "framework", "appSetting"] as const;
+const CORE_DELEGATES = [
+  "assessment",
+  "canonicalControl",
+  "framework",
+  "appSetting",
+  "aISystem",
+  "governanceEvidence",
+  "controlDependency",
+  "reviewerDisagreement",
+  "governanceInitiative",
+] as const;
 
 /** Newer models — checked only where used (maturity survey). */
 const MATURITY_DELEGATES = ["maturitySurvey", "maturitySurveyResponse"] as const;

@@ -11,6 +11,10 @@ import {
   formatLineWithCitation,
   formatNumberedRecommendations,
 } from "@/lib/finding-citations";
+import {
+  polishAssessmentRowFindings,
+  polishEnterpriseFindingItems,
+} from "@/lib/finding-enterprise-voice";
 import { persistControlAssessment } from "@/lib/capture-control-persist";
 import {
   CAPTURE_TARGETED_ASSESS_SYSTEM_PROMPT,
@@ -148,15 +152,35 @@ function formatSectionWithChunkCitations(
 function buildPersistedFromTargetedRow(
   row: TargetedAssessmentRow,
   controlId: string,
+  controlTitle: string,
   chunks: SourceChunkRecord[],
   textByEvidenceId: Map<string, string>
 ): PersistedControlAssessment {
-  const inPlaceRaw = coerceFindingItems(row.inPlaceFindings);
-  const gapRaw = coerceFindingItems(row.gapFindings);
-  const recRaw = coerceFindingItems(row.recommendations);
-  const inPlaceItems = normalizeFindingItems(inPlaceRaw);
-  const gapItems = normalizeFindingItems(gapRaw);
-  const recItems = normalizeFindingItems(recRaw);
+  const polished = polishAssessmentRowFindings(row, {
+    controlCode: row.controlCode,
+    controlTitle,
+  });
+
+  const inPlaceRaw = coerceFindingItems(polished.inPlaceFindings);
+  const gapRaw = coerceFindingItems(polished.gapFindings);
+  const recRaw = coerceFindingItems(polished.recommendations);
+
+  const polishCtx = { controlCode: row.controlCode, controlTitle };
+  const inPlaceItems = polishEnterpriseFindingItems(
+    normalizeFindingItems(inPlaceRaw),
+    "in_place",
+    polishCtx
+  );
+  const gapItems = polishEnterpriseFindingItems(
+    normalizeFindingItems(gapRaw),
+    "gap",
+    polishCtx
+  );
+  const recItems = polishEnterpriseFindingItems(
+    normalizeFindingItems(recRaw),
+    "recommendation",
+    polishCtx
+  );
 
   const citations: CitationDraft[] = [];
   const counter = { value: 1 };
@@ -283,6 +307,7 @@ export async function assessControlFromRetrievedChunks(options: {
   const assessment = buildPersistedFromTargetedRow(
     row,
     options.controlId,
+    options.title,
     chunks,
     textByEvidenceId
   );

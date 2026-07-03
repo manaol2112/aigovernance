@@ -20,12 +20,10 @@ import {
   getCorpusForAnalysis,
   retrieveRelevantChunks,
 } from "@/lib/capture-vector-index";
-import {
-  buildEvidenceTextMap,
-  formatSourceCorpusForPrompt,
-  toCaptureSourceDocs,
-  type CaptureSourceDoc,
-} from "@/lib/capture-source-corpus";
+import type { CaptureSource } from "@/lib/capture-sources";
+import { formatCaptureCorpusForPrompt } from "@/lib/capture-sources";
+import type { CaptureSourceDoc } from "@/lib/capture-source-corpus";
+import { buildEvidenceTextMap } from "@/lib/capture-source-corpus";
 import {
   normalizeFindingItems,
   resolveCaptureSectionFallbacks,
@@ -33,10 +31,13 @@ import {
 } from "@/lib/capture-finding-format";
 import { formatFindingSectionWithCitations } from "@/lib/finding-citations";
 import { loadControlRequirementSummaries } from "@/lib/control-requirement-context";
+import {
+  polishAssessmentRowFindings,
+  refineAssessmentRowsWithAI,
+} from "@/lib/finding-enterprise-voice";
 import type { GroundedFact, PersistedControlAssessment } from "@/lib/capture-analysis-types";
 import { persistControlAssessment } from "@/lib/capture-control-persist";
 import { runTargetedControlPass } from "@/lib/capture-targeted-assess";
-import type { TranscriptSource } from "@/lib/transcript-processor";
 
 export type { GroundedFact, PersistedControlAssessment } from "@/lib/capture-analysis-types";
 
@@ -121,10 +122,15 @@ function mergeFacts(existing: GroundedFact[], incoming: GroundedFact[], idPrefix
   return merged;
 }
 
-function normalizeAssessmentRow(row: AssessmentRow): AssessmentRow {
-  const inPlaceRaw = coerceFindingItems(row.inPlaceFindings);
-  const gapRaw = coerceFindingItems(row.gapFindings);
-  const recRaw = coerceFindingItems(row.recommendations);
+function normalizeAssessmentRow(row: AssessmentRow, controlTitle?: string): AssessmentRow {
+  const polished = polishAssessmentRowFindings(row, {
+    controlCode: row.controlCode,
+    controlTitle,
+  });
+
+  const inPlaceRaw = coerceFindingItems(polished.inPlaceFindings);
+  const gapRaw = coerceFindingItems(polished.gapFindings);
+  const recRaw = coerceFindingItems(polished.recommendations);
 
   const inPlaceFindings = normalizeFindingItems(inPlaceRaw);
   const gapFindings = normalizeFindingItems(gapRaw);
@@ -141,13 +147,20 @@ function normalizeAssessmentRow(row: AssessmentRow): AssessmentRow {
           : recommendations;
     const idx = originals.findIndex((o) => o === c.claimText);
     if (idx >= 0 && normalizedItems[idx]) {
-      return { ...c, claimText: normalizedItems[idx] };
+      return { ...c, claimText: normalizedItems[idx]! };
+    }
+    const polishedCite = polished.citations?.find(
+      (pc) => pc.section === c.section && pc.factId === c.factId
+    );
+    if (polishedCite?.claimText) {
+      return { ...c, claimText: polishedCite.claimText };
     }
     return c;
   });
 
   return {
-    ...row,
+    controlCode: row.controlCode,
+    complianceStatus: row.complianceStatus,
     inPlaceFindings,
     gapFindings,
     recommendations,
@@ -160,9 +173,10 @@ function buildAssessmentFromRow(
   controlId: string,
   facts: GroundedFact[],
   factById: Map<string, GroundedFact>,
-  sourceById: Map<string, CaptureSourceDoc>
+  sourceById: Map<string, CaptureSourceDoc>,
+  controlTitle?: string
 ): PersistedControlAssessment {
-  const normalized = normalizeAssessmentRow(row);
+  const normalized = normalizeAssessmentRow(row, controlTitle);
   const inPlaceItems = normalized.inPlaceFindings ?? [];
   const gapItems = normalized.gapFindings ?? [];
   const recItems = normalized.recommendations ?? [];
@@ -251,7 +265,7 @@ async function assessPillarBatch(options: {
     string,
     { frameworkRequirements: string[]; procedureSummary?: string }
   >;
-}): Promise<AssessResponse | null> {
+}): Promise<{ data: AssessResponse | null; extraApiCalls: number }> {
   const assessResult = await callOpenAIJson<AssessResponse>({
     system: CAPTURE_ASSESS_SYSTEM_PROMPT,
     user: buildCaptureAssessUserPrompt({
@@ -273,8 +287,40 @@ async function assessPillarBatch(options: {
     maxTokens: 12_000,
   });
 
-  if (!assessResult.ok) return null;
-  return assessResult.data;
+  if (!assessResult.ok) return { data: null, extraApiCalls: 0 };
+
+  let assessments = assessResult.data.assessments ?? [];
+  let extraApiCalls = 0;
+
+  if (assessments.length > 0) {
+    const titleByCode = new Map(
+      options.pillar.controls.map((c) => [c.code.toUpperCase(), c.title])
+    );
+    assessments = assessments.map((row) =>
+      polishAssessmentRowFindings(row, {
+        controlCode: row.controlCode,
+        controlTitle: titleByCode.get(row.controlCode.toUpperCase()),
+      }) as AssessmentRow
+    );
+
+    const refined = await refineAssessmentRowsWithAI({
+      assessments,
+      factLedgerJson: options.factLedgerJson,
+      pillarLabel: options.pillar.pillarLabel,
+    });
+    if (refined) {
+      assessments = refined.assessments as AssessmentRow[];
+      assessments = assessments.map((row) =>
+        polishAssessmentRowFindings(row, {
+          controlCode: row.controlCode,
+          controlTitle: titleByCode.get(row.controlCode.toUpperCase()),
+        })
+      ) as AssessmentRow[];
+      extraApiCalls += refined.apiCalls;
+    }
+  }
+
+  return { data: { assessments }, extraApiCalls };
 }
 
 async function indexSupplementalPillarFacts(
@@ -312,11 +358,15 @@ async function indexSupplementalPillarFacts(
 
 export async function runCaptureNotebookAnalysis(
   assessmentId: string,
-  sources: TranscriptSource[]
+  sources: CaptureSource[]
 ): Promise<NotebookAnalysisResult> {
-  const sourceDocs = toCaptureSourceDocs(sources);
+  const sourceDocs: CaptureSourceDoc[] = sources.map((s) => ({
+    id: s.id,
+    fileName: s.fileName,
+    text: s.text,
+  }));
   const sourceById = new Map(sourceDocs.map((s) => [s.id, s]));
-  const fullCorpus = formatSourceCorpusForPrompt(sourceDocs);
+  const fullCorpus = formatCaptureCorpusForPrompt(sources);
   const totalChars = sourceDocs.reduce((n, s) => n + s.text.length, 0);
 
   await ensureCaptureIndex(assessmentId);
@@ -408,28 +458,40 @@ export async function runCaptureNotebookAnalysis(
       const chunks = await retrieveRelevantChunks(assessmentId, controlQuery, PILLAR_CHUNK_TOP_K);
       const pillarContext = chunks.length > 0 ? formatChunksForPrompt(chunks) : "";
 
-      const data = await assessPillarBatch({
+      const { data, extraApiCalls } = await assessPillarBatch({
         pillar,
         factLedgerJson,
         pillarContext,
         requirementByCode,
       });
-      return { pillar, data, pillarContext };
+      return { pillar, data, pillarContext, extraApiCalls };
     }
   );
 
   apiCalls += pillarsWithControls.length;
+  apiCalls += pillarResults.reduce((n, r) => n + (r.extraApiCalls ?? 0), 0);
 
   const allAssessments: PersistedControlAssessment[] = [];
 
-  for (const { data } of pillarResults) {
+  for (const { pillar, data } of pillarResults) {
     if (!data?.assessments) continue;
 
     for (const row of data.assessments) {
       const controlId = codeToId.get(row.controlCode.toUpperCase());
       if (!controlId) continue;
 
-      const assessment = buildAssessmentFromRow(row, controlId, facts, factById, sourceById);
+      const controlTitle = pillar.controls.find(
+        (c) => c.code.toUpperCase() === row.controlCode.toUpperCase()
+      )?.title;
+
+      const assessment = buildAssessmentFromRow(
+        row,
+        controlId,
+        facts,
+        factById,
+        sourceById,
+        controlTitle
+      );
       await persistControlAssessment(assessmentId, controlId, {
         workshopNotes: assessment.workshopNotes,
         inPlaceFindings: assessment.inPlaceFindings,

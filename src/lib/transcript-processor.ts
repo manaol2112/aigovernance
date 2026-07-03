@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { buildCaptureAnalysisSummary } from "@/lib/capture-analysis-summary";
 import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
 import { runCaptureNotebookAnalysis } from "@/lib/capture-notebook-analyzer";
-import { isTranscriptEvidence } from "@/lib/transcript-evidence";
+import { getCaptureSources, type CaptureSource } from "@/lib/capture-sources";
 
 export type TranscriptSource = {
   id: string;
@@ -39,18 +39,8 @@ export type TranscriptProcessResult = {
 };
 
 export async function getTranscriptSources(assessmentId: string): Promise<TranscriptSource[]> {
-  const files = await prisma.assessmentEvidence.findMany({
-    where: { assessmentId },
-    orderBy: { uploadedAt: "asc" },
-  });
-
-  return files
-    .filter((f) => isTranscriptEvidence(f.description) && f.extractedText?.trim())
-    .map((f) => ({
-      id: f.id,
-      fileName: f.fileName,
-      text: f.extractedText!.trim(),
-    }));
+  const sources = await getCaptureSources(assessmentId);
+  return sources.map(({ id, fileName, text }) => ({ id, fileName, text }));
 }
 
 function appendFacilitatorAuditTrail(
@@ -87,12 +77,14 @@ export async function processWorkshopTranscripts(
     existingFacilitatorNotes?: string;
   } = {}
 ): Promise<TranscriptProcessResult> {
-  const sources = await getTranscriptSources(assessmentId);
+  const sources = await getCaptureSources(assessmentId);
   if (sources.length === 0) {
     throw new Error(
-      "No readable files found. Upload PDF, TXT, Word (.docx), or JPEG/PNG files with extractable text, then try again."
+      "No readable files found. Upload workshop notes, policies, procedures, or supporting records (PDF, TXT, Word .docx, or images with extractable text), then try again."
     );
   }
+
+  const transcriptSources = sources.map(({ id, fileName, text }) => ({ id, fileName, text }));
 
   const repo = await prisma.assessmentRepository.findUnique({ where: { assessmentId } });
   const existingFacilitator = options.existingFacilitatorNotes ?? repo?.facilitatorNotes ?? "";
@@ -107,7 +99,7 @@ export async function processWorkshopTranscripts(
 
   const facilitatorNotes = appendFacilitatorAuditTrail(
     existingFacilitator,
-    sources,
+    transcriptSources,
     notebook.processingWarnings,
     notebook.topicsNotDiscussed,
     {

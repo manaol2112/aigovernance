@@ -4,6 +4,10 @@ import { CONTROL_ANALYSIS_SYSTEM_PROMPT } from "@/lib/transcript-analysis-prompt
 import { formatRequirementBlockFromControl } from "@/lib/control-requirement-context";
 import { coerceFindingItems, resolveCaptureSectionFallbacks } from "@/lib/capture-finding-format";
 import { formatFindingSectionWithCitations, formatNumberedRecommendations } from "@/lib/finding-citations";
+import {
+  polishEnterpriseFindingItem,
+  polishEnterpriseFindingItems,
+} from "@/lib/finding-enterprise-voice";
 
 export type TextSource = {
   id: string | null;
@@ -227,19 +231,27 @@ export async function analyzeControlGrounded(
   const gapClaims: Array<{ text: string; citationIndex: number | null }> = [];
 
   for (const item of relevantSentences.filter((s) => s.classification === "positive").slice(0, 5)) {
-    const cite = makeCitation("in_place", inPlaceClaims.length, item.sentence, item.source, item.sentence, citationCounter);
+    const claimText = polishEnterpriseFindingItem(item.sentence, "in_place", {
+      controlCode: control.code,
+      controlTitle: control.title,
+    });
+    const cite = makeCitation("in_place", inPlaceClaims.length, claimText, item.source, item.sentence, citationCounter);
     if (cite) {
       citations.push(cite);
-      inPlaceClaims.push({ text: item.sentence, citationIndex: citationCounter });
+      inPlaceClaims.push({ text: claimText, citationIndex: citationCounter });
       citationCounter++;
     }
   }
 
   for (const item of relevantSentences.filter((s) => s.classification === "gap").slice(0, 5)) {
-    const cite = makeCitation("gap", gapClaims.length, item.sentence, item.source, item.sentence, citationCounter);
-    if (cite) {
+    const claimText = polishEnterpriseFindingItem(item.sentence, "gap", {
+      controlCode: control.code,
+      controlTitle: control.title,
+    });
+    const cite = makeCitation("gap", gapClaims.length, claimText, item.source, item.sentence, citationCounter);
+        if (cite) {
       citations.push(cite);
-      gapClaims.push({ text: item.sentence, citationIndex: citationCounter });
+      gapClaims.push({ text: claimText, citationIndex: citationCounter });
       citationCounter++;
     }
   }
@@ -280,7 +292,11 @@ export async function analyzeControlGrounded(
         if (cite) {
           citations.push(cite);
           gapClaims.push({
-            text: `Insufficient workshop evidence to confirm ${control.title} (${control.code}) against framework requirements. Related context: "${fallback.sentence.slice(0, 120)}..."`,
+            text: polishEnterpriseFindingItem(
+              `Gap: Insufficient workshop evidence to confirm ${control.title} (${control.code}) against framework requirements. Basis: Related workshop context indicates the topic was discussed only indirectly — "${fallback.sentence.slice(0, 160)}${fallback.sentence.length > 160 ? "…" : ""}".`,
+              "gap",
+              { controlCode: control.code, controlTitle: control.title }
+            ),
             citationIndex: citationCounter,
           });
           citationCounter++;
@@ -308,12 +324,24 @@ export async function analyzeControlGrounded(
 
   if (complianceStatus === "gap" || complianceStatus === "partial") {
     const recText = gapClaims[0]?.text
-      ? `Address the identified gap for ${control.code} per linked requirements (${reqSummary || "see crosswalk"}).`
-      : `${control.code}: Review alignment with ${control.title} requirement.`;
+      ? polishEnterpriseFindingItem(
+          `Address the identified gap for ${control.code} by formalizing practices described in workshop materials against linked requirements (${reqSummary || "see crosswalk"}).`,
+          "recommendation",
+          { controlCode: control.code, controlTitle: control.title }
+        )
+      : polishEnterpriseFindingItem(
+          `${control.code}: Conduct a focused evidence review to confirm alignment with ${control.title} requirements.`,
+          "recommendation",
+          { controlCode: control.code, controlTitle: control.title }
+        );
     recClaims.push({ text: recText, citationIndex: null });
   } else if (complianceStatus === "aligned") {
     recClaims.push({
-      text: `Maintain ${control.code} and schedule periodic review per linked requirements (${reqSummary || "see crosswalk"}).`,
+      text: polishEnterpriseFindingItem(
+        `Maintain documented evidence for ${control.code} and schedule periodic review against linked requirements (${reqSummary || "see crosswalk"}).`,
+        "recommendation",
+        { controlCode: control.code, controlTitle: control.title }
+      ),
       citationIndex: null,
     });
   }
@@ -445,7 +473,11 @@ Return JSON:
 
     const inPlaceFindings = formatFindingSectionWithCitations({
       section: "in_place",
-      items: parsed.inPlaceFindings,
+      items: polishEnterpriseFindingItems(
+        coerceFindingItems(parsed.inPlaceFindings),
+        "in_place",
+        { controlCode: control.code, controlTitle: control.title }
+      ),
       rawCitations,
       textSources,
       outCitations: citations,
@@ -454,7 +486,11 @@ Return JSON:
 
     const gapFindings = formatFindingSectionWithCitations({
       section: "gap",
-      items: parsed.gapFindings,
+      items: polishEnterpriseFindingItems(
+        coerceFindingItems(parsed.gapFindings),
+        "gap",
+        { controlCode: control.code, controlTitle: control.title }
+      ),
       rawCitations,
       textSources,
       outCitations: citations,
@@ -463,7 +499,11 @@ Return JSON:
 
     const recommendations = formatFindingSectionWithCitations({
       section: "recommendation",
-      items: parsed.recommendations,
+      items: polishEnterpriseFindingItems(
+        coerceFindingItems(parsed.recommendations),
+        "recommendation",
+        { controlCode: control.code, controlTitle: control.title }
+      ),
       rawCitations,
       textSources,
       outCitations: citations,

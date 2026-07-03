@@ -21,8 +21,7 @@ export function resolveEvidencePipelineSteps(input: {
   const uploadDone = readyCount > 0;
   const indexDone = hasIndex;
   const analyzeDone = hasAnalysis && !analysisStale;
-  const reviewActive = analyzeDone && mappedControlCount > 0;
-  const reviewDone = reviewActive; // user completes by going to validation
+  const reviewDone = analyzeDone && mappedControlCount > 0;
 
   const uploadStatus: PipelineStepStatus = uploadDone ? "complete" : "active";
   const indexStatus: PipelineStepStatus = indexDone
@@ -49,7 +48,7 @@ export function resolveEvidencePipelineSteps(input: {
       label: "Upload",
       detail: uploadDone
         ? `${readyCount} source${readyCount === 1 ? "" : "s"} ready`
-        : "Add workshop transcripts",
+        : "Add workshop notes, policies, or records",
       status: uploadStatus,
     },
     {
@@ -62,7 +61,7 @@ export function resolveEvidencePipelineSteps(input: {
       id: "analyze",
       label: "Analyze",
       detail: analyzeDone
-        ? "Controls mapped"
+        ? `${mappedControlCount} control${mappedControlCount === 1 ? "" : "s"} mapped`
         : analysisStale
           ? "Re-analyze recommended"
           : hasAnalysis
@@ -74,10 +73,10 @@ export function resolveEvidencePipelineSteps(input: {
     },
     {
       id: "review_mapping",
-      label: "Review mapping",
+      label: "Mapping",
       detail: mappedControlCount > 0
-        ? `${mappedControlCount} control${mappedControlCount === 1 ? "" : "s"} mapped`
-        : "Verify findings & citations",
+        ? "Findings, gaps & documentation"
+        : "Awaiting analysis",
       status: reviewStatus,
     },
   ];

@@ -8,8 +8,14 @@ import {
   getNotesForDepartment,
   parseDepartmentNotes,
 } from "@/lib/workshop-department";
-import { transcriptEvidenceDescription, isTranscriptEvidence } from "@/lib/transcript-evidence";
+import { classifyEvidenceFile } from "@/lib/evidence-classifier";
 import { indexEvidenceFile } from "@/lib/capture-vector-index";
+import {
+  isControlDocumentationEvidence,
+  isTranscriptEvidence,
+  transcriptEvidenceDescription,
+  type EvidenceKind,
+} from "@/lib/transcript-evidence";
 
 export async function GET(
   request: Request,
@@ -96,6 +102,24 @@ export async function POST(
       (await extractTextFromFileAsync(filePath, mimeType, file.name)) ??
       extractTextFromFile(filePath, mimeType, file.name);
 
+    let finalDescription = description;
+    let evidenceKind: EvidenceKind | null = null;
+
+    if (category === "transcript" || category === "capture") {
+      finalDescription = transcriptEvidenceDescription(file.name);
+      evidenceKind = "workshop_notes";
+    } else if (category === "control_documentation" && description) {
+      finalDescription = description;
+      evidenceKind = "supporting";
+    } else if (!description || !isControlDocumentationEvidence(description)) {
+      const classified = await classifyEvidenceFile({
+        fileName: file.name,
+        textPreview: extractedText ?? "",
+      });
+      finalDescription = classified.description;
+      evidenceKind = classified.kind;
+    }
+
     await prisma.assessmentRepository.upsert({
       where: { assessmentId: id },
       create: { assessmentId: id },
@@ -109,17 +133,14 @@ export async function POST(
         filePath: relativePath,
         mimeType,
         fileSize: buffer.length,
-        description:
-          category === "transcript" || category === "capture"
-            ? transcriptEvidenceDescription(file.name)
-            : description,
+        description: finalDescription,
         extractedText,
         controlCodes,
       },
     });
 
     let indexResult: { chunksIndexed: number } | null = null;
-    if (isTranscriptEvidence(evidence.description) && extractedText?.trim()) {
+    if (extractedText?.trim()) {
       try {
         indexResult = await indexEvidenceFile(id, evidence.id);
       } catch (error) {
@@ -127,7 +148,7 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ ...evidence, indexResult });
+    return NextResponse.json({ ...evidence, evidenceKind, indexResult });
   }
 
   const body = await request.json();

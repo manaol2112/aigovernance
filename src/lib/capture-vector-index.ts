@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { embedQuery, embedTexts } from "@/lib/openai-embeddings";
-import { isTranscriptEvidence } from "@/lib/transcript-evidence";
+import { isAnalyzableEvidence } from "@/lib/transcript-evidence";
 
 export type SourceChunkRecord = {
   id: string;
@@ -113,14 +113,14 @@ export async function getCaptureIndexStats(assessmentId: string): Promise<{
     select: { id: true, description: true, extractedText: true },
   });
 
-  const transcriptSources = sources.filter(
-    (s) => isTranscriptEvidence(s.description) && s.extractedText?.trim()
+  const analyzableSources = sources.filter((s) =>
+    isAnalyzableEvidence(s.description, s.extractedText)
   );
 
   return {
     chunkCount,
-    sourceCount: transcriptSources.length,
-    totalChars: transcriptSources.reduce((n, s) => n + (s.extractedText?.length ?? 0), 0),
+    sourceCount: analyzableSources.length,
+    totalChars: analyzableSources.reduce((n, s) => n + (s.extractedText?.length ?? 0), 0),
     indexReady,
   };
 }
@@ -179,7 +179,7 @@ export async function reindexAllCaptureSources(assessmentId: string): Promise<{
   let chunksIndexed = 0;
 
   for (const file of files) {
-    if (!isTranscriptEvidence(file.description) || !file.extractedText?.trim()) continue;
+    if (!isAnalyzableEvidence(file.description, file.extractedText)) continue;
     const result = await indexEvidenceFile(assessmentId, file.id);
     if (result.chunksIndexed > 0) {
       filesIndexed++;

@@ -29,7 +29,7 @@ import { ControlReviewPanel, type ReviewLeaveGuard } from "@/components/control-
 import { AssessmentReportingPanel } from "@/components/assessment-reporting-panel";
 import { SourceNotebookChatLauncher } from "@/components/source-notebook-chat";
 import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
-import { WORKSHOP_WORKSPACE_PHASES, type WorkshopWorkspacePhaseId } from "@/lib/workshop-workspace-phases";
+import { WORKSHOP_WORKSPACE_PHASES, WORKSPACE_TAB_GROUPS, type WorkshopWorkspacePhaseId } from "@/lib/workshop-workspace-phases";
 import { toast } from "@/components/ui/toast";
 import type { PillarWorkshopGuide } from "@/lib/pillar-workshop-guide";
 import type { DepartmentWorkshopGuide } from "@/lib/department-workshop-guide";
@@ -38,6 +38,10 @@ import { openWorkshopPresenter } from "@/lib/workshop-present-url";
 import type { WorkshopDepartmentOption } from "@/lib/workshop-departments";
 import { EvidenceDrawerProvider } from "@/components/evidence-drawer";
 import { PersonaFocusSwitcher } from "@/components/persona-focus-switcher";
+import { GovernanceMappingPanel } from "@/components/governance-mapping-panel";
+import { GovernanceDependencyGraphView } from "@/components/governance-dependency-graph-view";
+import { GovernanceAssessmentOutputPanel } from "@/components/governance-assessment-output-panel";
+import { GovernanceRoadmapPanel } from "@/components/governance-roadmap-panel";
 
 type EvidenceFile = {
   id: string;
@@ -187,14 +191,15 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
   onProgressChangeRef.current = onProgressChange;
 
   const requestTabChange = useCallback(
-    async (nextTab: WorkshopWorkspacePhaseId) => {
-      if (nextTab === tab) return;
+    async (nextTab: WorkshopWorkspacePhaseId | "evidence_view") => {
+      const normalized = nextTab === "evidence_view" ? "notes" : nextTab;
+      if (normalized === tab) return;
       if (tab === "review" && reviewLeaveGuardRef.current?.hasUnsavedChanges()) {
         const ok = await reviewLeaveGuardRef.current.promptSaveBeforeLeave();
         if (!ok) return;
       }
-      setTab(nextTab);
-      onWorkspaceTabChange?.(nextTab);
+      setTab(normalized);
+      onWorkspaceTabChange?.(normalized);
     },
     [tab, onWorkspaceTabChange]
   );
@@ -326,7 +331,6 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
       for (const file of files) {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("category", "transcript");
         await fetch(`/api/assessments/${assessmentId}/repository`, { method: "POST", body: formData });
       }
       await load();
@@ -515,31 +519,41 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-3 py-2">
         {!hideWorkspacePhaseTabs && (
           <>
-            <div className="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg bg-slate-100 p-0.5">
-              {WORKSPACE_PHASES.map((phase) => (
-                <button
-                  key={phase.id}
-                  type="button"
-                  title={phase.subtitle}
-                  onClick={() => void requestTabChange(phase.id)}
-                  className={`rounded-md px-2.5 py-1.5 text-left transition-all sm:px-3 ${
-                    tab === phase.id
-                      ? "bg-white text-indigo-700 shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  <span className="block text-[11px] font-semibold leading-tight sm:text-xs">
-                    <span className="sm:hidden">{phase.shortLabel}</span>
-                    <span className="hidden sm:inline">{phase.label}</span>
-                  </span>
-                  <span
-                    className={`mt-0.5 hidden text-[10px] font-normal leading-tight xl:block ${
-                      tab === phase.id ? "text-indigo-600/80" : "text-slate-400"
-                    }`}
-                  >
-                    {phase.subtitle}
-                  </span>
-                </button>
+            <div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-slate-100 p-0.5 [scrollbar-width:thin]">
+              {WORKSPACE_TAB_GROUPS.map((group, groupIdx) => (
+                <div key={group.journeyId} className="flex shrink-0 items-center gap-0.5">
+                  {groupIdx > 0 && (
+                    <span className="mx-0.5 hidden h-4 w-px shrink-0 bg-slate-300/80 sm:block" aria-hidden />
+                  )}
+                  {group.tabs.map((tabId) => {
+                    const phase = WORKSPACE_PHASES.find((p) => p.id === tabId)!;
+                    return (
+                      <button
+                        key={phase.id}
+                        type="button"
+                        title={phase.subtitle}
+                        onClick={() => void requestTabChange(phase.id)}
+                        className={`shrink-0 rounded-md px-2.5 py-1.5 text-left transition-all sm:px-3 ${
+                          tab === phase.id
+                            ? "bg-white text-indigo-700 shadow-sm"
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        <span className="block text-[11px] font-semibold leading-tight sm:text-xs">
+                          <span className="sm:hidden">{phase.shortLabel}</span>
+                          <span className="hidden sm:inline">{phase.label}</span>
+                        </span>
+                        <span
+                          className={`mt-0.5 hidden text-[10px] font-normal leading-tight xl:block ${
+                            tab === phase.id ? "text-indigo-600/80" : "text-slate-400"
+                          }`}
+                        >
+                          {phase.subtitle}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               ))}
             </div>
             <div className="hidden h-4 w-px bg-slate-200 sm:block" />
@@ -685,7 +699,7 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
             onClick={() => void requestTabChange("notes")}
             className="h-7 px-2 text-xs text-indigo-600"
           >
-            <span className="hidden sm:inline">Evidence &amp; Analysis</span>
+            <span className="hidden sm:inline">Evidence pipeline</span>
             <span className="sm:hidden">Evidence</span>
             <ArrowRight className="ml-1 h-3 w-3" />
           </Button>
@@ -799,9 +813,21 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
             onUploadFiles={uploadCaptureFiles}
             onDeleteFile={deleteEvidence}
             onAnalyzeAll={analyzeAllCaptureFiles}
-            onGoToReview={() => void requestTabChange("review")}
+            onGoToMapping={() => void requestTabChange("mapping")}
           />
         )}
+
+        {tab === "mapping" && (
+          <GovernanceMappingPanel
+            assessmentId={assessmentId}
+            pillars={pillars}
+            workshopNotes={workshopNotes}
+            facilitatorNotes={facilitatorNotes}
+            evidenceTexts={evidenceTexts}
+          />
+        )}
+
+        {tab === "dependencies" && <GovernanceDependencyGraphView assessmentId={assessmentId} />}
 
         {tab === "review" && (
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -835,6 +861,12 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
             />
           </div>
         )}
+
+        {tab === "assessment_output" && (
+          <GovernanceAssessmentOutputPanel assessmentId={assessmentId} />
+        )}
+
+        {tab === "roadmap" && <GovernanceRoadmapPanel assessmentId={assessmentId} />}
 
         <div
           className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${

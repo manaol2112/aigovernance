@@ -30,11 +30,12 @@ import {
   AssessmentJourneyRail,
 } from "@/components/assessment-journey-rail";
 import {
+  journeyTabForPhase,
+  isWorkspaceMilestone,
   resolveNextAction,
   type JourneyPhaseId,
 } from "@/lib/assessment-journey";
 import {
-  journeyIdToWorkspacePhase,
   type WorkshopWorkspacePhaseId,
 } from "@/lib/workshop-workspace-phases";
 import { toast } from "@/components/ui/toast";
@@ -360,7 +361,9 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
       return;
     }
 
-    const wsTab = journeyIdToWorkspacePhase(phase);
+    const wsTab = isWorkspaceMilestone(phase)
+      ? journeyTabForPhase(phase, workspaceTab)
+      : journeyTabForPhase(phase);
     if (!wsTab) return;
 
     if (!isAnalysisStage(data.workflowStage)) {
@@ -457,13 +460,15 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
         }
       />
 
-      <AssessmentJourneyRail
-        workflowStage={data.workflowStage}
-        workspaceTab={isAnalysisStage(data.workflowStage) ? workspaceTab : undefined}
-        workspaceInitialized={workspaceInitialized || controlProgress.total > 0}
-        disabled={!!actionLoading}
-        onNavigate={(phase) => void navigateJourneyPhase(phase)}
-      />
+      {!isAnalysisStage(data.workflowStage) && (
+        <AssessmentJourneyRail
+          workflowStage={data.workflowStage}
+          workspaceTab={undefined}
+          workspaceInitialized={workspaceInitialized || controlProgress.total > 0}
+          disabled={!!actionLoading}
+          onNavigate={(phase) => void navigateJourneyPhase(phase)}
+        />
+      )}
 
       {/* Active checkpoint — only show when pending and reviewable */}
       {activeCheckpoint && activeCheckpoint.status === "pending" && (
@@ -687,7 +692,6 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
         <ControlReviewWorkspace
           ref={workspaceRef}
           assessmentId={assessmentId}
-          hideWorkspacePhaseTabs
           onWorkspaceTabChange={setWorkspaceTab}
           onWorkspaceMetaChange={handleWorkspaceMetaChange}
           onProgressChange={setControlProgress}

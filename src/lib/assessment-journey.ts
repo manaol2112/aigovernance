@@ -1,24 +1,23 @@
 import { isAnalysisStage } from "@/lib/use-case-types";
-import type { WorkshopWorkspacePhaseId } from "@/lib/workshop-workspace-phases";
 import {
-  journeyIdToWorkspacePhase,
   workspacePhaseToJourneyId,
+  getWorkspacePhase,
+  type WorkshopWorkspacePhaseId,
   type WorkspaceJourneyId,
 } from "@/lib/workshop-workspace-phases";
 
-export type JourneyPhaseId = WorkspaceJourneyId | "scope" | "deliver";
+/** High-level assessment milestones — workspace tabs handle detail navigation. */
+export type JourneyPhaseId = "scope" | "deliver" | WorkspaceJourneyId;
 
 export type JourneyPhaseDef = {
   id: JourneyPhaseId;
   label: string;
   subtitle: string;
-  /** Workflow stages that activate this phase (setup / deliver). */
   workflowStages?: string[];
-  /** Workspace tab when in engagement. */
+  /** Default workspace tab when entering this milestone. */
   workspaceTab?: WorkshopWorkspacePhaseId;
 };
 
-/** Unified assessment journey — single mental model for facilitators and reviewers. */
 export const ASSESSMENT_JOURNEY_PHASES: JourneyPhaseDef[] = [
   {
     id: "scope",
@@ -28,27 +27,27 @@ export const ASSESSMENT_JOURNEY_PHASES: JourneyPhaseDef[] = [
   },
   {
     id: "facilitate",
-    label: "Facilitate",
-    subtitle: "Workshop session guides",
+    label: "Workshop",
+    subtitle: "Facilitation and live capture",
     workspaceTab: "workshop",
   },
   {
     id: "evidence",
     label: "Evidence",
-    subtitle: "Upload sources and run analysis",
+    subtitle: "Upload, analyze, and map sources",
     workspaceTab: "notes",
   },
   {
     id: "validate",
     label: "Validate",
-    subtitle: "Confirm findings and sign off",
-    workspaceTab: "review",
+    subtitle: "Mapping, dependencies, and sign-off",
+    workspaceTab: "mapping",
   },
   {
     id: "preview",
-    label: "Preview",
-    subtitle: "Review outputs before delivery",
-    workspaceTab: "reporting",
+    label: "Intelligence",
+    subtitle: "Scores, roadmap, and deliverable preview",
+    workspaceTab: "assessment_output",
   },
   {
     id: "deliver",
@@ -61,6 +60,17 @@ export const ASSESSMENT_JOURNEY_PHASES: JourneyPhaseDef[] = [
 const SCOPE_STAGES = new Set(["client_setup", "use_cases", "requirement_scoping"]);
 const DELIVER_STAGES = new Set(["deliverables", "finalized"]);
 
+const WORKSPACE_MILESTONES = new Set<WorkspaceJourneyId>([
+  "facilitate",
+  "evidence",
+  "validate",
+  "preview",
+]);
+
+export function isWorkspaceMilestone(id: JourneyPhaseId): id is WorkspaceJourneyId {
+  return WORKSPACE_MILESTONES.has(id as WorkspaceJourneyId);
+}
+
 export function getJourneyPhase(id: JourneyPhaseId): JourneyPhaseDef {
   return ASSESSMENT_JOURNEY_PHASES.find((p) => p.id === id)!;
 }
@@ -71,7 +81,7 @@ export function resolveActiveJourneyPhase(
 ): JourneyPhaseId {
   if (DELIVER_STAGES.has(workflowStage)) return "deliver";
   if (isAnalysisStage(workflowStage)) {
-    return workspaceTab ? workspacePhaseToJourneyId(workspaceTab) : "facilitate";
+    return workspacePhaseToJourneyId(workspaceTab ?? "workshop");
   }
   if (SCOPE_STAGES.has(workflowStage)) return "scope";
   return "scope";
@@ -79,6 +89,17 @@ export function resolveActiveJourneyPhase(
 
 export function journeyPhaseIndex(id: JourneyPhaseId): number {
   return ASSESSMENT_JOURNEY_PHASES.findIndex((p) => p.id === id);
+}
+
+export function journeyTabForPhase(
+  phase: JourneyPhaseId,
+  currentTab?: WorkshopWorkspacePhaseId
+): WorkshopWorkspacePhaseId | null {
+  if (phase === "scope" || phase === "deliver") return null;
+  if (currentTab && workspacePhaseToJourneyId(currentTab) === phase) {
+    return currentTab;
+  }
+  return getJourneyPhase(phase).workspaceTab ?? null;
 }
 
 export function isJourneyPhaseReachable(
@@ -127,6 +148,23 @@ export type NextAction = {
   workspaceTab?: WorkshopWorkspacePhaseId;
 };
 
+const TAB_FLOW: WorkshopWorkspacePhaseId[] = [
+  "workshop",
+  "notes",
+  "mapping",
+  "dependencies",
+  "review",
+  "assessment_output",
+  "roadmap",
+  "reporting",
+];
+
+function nextTabInFlow(current: WorkshopWorkspacePhaseId): WorkshopWorkspacePhaseId | null {
+  const idx = TAB_FLOW.indexOf(current);
+  if (idx < 0 || idx >= TAB_FLOW.length - 1) return null;
+  return TAB_FLOW[idx + 1];
+}
+
 export function resolveNextAction(ctx: NextActionContext): NextAction {
   const { workflowStage } = ctx;
 
@@ -172,9 +210,10 @@ export function resolveNextAction(ctx: NextActionContext): NextAction {
     }
     if (workflowStage === "requirement_scoping" && ctx.scopingCheckpointStatus === "approved") {
       return {
-        label: "Prepare assessment workspace",
-        hint: "Initialize controls for workshop, evidence, and validation.",
+        label: "Open assessment workspace",
+        hint: "Initialize controls and start the governance intelligence workflow.",
         journeyPhase: "facilitate",
+        workspaceTab: "workshop",
       };
     }
     return {
@@ -194,41 +233,70 @@ export function resolveNextAction(ctx: NextActionContext): NextAction {
       };
     }
 
-    if (ctx.workspaceTab === "workshop" || !ctx.workspaceTab) {
+    const tab = ctx.workspaceTab ?? "workshop";
+
+    if (tab === "workshop") {
       return {
-        label: "Run workshop session",
-        hint: "Use facilitation guides, then upload notes in Evidence.",
-        journeyPhase: "facilitate",
-        workspaceTab: "workshop",
+        label: "Upload capture sources",
+        hint: "After facilitation, upload transcripts in Evidence.",
+        journeyPhase: "evidence",
+        workspaceTab: "notes",
       };
     }
 
-    if (ctx.workspaceTab === "notes") {
+    if (tab === "notes") {
       if (ctx.analysisStale) {
         return {
           label: "Re-run governance analysis",
-          hint: "Sources changed since the last analysis run.",
+          hint: "Sources changed — re-analyze to refresh control mappings.",
           journeyPhase: "evidence",
           workspaceTab: "notes",
         };
       }
       if (!ctx.hasAnalysis) {
         return {
-          label: "Upload sources and analyze",
-          hint: "Add workshop transcripts, then run governance analysis.",
+          label: "Upload and analyze sources",
+          hint: "Run governance analysis to map sources to controls with citations.",
           journeyPhase: "evidence",
           workspaceTab: "notes",
         };
       }
       return {
         label: "Review control mapping",
-        hint: "Confirm evidence mapped to controls, then proceed to validation.",
-        journeyPhase: "evidence",
-        workspaceTab: "notes",
+        hint: "Confirm evidence-to-control traceability and confidence scores.",
+        journeyPhase: "validate",
+        workspaceTab: "mapping",
       };
     }
 
-    if (ctx.workspaceTab === "review") {
+    if (tab === "mapping") {
+      return {
+        label: "Review dependencies",
+        hint: "See blocked controls and unlock paths in the dependency graph.",
+        journeyPhase: "validate",
+        workspaceTab: "dependencies",
+      };
+    }
+
+    if (tab === "dependencies") {
+      if (ctx.controlProgress.total > 0 && ctx.controlProgress.confirmed < ctx.controlProgress.total) {
+        const remaining = ctx.controlProgress.total - ctx.controlProgress.confirmed;
+        return {
+          label: `Sign off ${remaining} control${remaining === 1 ? "" : "s"}`,
+          hint: `${ctx.controlProgress.confirmed} of ${ctx.controlProgress.total} validated.`,
+          journeyPhase: "validate",
+          workspaceTab: "review",
+        };
+      }
+      return {
+        label: "Validate controls",
+        hint: "Reviewer sign-off and disagreement tracking.",
+        journeyPhase: "validate",
+        workspaceTab: "review",
+      };
+    }
+
+    if (tab === "review") {
       if (ctx.controlProgress.total > 0 && ctx.controlProgress.confirmed < ctx.controlProgress.total) {
         const remaining = ctx.controlProgress.total - ctx.controlProgress.confirmed;
         return {
@@ -239,18 +307,47 @@ export function resolveNextAction(ctx: NextActionContext): NextAction {
         };
       }
       return {
-        label: "Preview reports",
-        hint: "Review executive outputs before proceeding to client package.",
+        label: "Run intelligence pipeline",
+        hint: "Generate multi-dimensional scores and ROI-ranked roadmap.",
+        journeyPhase: "preview",
+        workspaceTab: "assessment_output",
+      };
+    }
+
+    if (tab === "assessment_output") {
+      return {
+        label: "Review prioritized roadmap",
+        hint: "Dependency-aware initiatives ranked by governance ROI.",
+        journeyPhase: "preview",
+        workspaceTab: "roadmap",
+      };
+    }
+
+    if (tab === "roadmap") {
+      return {
+        label: "Preview deliverables",
+        hint: "Review executive outputs before client package.",
         journeyPhase: "preview",
         workspaceTab: "reporting",
       };
     }
 
-    if (ctx.workspaceTab === "reporting") {
+    if (tab === "reporting") {
       return {
         label: "Proceed to client package",
-        hint: "Move to formal deliverables when validation is complete.",
+        hint: "Move to formal deliverables when ready.",
         journeyPhase: "deliver",
+      };
+    }
+
+    const next = nextTabInFlow(tab);
+    if (next) {
+      const phase = getWorkspacePhase(next);
+      return {
+        label: `Continue to ${phase.label}`,
+        hint: phase.subtitle,
+        journeyPhase: workspacePhaseToJourneyId(next),
+        workspaceTab: next,
       };
     }
   }

@@ -378,3 +378,79 @@ export function CitationReferenceBar({
     </div>
   );
 }
+
+type CitedFindingBlockProps = {
+  title: string;
+  content: string;
+  citations: Citation[];
+  section: "in_place" | "gap" | "recommendation";
+  activeCitation: number | null;
+  onCitationClick: (index: number) => void;
+  tone: "positive" | "warning" | "action";
+};
+
+export function CitedFindingBlock({
+  title,
+  content,
+  citations,
+  section,
+  activeCitation,
+  onCitationClick,
+  tone,
+}: CitedFindingBlockProps) {
+  const styles = {
+    positive: { ring: "ring-emerald-100", bg: "bg-emerald-50/40", label: "text-emerald-800", dot: "bg-emerald-500" },
+    warning: { ring: "ring-amber-100", bg: "bg-amber-50/40", label: "text-amber-900", dot: "bg-amber-500" },
+    action: { ring: "ring-indigo-100", bg: "bg-indigo-50/35", label: "text-indigo-900", dot: "bg-indigo-500" },
+  }[tone];
+
+  const sectionCitations = citations.filter((c) => c.section === section);
+
+  if (!content.trim()) return null;
+
+  return (
+    <div className={`rounded-xl p-4 ring-1 ${styles.ring} ${styles.bg}`}>
+      <div className="mb-2 flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
+        <p className={`text-xs font-semibold uppercase tracking-wide ${styles.label}`}>{title}</p>
+        {sectionCitations.length > 0 && (
+          <span className="ml-auto text-[10px] font-medium text-slate-500">
+            {sectionCitations.length} source{sectionCitations.length === 1 ? "" : "s"}
+          </span>
+        )}
+      </div>
+      <CitedAnalysis
+        text={content}
+        citations={sectionCitations}
+        activeCitation={activeCitation}
+        onCitationClick={onCitationClick}
+        className="text-sm leading-relaxed text-slate-800"
+      />
+      {sectionCitations.length > 0 && !content.includes("[{") ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {sectionCitations.map((cite) => (
+            <button
+              key={cite.citationIndex}
+              type="button"
+              onClick={() => onCitationClick(cite.citationIndex)}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-all ${
+                activeCitation === cite.citationIndex
+                  ? "border-indigo-300 bg-indigo-50 text-indigo-800"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200"
+              }`}
+            >
+              <span className="font-bold text-indigo-600">[{cite.citationIndex}]</span>
+              <span className="max-w-[140px] truncate">
+                {cite.sourceLabel.replace(/^Transcript:\s*/i, "")}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : content.trim().length > 0 && !content.includes("[{") && sectionCitations.length === 0 ? (
+        <p className="mt-2 text-xs text-amber-700">
+          No source citations linked — re-run analysis or verify in Validate before relying on this finding.
+        </p>
+      ) : null}
+    </div>
+  );
+}

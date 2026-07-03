@@ -4,15 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowRight,
-  BookOpen,
   CheckCircle2,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
   FileImage,
   FileText,
   FolderOpen,
-  Layers,
+  GitCompare,
   Loader2,
   MessageCircle,
   Sparkles,
@@ -21,203 +19,17 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CitedAnalysis, CitationReferenceBar, SourceEvidenceDialog, type Citation } from "@/components/cited-analysis";
 import { EvidencePipelineStepper } from "@/components/evidence-pipeline-stepper";
-import { openSharedEvidenceCitation, useEvidenceDrawer } from "@/components/evidence-drawer";
 import { SourceNotebookChatLauncher } from "@/components/source-notebook-chat";
 import { FollowUpQuestionsExportButton } from "@/components/follow-up-questions-export-button";
-import { isTranscriptEvidence } from "@/lib/transcript-evidence";
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import { evidenceKindLabel } from "@/lib/evidence-classifier";
+import { isAnalyzableEvidence, parseEvidenceKind } from "@/lib/transcript-evidence";
 import type { EvidencePipelineStepId } from "@/lib/evidence-pipeline";
-import type { CaptureAnalysisSummary, ControlMappingEntry } from "@/lib/capture-analysis-types";
+import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
 
 const ACCEPT =
   ".pdf,.txt,.docx,.jpeg,.jpg,.png,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png";
 const ACCEPT_LABEL = "PDF, TXT, Word (.docx), JPEG/PNG";
-
-const STATUS_COLORS: Record<string, string> = {
-  aligned: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  partial: "bg-amber-100 text-amber-800 border-amber-200",
-  gap: "bg-red-100 text-red-800 border-red-200",
-  not_assessed: "bg-slate-100 text-slate-600 border-slate-200",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  aligned: "Aligned",
-  partial: "Partial",
-  gap: "Gap",
-  not_assessed: "Not assessed",
-};
-
-type PillarGroup = {
-  pillarId: string;
-  pillarLabel: string;
-  pillarDescription: string;
-  pillarIndex: number;
-  controls: ControlMappingEntry[];
-  statusCounts: Record<ControlMappingEntry["complianceStatus"], number>;
-};
-
-const PILLAR_ORDER = new Map(RISK_PILLARS.map((p, i) => [p.id, i]));
-const PILLAR_BY_ID = new Map(RISK_PILLARS.map((p) => [p.id, p]));
-const PILLAR_BY_LABEL = new Map(RISK_PILLARS.map((p) => [p.label, p]));
-
-function buildPillarGroups(mappings: ControlMappingEntry[]): PillarGroup[] {
-  const map = new Map<string, ControlMappingEntry[]>();
-  for (const m of mappings) {
-    const key = m.pillarId || m.pillarLabel;
-    const list = map.get(key) ?? [];
-    list.push(m);
-    map.set(key, list);
-  }
-
-  const groups: PillarGroup[] = [];
-  for (const [key, controls] of map) {
-    const sample = controls[0];
-    const def = PILLAR_BY_ID.get(sample.pillarId) ?? PILLAR_BY_LABEL.get(sample.pillarLabel);
-    const statusCounts: PillarGroup["statusCounts"] = {
-      aligned: 0,
-      partial: 0,
-      gap: 0,
-      not_assessed: 0,
-    };
-    for (const c of controls) {
-      statusCounts[c.complianceStatus] += 1;
-    }
-    groups.push({
-      pillarId: def?.id ?? sample.pillarId ?? key,
-      pillarLabel: def?.label ?? sample.pillarLabel,
-      pillarDescription: def?.description ?? "",
-      pillarIndex: PILLAR_ORDER.get(def?.id ?? sample.pillarId) ?? 999,
-      controls: controls.sort((a, b) => a.controlCode.localeCompare(b.controlCode)),
-      statusCounts,
-    });
-  }
-
-  return groups.sort((a, b) => a.pillarIndex - b.pillarIndex || a.pillarLabel.localeCompare(b.pillarLabel));
-}
-
-function PillarControlNavigator({
-  pillarGroups,
-  selectedControlId,
-  expandedPillars,
-  onTogglePillar,
-  onSelectControl,
-}: {
-  pillarGroups: PillarGroup[];
-  selectedControlId: string | null;
-  expandedPillars: Set<string>;
-  onTogglePillar: (pillarId: string) => void;
-  onSelectControl: (ctrl: ControlMappingEntry) => void;
-}) {
-  return (
-    <div className="max-h-[560px] space-y-2 overflow-y-auto p-2">
-      {pillarGroups.map((group, idx) => {
-        const expanded = expandedPillars.has(group.pillarId);
-        const hasSelected = group.controls.some((c) => c.controlId === selectedControlId);
-
-        return (
-          <div
-            key={group.pillarId}
-            className={`overflow-hidden rounded-xl border bg-white shadow-sm ${
-              hasSelected ? "border-indigo-200 ring-1 ring-indigo-100" : "border-slate-200/80"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => onTogglePillar(group.pillarId)}
-              className="flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-slate-50/80"
-            >
-              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-bold text-indigo-700">
-                {idx + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold leading-snug text-slate-900">{group.pillarLabel}</p>
-                  {expanded ? (
-                    <ChevronUp className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                  )}
-                </div>
-                {group.pillarDescription && (
-                  <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
-                    {group.pillarDescription}
-                  </p>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                    {group.controls.length} control{group.controls.length === 1 ? "" : "s"}
-                  </span>
-                  {group.statusCounts.aligned > 0 && (
-                    <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                      {group.statusCounts.aligned} aligned
-                    </span>
-                  )}
-                  {group.statusCounts.partial > 0 && (
-                    <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
-                      {group.statusCounts.partial} partial
-                    </span>
-                  )}
-                  {group.statusCounts.gap > 0 && (
-                    <span className="rounded-md bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-700">
-                      {group.statusCounts.gap} gap
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-
-            {expanded && (
-              <div className="space-y-0.5 border-t border-slate-100 bg-slate-50/40 p-2">
-                {group.controls.map((ctrl) => {
-                  const selected = selectedControlId === ctrl.controlId;
-                  return (
-                    <button
-                      key={ctrl.controlId}
-                      type="button"
-                      onClick={() => onSelectControl(ctrl)}
-                      className={`flex w-full flex-col rounded-lg px-3 py-2.5 text-left transition-all ${
-                        selected
-                          ? "bg-indigo-600 text-white shadow-md"
-                          : "bg-white text-slate-700 hover:shadow-sm"
-                      }`}
-                    >
-                      <span
-                        className={`font-mono text-[11px] font-bold ${
-                          selected ? "text-indigo-100" : "text-indigo-600"
-                        }`}
-                      >
-                        {ctrl.controlCode}
-                      </span>
-                      <span
-                        className={`mt-0.5 line-clamp-2 text-xs leading-snug ${
-                          selected ? "text-indigo-50" : "text-slate-600"
-                        }`}
-                      >
-                        {ctrl.controlTitle}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={`mt-2 w-fit text-[9px] ${
-                          selected
-                            ? "border-white/30 bg-white/10 text-white"
-                            : STATUS_COLORS[ctrl.complianceStatus] ?? ""
-                        }`}
-                      >
-                        {STATUS_LABELS[ctrl.complianceStatus]}
-                      </Badge>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 type EvidenceFile = {
   id: string;
@@ -238,7 +50,7 @@ type Props = {
   onUploadFiles: (files: File[]) => void | Promise<void>;
   onDeleteFile: (evidenceId: string) => void | Promise<void>;
   onAnalyzeAll: () => void | Promise<void>;
-  onGoToReview: () => void;
+  onGoToMapping: () => void;
 };
 
 type IndexStats = { chunkCount: number; sourceCount: number; totalChars: number };
@@ -283,62 +95,64 @@ function SectionHeader({
   );
 }
 
-function CitedFindingBlock({
-  title,
-  content,
-  citations,
-  section,
-  activeCitation,
-  onCitationClick,
-  tone,
+function AnalysisCompleteCard({
+  summary,
+  onOpenMapping,
 }: {
-  title: string;
-  content: string;
-  citations: Citation[];
-  section: "in_place" | "gap" | "recommendation";
-  activeCitation: number | null;
-  onCitationClick: (index: number) => void;
-  tone: "positive" | "warning" | "action";
+  summary: CaptureAnalysisSummary;
+  onOpenMapping: () => void;
 }) {
-  const styles = {
-    positive: { ring: "ring-emerald-100", bg: "bg-emerald-50/40", label: "text-emerald-800", dot: "bg-emerald-500" },
-    warning: { ring: "ring-amber-100", bg: "bg-amber-50/40", label: "text-amber-900", dot: "bg-amber-500" },
-    action: { ring: "ring-indigo-100", bg: "bg-indigo-50/35", label: "text-indigo-900", dot: "bg-indigo-500" },
-  }[tone];
-
-  const sectionCitations = citations.filter((c) => c.section === section);
+  const counts = { aligned: 0, partial: 0, gap: 0, not_assessed: 0 };
+  for (const m of summary.mappings) {
+    counts[m.complianceStatus] += 1;
+  }
 
   return (
-    <div className={`rounded-xl p-4 ring-1 ${styles.ring} ${styles.bg}`}>
-      <div className="mb-2 flex items-center gap-2">
-        <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
-        <p className={`text-xs font-semibold uppercase tracking-wide ${styles.label}`}>{title}</p>
-        {sectionCitations.length > 0 && (
-          <span className="ml-auto text-[10px] font-medium text-slate-500">
-            {sectionCitations.length} source{sectionCitations.length === 1 ? "" : "s"}
-          </span>
-        )}
+    <section
+      id="pipeline-mapping-cta"
+      className="overflow-hidden rounded-2xl border border-emerald-200/80 bg-white shadow-sm scroll-mt-6"
+    >
+      <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50/90 to-white px-6 py-5">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+                Analysis complete
+              </p>
+              <h3 className="mt-0.5 text-lg font-semibold text-slate-900">Sources mapped to controls</h3>
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">{summary.summary}</p>
+            </div>
+          </div>
+          <Button onClick={onOpenMapping} className="shrink-0 gap-2 bg-indigo-600 hover:bg-indigo-700">
+            <GitCompare className="h-4 w-4" />
+            Open traceability mapping
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            { label: "Files processed", value: summary.filesProcessed },
+            { label: "Controls mapped", value: summary.controlsMapped },
+            { label: "Aligned", value: counts.aligned },
+            { label: "Partial / gap", value: counts.partial + counts.gap },
+            { label: "Not discussed", value: summary.topicsNotDiscussed.length },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl border border-slate-100 bg-white px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{s.label}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{s.value}</p>
+            </div>
+          ))}
+        </div>
       </div>
-      <CitedAnalysis
-        text={content}
-        citations={sectionCitations}
-        activeCitation={activeCitation}
-        onCitationClick={onCitationClick}
-        className="text-[15px] leading-relaxed text-slate-800"
-      />
-      {sectionCitations.length > 0 ? (
-        <CitationReferenceBar
-          citations={sectionCitations}
-          activeCitation={activeCitation}
-          onCitationClick={onCitationClick}
-          className="mt-3"
-        />
-      ) : content.trim().length > 0 && !content.includes("[{") ? (
-        <p className="mt-2 text-xs text-amber-700">
-          No source citations linked for this section — re-run analysis or verify evidence coverage.
-        </p>
-      ) : null}
-    </div>
+
+      <div className="px-6 py-4 text-sm text-slate-600">
+        Review findings, citation links, and traceability scores in the{" "}
+        <strong className="font-medium text-slate-800">Mapping</strong> tab — not here. Evidence stays focused on
+        uploading sources and running analysis.
+      </div>
+    </section>
   );
 }
 
@@ -392,27 +206,20 @@ export function WorkshopCaptureWorkspace({
   onUploadFiles,
   onDeleteFile,
   onAnalyzeAll,
-  onGoToReview,
+  onGoToMapping,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [selectedControlId, setSelectedControlId] = useState<string | null>(null);
   const [indexStats, setIndexStats] = useState<IndexStats>({ chunkCount: 0, sourceCount: 0, totalChars: 0 });
-  const [traceSelection, setTraceSelection] = useState<{
-    controlId: string;
-    citationIndex: number;
-  } | null>(null);
-  const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [expandedPillars, setExpandedPillars] = useState<Set<string>>(new Set());
-  const evidenceDrawer = useEvidenceDrawer();
 
   const captureFiles = useMemo(
-    () => evidence.filter((f) => isTranscriptEvidence(f.description)),
+    () => evidence.filter((f) => isAnalyzableEvidence(f.description, f.extractedText)),
     [evidence]
   );
+  const allFiles = evidence;
   const readyCount = captureFiles.filter((f) => f.extractedText?.trim()).length;
   const isAnalyzing = saving === "transcripts";
   const isUploading = saving === "uploading";
@@ -450,11 +257,6 @@ export function WorkshopCaptureWorkspace({
     refreshIndexStats();
   }, [refreshIndexStats, evidence.length, saving]);
 
-  useEffect(() => {
-    if (!analysisSummary?.mappings.length) return;
-    setSelectedControlId((prev) => prev ?? analysisSummary.mappings[0].controlId);
-  }, [analysisSummary]);
-
   const evidenceTexts = useMemo(() => {
     const map: Record<string, { fileName: string; text: string }> = {};
     for (const f of captureFiles) {
@@ -462,27 +264,6 @@ export function WorkshopCaptureWorkspace({
     }
     return map;
   }, [captureFiles]);
-
-  const pillarGroups = useMemo(
-    () => (analysisSummary ? buildPillarGroups(analysisSummary.mappings) : []),
-    [analysisSummary]
-  );
-
-  useEffect(() => {
-    if (pillarGroups.length === 0) return;
-    setExpandedPillars((prev) => {
-      if (prev.size > 0) return prev;
-      return new Set(pillarGroups.map((g) => g.pillarId));
-    });
-  }, [pillarGroups]);
-
-  useEffect(() => {
-    if (!selectedControlId || pillarGroups.length === 0) return;
-    const group = pillarGroups.find((g) => g.controls.some((c) => c.controlId === selectedControlId));
-    if (group) {
-      setExpandedPillars((prev) => new Set([...prev, group.pillarId]));
-    }
-  }, [selectedControlId, pillarGroups]);
 
   const mappedControlCount = analysisSummary?.controlsMapped ?? analysisSummary?.mappings.length ?? 0;
 
@@ -501,38 +282,10 @@ export function WorkshopCaptureWorkspace({
         scrollToPipelineSection(isResultsMode ? "pipeline-analyze-results" : "pipeline-analyze");
         break;
       case "review_mapping":
-        scrollToPipelineSection("pipeline-review");
-        if (analysisSummary?.mappings[0]) {
-          selectControl(analysisSummary.mappings[0]);
-        }
+        onGoToMapping();
         break;
     }
   }
-
-  function togglePillar(pillarId: string) {
-    setExpandedPillars((prev) => {
-      const next = new Set(prev);
-      if (next.has(pillarId)) next.delete(pillarId);
-      else next.add(pillarId);
-      return next;
-    });
-  }
-
-  const selectedPillarGroup = useMemo(
-    () => pillarGroups.find((g) => g.controls.some((c) => c.controlId === selectedControlId)) ?? null,
-    [pillarGroups, selectedControlId]
-  );
-
-  const selectedControl = useMemo(
-    () => analysisSummary?.mappings.find((m) => m.controlId === selectedControlId) ?? null,
-    [analysisSummary, selectedControlId]
-  );
-
-  const activeCitationObj = useMemo((): Citation | null => {
-    if (!traceSelection || !analysisSummary) return null;
-    const ctrl = analysisSummary.mappings.find((m) => m.controlId === traceSelection.controlId);
-    return ctrl?.citations.find((c) => c.citationIndex === traceSelection.citationIndex) ?? null;
-  }, [traceSelection, analysisSummary]);
 
   const handleFiles = useCallback(
     async (list: FileList | File[]) => {
@@ -551,22 +304,6 @@ export function WorkshopCaptureWorkspace({
     },
     [handleFiles]
   );
-
-  function selectControl(ctrl: ControlMappingEntry) {
-    setSelectedControlId(ctrl.controlId);
-    setTraceSelection(null);
-    setEvidenceDialogOpen(false);
-  }
-
-  function openControlCitation(controlId: string, citationIndex: number) {
-    setTraceSelection({ controlId, citationIndex });
-    if (!analysisSummary) return;
-    const ctrl = analysisSummary.mappings.find((m) => m.controlId === controlId);
-    const cite = ctrl?.citations.find((c) => c.citationIndex === citationIndex) ?? null;
-    if (!openSharedEvidenceCitation(evidenceDrawer, cite)) {
-      setEvidenceDialogOpen(true);
-    }
-  }
 
   const sourcesPanelContent = (
     <>
@@ -611,7 +348,10 @@ export function WorkshopCaptureWorkspace({
             <Upload className="h-6 w-6 text-indigo-600" />
           )}
         </div>
-        <p className="mt-3 text-sm font-semibold text-slate-800">Add more files</p>
+          <p className="mt-3 text-sm font-semibold text-slate-800">Drop files or click to upload</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Workshop transcripts, policies, procedures, audit records — AI classifies each file on upload
+          </p>
         <input
           ref={inputRef}
           type="file"
@@ -625,20 +365,22 @@ export function WorkshopCaptureWorkspace({
         />
       </div>
 
-      {captureFiles.length > 0 && (
+      {allFiles.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-slate-200">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">File</th>
+                <th className="hidden px-4 py-3 sm:table-cell">Type</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Size</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {captureFiles.map((file) => {
+              {allFiles.map((file) => {
                 const indexed = Boolean(file.extractedText?.trim());
+                const kind = parseEvidenceKind(file.description ?? null);
                 return (
                   <tr key={file.id} className="hover:bg-slate-50/80">
                     <td className="px-4 py-3">
@@ -646,6 +388,15 @@ export function WorkshopCaptureWorkspace({
                         {fileIcon(file.fileName)}
                         <span className="font-medium text-slate-800">{file.fileName}</span>
                       </div>
+                    </td>
+                    <td className="hidden px-4 py-3 sm:table-cell">
+                      {kind ? (
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          {evidenceKindLabel(kind)}
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="hidden px-4 py-3 text-slate-500 sm:table-cell">{formatBytes(file.fileSize)}</td>
                     <td className="px-4 py-3">
@@ -693,7 +444,7 @@ export function WorkshopCaptureWorkspace({
       <SectionHeader
         step="1"
         title="Source library"
-        description={`Upload workshop transcripts and supporting files. Accepted: ${ACCEPT_LABEL}. Text is extracted and vector-indexed on upload.`}
+        description={`Upload workshop notes, policies, procedures, and supporting records. Accepted: ${ACCEPT_LABEL}. Files are classified, text-extracted, and indexed on upload.`}
         icon={<Upload className="h-5 w-5" />}
       />
       <div className="p-6">{sourcesPanelContent}</div>
@@ -798,14 +549,14 @@ export function WorkshopCaptureWorkspace({
       <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Evidence &amp; Analysis</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Evidence pipeline</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-              {isResultsMode ? "Control findings & source notebook" : "Upload sources & map controls"}
+              {isResultsMode ? "Analysis complete" : "Upload sources & analyze"}
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               {isResultsMode
-                ? "Validate control findings below, then open Validation to sign off. Use the chat button to query sources with cited evidence."
-                : "Upload workshop transcripts, query indexed sources, then run governance analysis with full evidence traceability."}
+                ? "Sources are mapped to controls. Open Mapping to review findings, citations, and traceability scores."
+                : "Upload workshop transcripts, run governance analysis, then review traceability in the Mapping tab."}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -825,9 +576,9 @@ export function WorkshopCaptureWorkspace({
                 Analyzed {analyzedLabel}
               </span>
             )}
-            {analysisSummary && (
-              <Button onClick={onGoToReview} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
-                Continue to Validation
+            {isResultsMode && analysisSummary && (
+              <Button onClick={onGoToMapping} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+                Open Mapping
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}
@@ -889,221 +640,9 @@ export function WorkshopCaptureWorkspace({
               )}
 
               <div className="space-y-5">
-                  <section
-                    id="pipeline-review"
-                    className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm scroll-mt-6"
-                  >
-                    <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-50/80 to-white px-6 py-5">
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="flex items-start gap-3">
-                          <CheckCircle2 className="mt-0.5 h-6 w-6 text-emerald-600" />
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
-                              Control mapping results
-                            </p>
-                            <h3 className="mt-0.5 text-lg font-semibold text-slate-900">Workshop analysis</h3>
-                            <p className="mt-1 max-w-3xl text-sm text-slate-600">{analysisSummary.summary}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        {[
-                          { label: "Files", value: analysisSummary.filesProcessed },
-                          { label: "Controls", value: analysisSummary.controlsMapped },
-                          { label: "Risk pillars", value: pillarGroups.length },
-                          { label: "Not discussed", value: analysisSummary.topicsNotDiscussed.length },
-                        ].map((s) => (
-                          <div key={s.label} className="rounded-xl border border-slate-100 bg-white px-4 py-3">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{s.label}</p>
-                            <p className="mt-1 text-2xl font-bold text-slate-900">{s.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {pillarGroups.length > 0 && (
-                        <div className="mt-4 border-t border-emerald-100/80 pt-4">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800/70">
-                            Risk pillars in this analysis
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {pillarGroups.map((g) => (
-                              <button
-                                key={g.pillarId}
-                                type="button"
-                                onClick={() => {
-                                  setExpandedPillars((prev) => new Set([...prev, g.pillarId]));
-                                  if (g.controls[0]) selectControl(g.controls[0]);
-                                }}
-                                className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-emerald-900 transition-colors hover:bg-emerald-50"
-                              >
-                                {g.pillarLabel}
-                                <span className="ml-1.5 text-emerald-600/70">({g.controls.length})</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                <AnalysisCompleteCard summary={analysisSummary} onOpenMapping={onGoToMapping} />
 
-                    <div className="grid min-h-[640px] lg:grid-cols-12">
-                      <aside className="border-b border-slate-100 bg-slate-50/50 lg:col-span-4 lg:border-b-0 lg:border-r">
-                        <div className="sticky top-0 border-b border-slate-100 bg-slate-50/90 px-4 py-3 backdrop-blur-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              <Layers className="h-3.5 w-3.5" />
-                              Risk pillars & controls
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedPillars(
-                                  expandedPillars.size === pillarGroups.length
-                                    ? new Set()
-                                    : new Set(pillarGroups.map((g) => g.pillarId))
-                                )
-                              }
-                              className="text-[10px] font-medium text-indigo-600 hover:text-indigo-800"
-                            >
-                              {expandedPillars.size === pillarGroups.length ? "Collapse all" : "Expand all"}
-                            </button>
-                          </div>
-                          <p className="mt-1 text-[11px] text-slate-400">
-                            {pillarGroups.length} pillar{pillarGroups.length === 1 ? "" : "s"} ·{" "}
-                            {analysisSummary.controlsMapped} controls assessed
-                          </p>
-                        </div>
-                        <PillarControlNavigator
-                          pillarGroups={pillarGroups}
-                          selectedControlId={selectedControlId}
-                          expandedPillars={expandedPillars}
-                          onTogglePillar={togglePillar}
-                          onSelectControl={selectControl}
-                        />
-                      </aside>
-
-                      <div className="lg:col-span-8">
-                        <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur-sm">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            <BookOpen className="h-3.5 w-3.5" />
-                            Control assessment
-                          </div>
-                        </div>
-                        <div className="p-5">
-                          {selectedControl ? (
-                            <div className="space-y-4">
-                              <div>
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                  <div>
-                                    {selectedPillarGroup && (
-                                      <div className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
-                                          Risk pillar
-                                        </p>
-                                        <p className="mt-0.5 text-sm font-semibold text-indigo-950">
-                                          {selectedPillarGroup.pillarLabel}
-                                        </p>
-                                        {selectedPillarGroup.pillarDescription && (
-                                          <p className="mt-1 text-xs leading-relaxed text-indigo-900/70">
-                                            {selectedPillarGroup.pillarDescription}
-                                          </p>
-                                        )}
-                                      </div>
-                                    )}
-                                    <span className="font-mono text-sm font-bold text-indigo-700">
-                                      {selectedControl.controlCode}
-                                    </span>
-                                    <h4 className="mt-1 text-lg font-semibold text-slate-900">
-                                      {selectedControl.controlTitle}
-                                    </h4>
-                                  </div>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-xs uppercase ${STATUS_COLORS[selectedControl.complianceStatus] ?? ""}`}
-                                  >
-                                    {STATUS_LABELS[selectedControl.complianceStatus]}
-                                  </Badge>
-                                </div>
-                                {selectedControl.controlDescription && (
-                                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-4">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                      Control requirement
-                                    </p>
-                                    <p className="mt-2 text-sm leading-relaxed text-slate-700">
-                                      {selectedControl.controlDescription}
-                                    </p>
-                                  </div>
-                                )}
-                                {selectedControl.sourceFiles.length > 0 && (
-                                  <div className="mt-3 flex flex-wrap gap-1.5">
-                                    {selectedControl.sourceFiles.map((f) => (
-                                      <Badge key={f} variant="outline" className="text-[10px] font-normal">
-                                        {f}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              <CitedFindingBlock
-                                title="In place"
-                                content={selectedControl.inPlaceFindings}
-                                section="in_place"
-                                citations={selectedControl.citations}
-                                activeCitation={
-                                  traceSelection?.controlId === selectedControl.controlId
-                                    ? traceSelection.citationIndex
-                                    : null
-                                }
-                                onCitationClick={(index) =>
-                                  openControlCitation(selectedControl.controlId, index)
-                                }
-                                tone="positive"
-                              />
-                              <CitedFindingBlock
-                                title="Gaps"
-                                content={selectedControl.gapFindings}
-                                section="gap"
-                                citations={selectedControl.citations}
-                                activeCitation={
-                                  traceSelection?.controlId === selectedControl.controlId
-                                    ? traceSelection.citationIndex
-                                    : null
-                                }
-                                onCitationClick={(index) =>
-                                  openControlCitation(selectedControl.controlId, index)
-                                }
-                                tone="warning"
-                              />
-                              <CitedFindingBlock
-                                title="Recommendations"
-                                content={selectedControl.recommendations}
-                                section="recommendation"
-                                citations={selectedControl.citations}
-                                activeCitation={
-                                  traceSelection?.controlId === selectedControl.controlId
-                                    ? traceSelection.citationIndex
-                                    : null
-                                }
-                                onCitationClick={(index) =>
-                                  openControlCitation(selectedControl.controlId, index)
-                                }
-                                tone="action"
-                              />
-
-                              <p className="text-xs text-slate-400">
-                                Click any citation number to open source evidence in a pop-up.
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="py-12 text-center text-sm text-slate-500">
-                              Select a control from the list to view its assessment.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {analysisSummary.topicsNotDiscussed.length > 0 && (
+                {analysisSummary.topicsNotDiscussed.length > 0 && (
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                       <h4 className="text-sm font-semibold text-slate-800">Not yet covered in uploaded sources</h4>
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -1194,17 +733,6 @@ export function WorkshopCaptureWorkspace({
                 </div>
               )}
             </div>
-          )}
-
-          {!evidenceDrawer && (
-            <SourceEvidenceDialog
-              open={evidenceDialogOpen}
-              onOpenChange={setEvidenceDialogOpen}
-              citation={activeCitationObj}
-              workshopNotes=""
-              facilitatorNotes=""
-              evidenceTexts={evidenceTexts}
-            />
           )}
 
           <SourceNotebookChatLauncher

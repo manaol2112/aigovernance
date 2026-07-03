@@ -34,10 +34,10 @@ export function AssessmentJourneyRail({
 
   return (
     <nav
-      className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+      className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm [scrollbar-width:thin]"
       aria-label="Assessment journey"
     >
-      <ol className="flex min-w-max gap-1">
+      <ol className="flex min-w-max gap-0.5">
         {ASSESSMENT_JOURNEY_PHASES.map((phase, i) => {
           const isActive = phase.id === active;
           const isPast = i < activeIdx;
@@ -56,7 +56,7 @@ export function AssessmentJourneyRail({
                 title={phase.subtitle}
                 onClick={() => reachable && onNavigate(phase.id)}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-all sm:px-4",
+                  "flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all sm:px-3",
                   isActive && "bg-slate-900 text-white shadow-sm",
                   !isActive && isPast && reachable && "bg-emerald-50 text-emerald-900 hover:bg-emerald-100",
                   !isActive && !isPast && reachable && "text-slate-600 hover:bg-slate-50",
