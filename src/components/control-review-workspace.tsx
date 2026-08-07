@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/refs, react-hooks/set-state-in-effect */
 
 import {
   forwardRef,
@@ -17,19 +18,18 @@ import {
   Loader2,
   Maximize2,
   MessageCircle,
-  Sparkles,
+  Presentation,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PillarWorkshopGuidePanel, DepartmentWorkshopGuidePanel } from "@/components/pillar-workshop-guide";
 import { WorkshopCaptureWorkspace } from "@/components/workshop-capture-workspace";
-import { ControlReviewPanel, type ReviewLeaveGuard } from "@/components/control-review-panel";
+import { ControlReviewWorkpaperPanel, type ReviewLeaveGuard } from "@/components/control-review-workpaper-panel";
 import { AssessmentReportingPanel } from "@/components/assessment-reporting-panel";
 import { SourceNotebookChatLauncher } from "@/components/source-notebook-chat";
 import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
 import { WORKSHOP_WORKSPACE_PHASES, WORKSPACE_TAB_GROUPS, type WorkshopWorkspacePhaseId } from "@/lib/workshop-workspace-phases";
+import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 import type { PillarWorkshopGuide } from "@/lib/pillar-workshop-guide";
 import type { DepartmentWorkshopGuide } from "@/lib/department-workshop-guide";
@@ -37,11 +37,16 @@ import { ALL_DEPARTMENTS } from "@/lib/workshop-department";
 import { openWorkshopPresenter } from "@/lib/workshop-present-url";
 import type { WorkshopDepartmentOption } from "@/lib/workshop-departments";
 import { EvidenceDrawerProvider } from "@/components/evidence-drawer";
-import { PersonaFocusSwitcher } from "@/components/persona-focus-switcher";
 import { GovernanceMappingPanel } from "@/components/governance-mapping-panel";
 import { GovernanceDependencyGraphView } from "@/components/governance-dependency-graph-view";
 import { GovernanceAssessmentOutputPanel } from "@/components/governance-assessment-output-panel";
 import { GovernanceRoadmapPanel } from "@/components/governance-roadmap-panel";
+import type {
+  WorkpaperContentRecord,
+  WorkpaperFieldStateRecord,
+  WorkpaperReviewNoteThread,
+} from "@/lib/control-review-workpaper";
+import type { ExplainabilityPayload } from "@/lib/governance-v2/types";
 
 type EvidenceFile = {
   id: string;
@@ -85,6 +90,10 @@ type ControlEval = {
   confirmedBy: string | null;
   confirmedAt: string | null;
   reviewerNotes: string | null;
+  explainability?: ExplainabilityPayload | null;
+  workpaperContent: WorkpaperContentRecord;
+  workpaperFieldState?: WorkpaperFieldStateRecord;
+  updatedAt?: string;
   control: { code: string; title: string; controlType: string; ownerRole: string };
   citations: Array<{
     id: string;
@@ -97,6 +106,15 @@ type ControlEval = {
     excerpt: string;
     startOffset: number;
     endOffset: number;
+  }>;
+  reviewNotes: WorkpaperReviewNoteThread[];
+  disagreements: Array<{
+    id: string;
+    status: string;
+    mismatchReason: string | null;
+    disputedField: string | null;
+    reviewerOverride: string | null;
+    createdAt: string;
   }>;
 };
 
@@ -117,12 +135,14 @@ type Props = {
   onProceedToDeliverables?: (confirmedBy: string) => Promise<void>;
   proceedLoading?: boolean;
   hideWorkspacePhaseTabs?: boolean;
+  activeWorkspaceTab?: WorkshopWorkspacePhaseId;
   onWorkspaceTabChange?: (tab: WorkshopWorkspacePhaseId) => void;
   onWorkspaceMetaChange?: (meta: {
     initialized: boolean;
     analysisStale: boolean;
     hasAnalysis: boolean;
   }) => void;
+  className?: string;
 };
 
 export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, Props>(
@@ -138,8 +158,10 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
       onProceedToDeliverables,
       proceedLoading = false,
       hideWorkspacePhaseTabs = false,
+      activeWorkspaceTab,
       onWorkspaceTabChange,
       onWorkspaceMetaChange,
+      className,
     },
     ref
   ) {
@@ -176,7 +198,6 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
   const [facilitatorDepartment, setFacilitatorDepartment] = useState<string>("");
   const [selectedDepartment, setSelectedDepartment] = useState(ALL_DEPARTMENTS);
   const [departmentOptions, setDepartmentOptions] = useState<WorkshopDepartmentOption[]>([]);
-  const [useCaseCountByDepartment, setUseCaseCountByDepartment] = useState<Record<string, number>>({});
   const [exportLoading, setExportLoading] = useState<"current" | "all" | null>(null);
   const reviewLeaveGuardRef = useRef<ReviewLeaveGuard | null>(null);
   const onWorkspaceMetaChangeRef = useRef(onWorkspaceMetaChange);
@@ -205,6 +226,11 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
   );
 
   useImperativeHandle(ref, () => ({ navigateToTab: requestTabChange }), [requestTabChange]);
+
+  useEffect(() => {
+    if (!activeWorkspaceTab || activeWorkspaceTab === tab) return;
+    void requestTabChange(activeWorkspaceTab);
+  }, [activeWorkspaceTab, tab, requestTabChange]);
 
   useEffect(() => {
     const meta = {
@@ -253,7 +279,6 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
     setPillars(review.pillars ?? []);
     setEvaluations(review.evaluations ?? []);
     setDepartmentOptions(review.departmentOptions ?? []);
-    setUseCaseCountByDepartment(review.useCaseCountByDepartment ?? {});
     setAnalysisSummary(capture.analysisSummary ?? null);
     setAnalysisStale(Boolean(capture.analysisStale));
     setLastAnalyzedAt(capture.lastAnalyzedAt ?? null);
@@ -514,8 +539,14 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
       facilitatorNotes={facilitatorNotes}
       evidenceTexts={evidenceTexts}
     >
-    <div className="flex h-[calc(100dvh-11.5rem)] min-h-[420px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      {/* Compact toolbar */}
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm",
+        className
+      )}
+    >
+      {/* Compact toolbar — workshop tab uses its own header shell */}
+      {tab !== "workshop" && (
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-3 py-2">
         {!hideWorkspacePhaseTabs && (
           <>
@@ -587,17 +618,6 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
         )}
 
         <div className="flex-1" />
-
-        {hideWorkspacePhaseTabs && (
-          <PersonaFocusSwitcher
-            activeTab={tab}
-            onSelectTab={(next) => void requestTabChange(next)}
-          />
-        )}
-
-        {hideWorkspacePhaseTabs && departmentOptions.length > 0 && (
-          <div className="hidden h-4 w-px bg-slate-200 sm:block" />
-        )}
 
         {departmentOptions.length > 0 && (
           <select
@@ -691,7 +711,7 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
           </>
         )}
 
-        {tab === "workshop" && (
+        {!hideWorkspacePhaseTabs && tab === "workshop" && (
           <Button
             type="button"
             size="sm"
@@ -718,6 +738,7 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
           </Button>
         )}
       </div>
+      )}
 
       {/* Secondary stats — hidden on Workshop tab to maximize question space */}
       {tab !== "workshop" && (
@@ -732,71 +753,262 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
       {/* Tab content */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {tab === "workshop" && (
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <aside className="flex w-[188px] shrink-0 flex-col border-r border-slate-100 bg-slate-50/60">
-              <p className="shrink-0 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                {runbookMode === "pillar" ? "Pillars" : "Department"}
-              </p>
-              <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1.5 pb-2">
-                {runbookMode === "pillar"
-                  ? pillars.map((pillar) => (
-                      <button
-                        key={pillar.pillarId}
-                        type="button"
-                        onClick={() => selectPillar(pillar.pillarId)}
-                        className={`flex w-full flex-col rounded-md px-2.5 py-2 text-left transition-all ${
-                          activePillarId === pillar.pillarId
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-700 hover:bg-white"
-                        }`}
-                      >
-                        <span className="text-[11px] font-semibold leading-snug">{pillar.pillarLabel}</span>
-                        <span
-                          className={`mt-0.5 text-[10px] ${
-                            activePillarId === pillar.pillarId ? "text-indigo-200" : "text-slate-400"
-                          }`}
-                        >
-                          {pillar.requirementCount} reqs
-                        </span>
-                      </button>
-                    ))
-                  : departmentOptions.map((dept) => (
-                      <button
-                        key={dept.id}
-                        type="button"
-                        onClick={() => {
-                          setFacilitatorDepartment(dept.label);
-                          setActiveSubPillarId(null);
-                        }}
-                        className={`flex w-full rounded-md px-2.5 py-2 text-left text-[11px] font-semibold leading-snug transition-all ${
-                          facilitatorDepartment === dept.label
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-700 hover:bg-white"
-                        }`}
-                        title={dept.description}
-                      >
-                        {dept.label}
-                      </button>
-                    ))}
-              </nav>
-            </aside>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f6f7f9]">
+            <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">
+                    Assessment workspace
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+                    Workshop facilitation
+                  </h2>
+                  <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                    Run stakeholder sessions by risk pillar or department. Use the presenter view for
+                    live facilitation, then move to Evidence when the session is complete.
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() =>
+                      openWorkshopPresenter(assessmentId, {
+                        mode: runbookMode,
+                        pillarId: activePillarId,
+                        facilitatorDepartment,
+                        department: selectedDepartment,
+                        subPillarId: activeSubPillarId,
+                      })
+                    }
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    Presenter
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!!exportLoading}
+                    onClick={() => downloadWorkshopExport("current")}
+                    className="gap-1.5"
+                  >
+                    {exportLoading === "current" ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    Export
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!!exportLoading}
+                    onClick={() => downloadWorkshopExport("all")}
+                  >
+                    Full guide
+                  </Button>
+                  {!hideWorkspacePhaseTabs && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void requestTabChange("notes")}
+                      className="gap-1.5 bg-indigo-600 hover:bg-indigo-700"
+                    >
+                      Evidence pipeline
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-              {runbookMode === "pillar" ? (
-                <PillarWorkshopGuidePanel
-                  guide={pillarGuide}
-                  loading={pillarGuideLoading}
-                  activeSubPillarId={activeSubPillarId}
-                  onSubPillarSelect={selectSubPillar}
-                />
-              ) : (
-                <DepartmentWorkshopGuidePanel
-                  guide={departmentGuide}
-                  loading={departmentGuideLoading}
-                  activeSubPillarId={activeSubPillarId}
-                  onSubPillarSelect={selectSubPillar}
-                />
-              )}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                  {([
+                    ["pillar", "By pillar", Layers],
+                    ["department", "By department", Users],
+                  ] as const).map(([mode, label, Icon]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setRunbookMode(mode);
+                        setActiveSubPillarId(null);
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                        runbookMode === mode
+                          ? "bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200"
+                          : "text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {departmentOptions.length > 0 && (
+                  <select
+                    id="workshop-scope"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm"
+                    value={selectedDepartment}
+                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    title="Data scope"
+                  >
+                    <option value={ALL_DEPARTMENTS}>All organization</option>
+                    {departmentOptions.some((d) => d.fromScopedControls) && (
+                      <optgroup label="In scope">
+                        {departmentOptions
+                          .filter((d) => d.fromScopedControls)
+                          .map((dept) => (
+                            <option key={dept.id} value={dept.label}>
+                              {dept.label}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Stakeholders">
+                      {departmentOptions
+                        .filter((d) => !d.fromScopedControls)
+                        .map((dept) => (
+                          <option key={dept.id} value={dept.label}>
+                            {dept.label}
+                          </option>
+                        ))}
+                    </optgroup>
+                  </select>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm">
+                  <span className="font-semibold text-slate-900">{stats.confirmed}</span>
+                  <span className="text-slate-400">/</span>
+                  <span>{stats.total} validated</span>
+                  <div className="ml-1 h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full bg-indigo-600 transition-all"
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-hidden p-5 sm:p-6">
+              <div className="flex h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <aside className="flex w-[17rem] shrink-0 flex-col border-r border-slate-200/80 bg-white">
+                  <div className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-indigo-50/40 to-white px-4 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                        <Presentation className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-600">
+                          {runbookMode === "pillar" ? "Risk pillars" : "Stakeholders"}
+                        </p>
+                        <p className="text-xs font-medium text-slate-700">
+                          {runbookMode === "pillar"
+                            ? `${pillars.length} in scope`
+                            : `${departmentOptions.length} groups`}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                      {runbookMode === "pillar"
+                        ? "Select a pillar to open its facilitation runbook."
+                        : "Select a department for targeted questions."}
+                    </p>
+                  </div>
+                  <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50/30 p-3 [scrollbar-width:thin]">
+                    {runbookMode === "pillar"
+                      ? pillars.map((pillar, idx) => {
+                          const active = activePillarId === pillar.pillarId;
+                          return (
+                            <button
+                              key={pillar.pillarId}
+                              type="button"
+                              onClick={() => selectPillar(pillar.pillarId)}
+                              className={cn(
+                                "relative flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-all",
+                                active
+                                  ? "border-indigo-200 bg-white shadow-sm ring-1 ring-indigo-100"
+                                  : "border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-sm"
+                              )}
+                            >
+                              {active && (
+                                <span className="absolute bottom-2 left-0 top-2 w-1 rounded-r-full bg-indigo-600" />
+                              )}
+                              <span
+                                className={cn(
+                                  "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold",
+                                  active
+                                    ? "bg-indigo-600 text-white shadow-sm"
+                                    : "bg-indigo-50 text-indigo-700"
+                                )}
+                              >
+                                {idx + 1}
+                              </span>
+                              <span className="min-w-0 flex-1 pl-1">
+                                <span className="block text-xs font-semibold leading-snug text-slate-900">
+                                  {pillar.pillarLabel}
+                                </span>
+                                <span className="mt-1 block text-[10px] text-slate-500">
+                                  {pillar.requirementCount} requirement
+                                  {pillar.requirementCount !== 1 ? "s" : ""}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })
+                      : departmentOptions.map((dept) => {
+                          const active = facilitatorDepartment === dept.label;
+                          return (
+                            <button
+                              key={dept.id}
+                              type="button"
+                              onClick={() => {
+                                setFacilitatorDepartment(dept.label);
+                                setActiveSubPillarId(null);
+                              }}
+                              className={cn(
+                                "relative w-full rounded-xl border px-3 py-3 text-left text-xs font-semibold leading-snug transition-all",
+                                active
+                                  ? "border-indigo-200 bg-white text-indigo-950 shadow-sm ring-1 ring-indigo-100"
+                                  : "border-slate-200/80 bg-white text-slate-700 hover:border-slate-300 hover:shadow-sm"
+                              )}
+                              title={dept.description}
+                            >
+                              {active && (
+                                <span className="absolute bottom-2 left-0 top-2 w-1 rounded-r-full bg-indigo-600" />
+                              )}
+                              <span className="block pl-2">{dept.label}</span>
+                            </button>
+                          );
+                        })}
+                  </nav>
+                </aside>
+
+                <div className="min-h-0 flex-1 overflow-y-auto bg-[#f6f7f9]">
+                  {runbookMode === "pillar" ? (
+                    <PillarWorkshopGuidePanel
+                      guide={pillarGuide}
+                      loading={pillarGuideLoading}
+                      activeSubPillarId={activeSubPillarId}
+                      onSubPillarSelect={selectSubPillar}
+                    />
+                  ) : (
+                    <DepartmentWorkshopGuidePanel
+                      guide={departmentGuide}
+                      loading={departmentGuideLoading}
+                      activeSubPillarId={activeSubPillarId}
+                      onSubPillarSelect={selectSubPillar}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -831,7 +1043,7 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
 
         {tab === "review" && (
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <ControlReviewPanel
+            <ControlReviewWorkpaperPanel
               assessmentId={assessmentId}
               pillars={pillars}
               evaluations={evaluations}

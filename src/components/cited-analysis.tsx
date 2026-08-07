@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Link2 } from "lucide-react";
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export type Citation = {
   id: string;
@@ -154,6 +155,16 @@ export function SourceTracePanel({
   className = "",
   minHeight = "min-h-[420px]",
 }: SourceTracePanelProps) {
+  const highlightRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!citation) return;
+    const frame = window.requestAnimationFrame(() => {
+      highlightRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [citation?.id, citation?.citationIndex, citation?.startOffset, citation?.endOffset]);
+
   if (!citation) {
     return (
       <div
@@ -187,7 +198,11 @@ export function SourceTracePanel({
 
   return (
     <div
-      className={`flex ${minHeight} flex-col overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-b from-indigo-50/60 to-white shadow-lg shadow-indigo-100/40 ${className}`}
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-b from-indigo-50/60 to-white shadow-lg shadow-indigo-100/40",
+        minHeight,
+        className
+      )}
     >
       <div className="shrink-0 border-b border-indigo-100/80 bg-white/70 px-5 py-4 backdrop-blur-sm">
         <div className="flex items-start gap-3">
@@ -221,7 +236,7 @@ export function SourceTracePanel({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-5">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-5">
         <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <FileText className="h-3.5 w-3.5 shrink-0 text-slate-500" />
@@ -232,9 +247,12 @@ export function SourceTracePanel({
               </span>
             )}
           </div>
-          <div className="font-mono text-sm leading-[1.75] text-slate-700">
+          <div className="font-mono text-sm leading-[1.75] break-words text-slate-700">
             {before && <span className="text-slate-400">{before}</span>}
-            <mark className="rounded-sm bg-amber-200/90 px-1 py-0.5 font-semibold text-slate-900">
+            <mark
+              ref={highlightRef}
+              className="rounded-sm bg-amber-200/90 px-1 py-0.5 font-semibold text-slate-900"
+            >
               {highlighted || citation.excerpt}
             </mark>
             {after && <span className="text-slate-400">{after}</span>}
@@ -275,7 +293,10 @@ export function SourceEvidenceDialog({
 }: SourceEvidenceDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90vh,820px)]">
+      <DialogContent
+        className="z-[60] max-h-[min(90vh,820px)]"
+        overlayClassName="z-[60]"
+      >
         <DialogHeader>
           <DialogTitle>Source evidence</DialogTitle>
           <DialogDescription>
@@ -288,8 +309,8 @@ export function SourceEvidenceDialog({
             workshopNotes={workshopNotes}
             facilitatorNotes={facilitatorNotes}
             evidenceTexts={evidenceTexts}
-            minHeight="min-h-[min(60vh,520px)]"
-            className="h-full"
+            minHeight="min-h-0"
+            className="h-full min-h-0"
           />
         </div>
       </DialogContent>

@@ -15,12 +15,18 @@ export async function GET(_req: Request, context: RouteContext) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
+  const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
+
   if (body.action === "seed_defaults") {
     const count = await seedDefaultControlDependencies();
     return NextResponse.json({ seeded: count });
   }
-  const { id } = await context.params;
+
+  if (body.action === "rebuild") {
+    await seedDefaultControlDependencies();
+  }
+
   const graph = await buildDependencyGraph(id);
   return NextResponse.json({ graph });
 }

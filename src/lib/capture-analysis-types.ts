@@ -51,6 +51,46 @@ export type ControlMappingEntry = {
   citations: CaptureCitation[];
 };
 
+export type CaptureSourceReviewStatus =
+  | "cited_in_findings"
+  | "reviewed_not_cited"
+  | "not_surfaced";
+
+export type CaptureSecondPassFinding = {
+  sourceId: string;
+  fileName: string;
+  concern: string;
+  candidateControlCodes: string[];
+  confidence: "low" | "medium" | "high";
+  rationale: string;
+};
+
+export type CaptureSourceAudit = {
+  sourceId: string;
+  fileName: string;
+  kind: "workshop_notes" | "policy" | "procedure" | "record" | "supporting";
+  charCount: number;
+  factCount: number;
+  citationCount: number;
+  status: CaptureSourceReviewStatus;
+  controlsReviewed: string[];
+  controlsCited: string[];
+  reviewNote: string;
+  spotCheckRecommended: boolean;
+};
+
+export type CaptureAnalysisAudit = {
+  analyzedSourceCount: number;
+  citedSourceCount: number;
+  underReviewedSourceCount: number;
+  controlsInScopeCount: number;
+  controlsAssessedCount: number;
+  controlsNotAssessed: string[];
+  secondPassSummary: string;
+  sourceAudits: CaptureSourceAudit[];
+  secondPassFindings: CaptureSecondPassFinding[];
+};
+
 export type CaptureAnalysisSummary = {
   summary: string;
   filesProcessed: number;
@@ -61,4 +101,5 @@ export type CaptureAnalysisSummary = {
   unmappedSentences: number;
   warnings: string[];
   mappings: ControlMappingEntry[];
+  auditTrail?: CaptureAnalysisAudit | null;
 };

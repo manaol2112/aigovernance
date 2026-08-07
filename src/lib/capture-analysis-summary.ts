@@ -5,7 +5,11 @@ import { rehydrateEvaluationFindings } from "@/lib/finding-citations";
 import { toCaptureSourceDocs } from "@/lib/capture-source-corpus";
 import { getTranscriptSources } from "@/lib/transcript-processor";
 import type { TranscriptExtractionItem } from "@/lib/transcript-processor";
-import type { CaptureAnalysisSummary, ControlMappingEntry } from "@/lib/capture-analysis-types";
+import type {
+  CaptureAnalysisAudit,
+  CaptureAnalysisSummary,
+  ControlMappingEntry,
+} from "@/lib/capture-analysis-types";
 
 export type { CaptureAnalysisSummary, ControlMappingEntry };
 
@@ -70,6 +74,7 @@ export async function buildCaptureAnalysisSummary(
     topicsNotDiscussed: string[];
     warnings: string[];
     unmappedSentences: number;
+    auditTrail?: CaptureAnalysisAudit | null;
   }
 ): Promise<CaptureAnalysisSummary> {
   const tree = await getPillarControlTreeForAssessment(assessmentId);
@@ -214,5 +219,6 @@ export async function buildCaptureAnalysisSummary(
       (a, b) =>
         a.pillarLabel.localeCompare(b.pillarLabel) || a.controlCode.localeCompare(b.controlCode)
     ),
+    auditTrail: options.auditTrail ?? null,
   };
 }

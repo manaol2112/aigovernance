@@ -3,6 +3,7 @@ import { isMalformedFindingText } from "@/lib/capture-finding-format";
 export type ValidationQueueReason =
   | "not_assessed"
   | "missing_analysis"
+  | "open_notes"
   | "needs_revision"
   | "gap"
   | "partial"
@@ -17,11 +18,13 @@ export type ValidationQueueItem = {
   priority: number;
   complianceStatus: string;
   evalStatus: string;
+  openReviewNotes?: number;
 };
 
 export const VALIDATION_QUEUE_REASON_LABELS: Record<ValidationQueueReason, string> = {
   not_assessed: "Not assessed",
   missing_analysis: "Missing analysis",
+  open_notes: "Open notes",
   needs_revision: "Needs revision",
   gap: "Gap finding",
   partial: "Partial alignment",
@@ -35,6 +38,7 @@ type EvalInput = {
   gapFindings: string;
   recommendations: string;
   aiGenerated: boolean;
+  openReviewNotes?: number;
 };
 
 type ControlInput = {
@@ -56,6 +60,10 @@ function hasUsableFindings(ev: EvalInput): boolean {
 
 function queuePriority(ev: EvalInput): { reason: ValidationQueueReason; priority: number } | null {
   if (ev.status === "human_confirmed") return null;
+
+  if ((ev.openReviewNotes ?? 0) > 0) {
+    return { reason: "open_notes", priority: 18 };
+  }
 
   if (ev.status === "rejected") {
     return { reason: "needs_revision", priority: 20 };
@@ -110,6 +118,7 @@ export function buildValidationQueue(
         priority: 5,
         complianceStatus: "not_assessed",
         evalStatus: "pending",
+        openReviewNotes: 0,
       });
       continue;
     }
@@ -126,6 +135,7 @@ export function buildValidationQueue(
       priority: scored.priority,
       complianceStatus: ev.complianceStatus,
       evalStatus: ev.status,
+      openReviewNotes: ev.openReviewNotes ?? 0,
     });
   }
 

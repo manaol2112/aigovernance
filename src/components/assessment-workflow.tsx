@@ -1,43 +1,55 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Bot,
   CheckCircle2,
   Loader2,
-  Lock,
   Plus,
   Shield,
-  Trash2,
   AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FrameworkScopeNotice } from "@/components/framework-scope-notice";
 import { Badge } from "@/components/ui/badge";
-import { USE_CASE_TYPES, getUseCaseTypeDef, isAnalysisStage } from "@/lib/use-case-types";
+import { isAnalysisStage, displayStepIndex } from "@/lib/use-case-types";
 import {
   ControlReviewWorkspace,
   type ControlReviewWorkspaceHandle,
 } from "@/components/control-review-workspace";
 import { AssessmentReportingPanel } from "@/components/assessment-reporting-panel";
-import { DepartmentSelect } from "@/components/department-select";
-import { titleCase } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { WorkshopDepartmentOption } from "@/lib/workshop-departments-catalog";
 import { getDepartmentsForFrameworks } from "@/lib/workshop-departments-catalog";
 import { DeleteAssessmentButton } from "@/components/delete-assessment-button";
+import { GovernanceReadinessSelector } from "@/components/governance-readiness-selector";
+import { UseCaseIntakeCard } from "@/components/use-case-intake-card";
+import { UseCaseRegistryRow } from "@/components/use-case-registry-row";
+import {
+  createEmptyUseCaseDraft,
+  useCaseIntakeToPayload,
+  validateUseCaseIntake,
+  type UseCaseIntakeDraft,
+  type UseCaseIntakeMode,
+} from "@/lib/use-case-intake";
 import {
   AssessmentEngagementHeader,
-  AssessmentJourneyRail,
 } from "@/components/assessment-journey-rail";
 import {
-  journeyTabForPhase,
-  isWorkspaceMilestone,
-  resolveNextAction,
-  type JourneyPhaseId,
-} from "@/lib/assessment-journey";
+  AssessmentPhaseNav,
+  getPhaseFocusCopy,
+  type ScopeSectionId,
+} from "@/components/assessment-phase-nav";
 import {
-  type WorkshopWorkspacePhaseId,
-} from "@/lib/workshop-workspace-phases";
+  canAdvanceScopeStage,
+  resolveScopeSectionForStage,
+  scopeAdvanceBlocker,
+  scopeSectionIndex,
+  scopeSectionToStage,
+} from "@/lib/assessment-scope-navigation";
+import type { WorkshopWorkspacePhaseId } from "@/lib/workshop-workspace-phases";
 import { toast } from "@/components/ui/toast";
 
 type Checkpoint = {
@@ -55,7 +67,13 @@ type UseCaseRow = {
   description?: string;
   useCaseType: string;
   department?: string | null;
+  businessOwner?: string | null;
+  vendor?: string | null;
   riskTier?: string | null;
+  actorRole?: string | null;
+  deploymentStage?: string | null;
+  autonomyLevel?: string | null;
+  regions?: string[];
   _count: { scopedRequirements: number; pillarWorkshopResponses: number };
 };
 
@@ -104,9 +122,6 @@ const STAGE_EXIT_CHECKPOINT: Record<string, string> = {
   deliverables: "deliverable_approval",
 };
 
-const SCOPE_STAGES = new Set(["client_setup", "use_cases", "requirement_scoping"]);
-const DELIVER_STAGES = new Set(["deliverables", "finalized"]);
-
 export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
   const [data, setData] = useState<AssessmentData | null>(null);
   const [controlProgress, setControlProgress] = useState({ confirmed: 0, total: 0 });
@@ -114,22 +129,17 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
   const [reviewerName, setReviewerName] = useState("");
-  const [newUseCase, setNewUseCase] = useState({
-    name: "",
-    description: "",
-    useCaseType: "client_facing_product",
-    department: "",
-  });
+  const [newUseCase, setNewUseCase] = useState<UseCaseIntakeDraft>(createEmptyUseCaseDraft());
+  const [useCaseIntakeMode, setUseCaseIntakeMode] = useState<UseCaseIntakeMode>("discovery");
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [departmentOptions, setDepartmentOptions] = useState<WorkshopDepartmentOption[]>([]);
   const [workspaceTab, setWorkspaceTab] = useState<WorkshopWorkspacePhaseId>("workshop");
+  const [scopeSection, setScopeSection] = useState<ScopeSectionId>("overview");
+  const [phaseNavCollapsed, setPhaseNavCollapsed] = useState(false);
   const [workspaceInitialized, setWorkspaceInitialized] = useState(false);
-  const [workspaceMeta, setWorkspaceMeta] = useState({
-    analysisStale: false,
-    hasAnalysis: false,
-  });
   const workspaceRef = useRef<ControlReviewWorkspaceHandle>(null);
+  const syncedWorkflowStageRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -147,6 +157,20 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
       const aText = await aRes.text();
       const parsed: AssessmentData | null = aText ? JSON.parse(aText) : null;
       setData(parsed);
+
+      if (
+        parsed &&
+        !isAnalysisStage(parsed.workflowStage) &&
+        parsed.workflowStage !== "deliverables" &&
+        parsed.workflowStage !== "finalized"
+      ) {
+        if (syncedWorkflowStageRef.current !== parsed.workflowStage) {
+          setScopeSection(resolveScopeSectionForStage(parsed.workflowStage));
+          syncedWorkflowStageRef.current = parsed.workflowStage;
+        }
+      } else if (parsed) {
+        syncedWorkflowStageRef.current = parsed.workflowStage;
+      }
 
       if (
         parsed &&
@@ -184,24 +208,33 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
 
   const handleWorkspaceMetaChange = useCallback(
     (meta: { initialized: boolean; analysisStale: boolean; hasAnalysis: boolean }) => {
-      setWorkspaceMeta((prev) => {
-        if (
-          prev.analysisStale === meta.analysisStale &&
-          prev.hasAnalysis === meta.hasAnalysis
-        ) {
-          return prev;
-        }
-        return {
-          analysisStale: meta.analysisStale,
-          hasAnalysis: meta.hasAnalysis,
-        };
-      });
       setWorkspaceInitialized((prev) => (prev === meta.initialized ? prev : meta.initialized));
     },
     []
   );
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("assessment-phase-nav-collapsed");
+      if (stored === "true") setPhaseNavCollapsed(true);
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  function togglePhaseNavCollapsed() {
+    setPhaseNavCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("assessment-phase-nav-collapsed", String(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  }
 
   async function workflowAction(action: string, extra?: Record<string, unknown>) {
     setActionLoading(action);
@@ -214,9 +247,10 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
       const result = await res.json();
       if (!res.ok) {
         toast(result.error ?? "Action failed", { variant: "error" });
-        return;
+        return null;
       }
       await load();
+      return result as Record<string, unknown>;
     } finally {
       setActionLoading("");
     }
@@ -240,25 +274,17 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
   }
 
   async function addUseCase() {
-    if (!newUseCase.name.trim() || !newUseCase.description.trim()) {
-      toast("Name and description are required.", { variant: "error" });
+    const validationError = validateUseCaseIntake(newUseCase, useCaseIntakeMode);
+    if (validationError) {
+      toast(validationError, { variant: "error" });
       return;
     }
-    const def = getUseCaseTypeDef(newUseCase.useCaseType as Parameters<typeof getUseCaseTypeDef>[0]);
     setActionLoading("add_use_case");
     try {
       const res = await fetch(`/api/assessments/${assessmentId}/use-cases`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newUseCase.name,
-          description: newUseCase.description,
-          useCaseType: newUseCase.useCaseType,
-          actorRole: def.defaultActor,
-          riskTier: def.defaultRiskTier,
-          dataCategories: def.dataCategories,
-          department: newUseCase.department.trim() || null,
-        }),
+        body: JSON.stringify(useCaseIntakeToPayload(newUseCase, useCaseIntakeMode)),
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -269,7 +295,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
         );
         return;
       }
-      setNewUseCase({ name: "", description: "", useCaseType: "client_facing_product", department: "" });
+      setNewUseCase(createEmptyUseCaseDraft(undefined, useCaseIntakeMode));
       setShowAddUseCase(false);
       await load();
     } finally {
@@ -317,139 +343,198 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
     data.checkpoints.find((c) => c.status === "pending")
     ?? CHECKPOINT_ORDER.map((t) => data.checkpoints.find((c) => c.checkpointType === t))
         .find((c) => c && c.status !== "approved" && c.status !== "locked");
-  const scopingCheckpoint = data.checkpoints.find((c) => c.checkpointType === "requirement_scoping_confirmation");
   const evaluationCheckpoint = data.checkpoints.find((c) => c.checkpointType === "evaluation_review");
   const deliverableCheckpoint = data.checkpoints.find((c) => c.checkpointType === "deliverable_approval");
   const totalScoped = data.useCases.reduce((s, u) => s + u._count.scopedRequirements, 0);
+  const scopingReady = totalScoped > 0;
   const canEditUseCases =
-    data.workflowStage === "use_cases" || data.workflowStage === "requirement_scoping";
+    scopeSection === "use_cases" &&
+    (data.workflowStage === "client_setup" ||
+      data.workflowStage === "use_cases" ||
+      data.workflowStage === "requirement_scoping");
   const pendingCheckpointCount = data.checkpoints.filter((c) => c.status === "pending").length;
 
-  const nextAction = resolveNextAction({
+  const checkpointStatuses = Object.fromEntries(
+    data.checkpoints.map((checkpoint) => [checkpoint.checkpointType, checkpoint.status])
+  ) as Record<string, string | undefined>;
+
+  const scopeNavigationBlocker = scopeAdvanceBlocker({
+    targetSection: scopeSection,
     workflowStage: data.workflowStage,
     useCaseCount: data.useCases.length,
-    totalScoped,
-    scopingCheckpointStatus: scopingCheckpoint?.status,
-    evaluationCheckpointStatus: evaluationCheckpoint?.status,
-    deliverableCheckpointStatus: deliverableCheckpoint?.status,
-    controlProgress,
-    pendingCheckpointTitle: activeCheckpoint?.status === "pending" ? activeCheckpoint.title : null,
-    workspaceTab,
-    analysisStale: workspaceMeta.analysisStale,
-    hasAnalysis: workspaceMeta.hasAnalysis,
+    checkpointStatuses,
   });
 
-  async function navigateJourneyPhase(phase: JourneyPhaseId) {
+  async function advanceScopeStageIfReady(stage: string) {
+    if (
+      !canAdvanceScopeStage(stage, checkpointStatuses, {
+        useCaseCount: data.useCases.length,
+        totalScoped,
+      })
+    ) {
+      return null;
+    }
+    return workflowAction("advance");
+  }
+
+  async function handleSelectScope(section: ScopeSectionId) {
+    setScopeSection(section);
     if (!data) return;
 
-    if (phase === "scope") {
-      if (data.workflowStage === "client_setup") {
-        await goToStage("use_cases");
-      } else if (isAnalysisStage(data.workflowStage) || DELIVER_STAGES.has(data.workflowStage)) {
-        await goToStage("requirement_scoping");
-      } else if (data.workflowStage !== "use_cases" && data.workflowStage !== "requirement_scoping") {
-        await goToStage("use_cases");
+    if (isAnalysisStage(data.workflowStage)) {
+      const targetStage = scopeSectionToStage(section);
+      if (data.workflowStage !== targetStage) {
+        await goToStage(targetStage);
       }
       return;
     }
 
-    if (phase === "deliver") {
-      if (data.workflowStage === "deliverables" || data.workflowStage === "finalized") return;
-      if (isAnalysisStage(data.workflowStage)) {
-        await goToStage("deliverables");
+    const targetIdx = scopeSectionIndex(section);
+    const currentIdx = displayStepIndex(data.workflowStage);
+
+    if (targetIdx < currentIdx) {
+      const targetStage = scopeSectionToStage(section);
+      if (data.workflowStage !== targetStage) {
+        await goToStage(targetStage);
       }
       return;
     }
 
-    const wsTab = isWorkspaceMilestone(phase)
-      ? journeyTabForPhase(phase, workspaceTab)
-      : journeyTabForPhase(phase);
-    if (!wsTab) return;
+    if (targetIdx <= currentIdx) return;
 
-    if (!isAnalysisStage(data.workflowStage)) {
-      if (scopingCheckpoint?.status === "approved") {
-        if (controlProgress.total === 0) {
-          await workflowAction("init_control_review");
-        }
-        await goToStage("workshop");
-      } else {
-        await goToStage("requirement_scoping");
-      }
-    }
+    const blocker = scopeAdvanceBlocker({
+      targetSection: section,
+      workflowStage: data.workflowStage,
+      useCaseCount: data.useCases.length,
+      checkpointStatuses,
+    });
+    if (blocker) return;
 
-    if (workspaceRef.current) {
-      await workspaceRef.current.navigateToTab(wsTab);
-    } else {
-      setWorkspaceTab(wsTab);
+    let stage = data.workflowStage;
+    let statuses = { ...checkpointStatuses };
+    let guard = 0;
+
+    while (displayStepIndex(stage) < targetIdx && guard < 4) {
+      const result = await advanceScopeStageIfReady(stage);
+      if (!result || typeof result.workflowStage !== "string") break;
+
+      const refreshed = await fetch(`/api/assessments/${assessmentId}/workflow`);
+      if (!refreshed.ok) break;
+      const fresh = (await refreshed.json()) as AssessmentData;
+      setData(fresh);
+      syncedWorkflowStageRef.current = fresh.workflowStage;
+      stage = fresh.workflowStage;
+      statuses = Object.fromEntries(
+        fresh.checkpoints.map((checkpoint) => [checkpoint.checkpointType, checkpoint.status])
+      );
+      guard += 1;
     }
   }
 
-  async function handleNextAction() {
+  async function handleSelectWorkspace(tab: WorkshopWorkspacePhaseId) {
+    setWorkspaceTab(tab);
     if (!data) return;
 
-    const nextAction = resolveNextAction({
-      workflowStage: data.workflowStage,
-      useCaseCount: data.useCases.length,
-      totalScoped,
-      scopingCheckpointStatus: scopingCheckpoint?.status,
-      evaluationCheckpointStatus: evaluationCheckpoint?.status,
-      deliverableCheckpointStatus: deliverableCheckpoint?.status,
-      controlProgress,
-      pendingCheckpointTitle: activeCheckpoint?.status === "pending" ? activeCheckpoint.title : null,
-      workspaceTab,
-      analysisStale: workspaceMeta.analysisStale,
-      hasAnalysis: workspaceMeta.hasAnalysis,
-    });
-
-    if (data.workflowStage === "requirement_scoping" && totalScoped === 0 && data.useCases.length > 0) {
-      await workflowAction("scope_requirements");
-      return;
+    if (!isAnalysisStage(data.workflowStage)) {
+      if (scopingReady) {
+        if (controlProgress.total === 0) {
+          await workflowAction("init_control_review");
+        } else if (data.workflowStage !== "workshop") {
+          await workflowAction("advance");
+        }
+      } else {
+        setScopeSection("requirements");
+        toast("Complete requirement scoping before opening the workspace.", { variant: "error" });
+        return;
+      }
     }
 
-    if (
-      data.workflowStage === "requirement_scoping" &&
-      scopingCheckpoint?.status === "approved" &&
-      controlProgress.total === 0
-    ) {
-      await workflowAction("init_control_review");
-      await goToStage("workshop");
-      return;
-    }
+    await workspaceRef.current?.navigateToTab(tab);
+  }
 
-    if (data.useCases.length === 0 && SCOPE_STAGES.has(data.workflowStage)) {
-      setShowAddUseCase(true);
-      return;
-    }
+  async function handleSelectDeliver() {
+    if (!data) return;
+    if (data.workflowStage === "deliverables" || data.workflowStage === "finalized") return;
+    if (!isAnalysisStage(data.workflowStage)) return;
 
-    if (activeCheckpoint?.status === "pending" && SCOPE_STAGES.has(data.workflowStage)) {
-      document.getElementById("approval-checkpoint")?.scrollIntoView({ behavior: "smooth" });
-      return;
+    if (controlProgress.total > 0 && controlProgress.confirmed >= controlProgress.total) {
+      await workflowAction("proceed_to_deliverables", { confirmedBy: reviewerName || "Reviewer" });
+    } else {
+      toast("Complete control sign-off in Validate before opening the client package.", {
+        variant: "error",
+      });
+      setWorkspaceTab("review");
+      if (workspaceRef.current) {
+        await workspaceRef.current.navigateToTab("review");
+      }
     }
+  }
 
-    if (nextAction.journeyPhase) {
-      await navigateJourneyPhase(nextAction.journeyPhase);
-    }
-    if (nextAction.workspaceTab && workspaceRef.current) {
-      await workspaceRef.current.navigateToTab(nextAction.workspaceTab);
-    } else if (nextAction.workspaceTab) {
-      setWorkspaceTab(nextAction.workspaceTab);
-    }
+  const inWorkspace = isAnalysisStage(data.workflowStage);
+  const inDeliver = data.workflowStage === "deliverables" || data.workflowStage === "finalized";
+  const inScope = !inWorkspace && !inDeliver;
+
+  const phaseFocus = getPhaseFocusCopy(
+    inDeliver
+      ? { area: "deliver" }
+      : inWorkspace
+        ? { area: "workspace", tab: workspaceTab }
+        : { area: "scope", section: scopeSection }
+  );
+
+  const showWorkspaceCheckpoint =
+    inWorkspace &&
+    activeCheckpoint?.checkpointType === "evaluation_review" &&
+    workspaceTab === "review";
+
+  function renderCheckpointCard(checkpoint: Checkpoint) {
+    return (
+      <Card
+        id="approval-checkpoint"
+        className="border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm"
+      >
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-amber-700" />
+            <CardTitle className="text-amber-900">Approval required</CardTitle>
+          </div>
+          <CardDescription className="text-amber-800">
+            Review the summary below, then approve when this section is ready.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border border-amber-200 bg-white p-4">
+            <div className="font-semibold text-slate-900">{checkpoint.title}</div>
+            <pre className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{checkpoint.summary}</pre>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
+              placeholder="Reviewer name"
+              value={reviewerName}
+              onChange={(e) => setReviewerName(e.target.value)}
+            />
+            <Button
+              onClick={() => approveCheckpointAction(checkpoint.checkpointType)}
+              disabled={!!actionLoading}
+            >
+              {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+              Approve{STAGE_EXIT_CHECKPOINT[data.workflowStage] === checkpoint.checkpointType ? " & Continue" : ""}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4">
       <AssessmentEngagementHeader
         assessmentName={data.name}
         clientName={data.clientName}
         clientIndustry={data.clientIndustry}
         frameworkCodes={data.scope?.frameworkCodes ?? []}
         controlProgress={controlProgress}
-        nextActionLabel={nextAction.label}
-        nextActionHint={nextAction.hint}
-        onNextAction={
-          nextAction.label === "Assessment complete" ? undefined : () => void handleNextAction()
-        }
-        nextActionLoading={!!actionLoading}
         pendingCheckpointCount={pendingCheckpointCount}
         deleteButton={
           <DeleteAssessmentButton
@@ -460,78 +545,49 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
         }
       />
 
-      {!isAnalysisStage(data.workflowStage) && (
-        <AssessmentJourneyRail
-          workflowStage={data.workflowStage}
-          workspaceTab={undefined}
-          workspaceInitialized={workspaceInitialized || controlProgress.total > 0}
-          disabled={!!actionLoading}
-          onNavigate={(phase) => void navigateJourneyPhase(phase)}
-        />
-      )}
-
-      {/* Active checkpoint — only show when pending and reviewable */}
-      {activeCheckpoint && activeCheckpoint.status === "pending" && (
-        <Card
-          id="approval-checkpoint"
-          className="border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm"
-        >
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-amber-700" />
-              <CardTitle className="text-amber-900">Approval required</CardTitle>
-            </div>
-            <CardDescription className="text-amber-800">
-              Review the summary below, then approve to continue to the next stage.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border border-amber-200 bg-white p-4">
-              <div className="font-semibold text-slate-900">{activeCheckpoint.title}</div>
-              <pre className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{activeCheckpoint.summary}</pre>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
-                placeholder="Reviewer name"
-                value={reviewerName}
-                onChange={(e) => setReviewerName(e.target.value)}
-              />
-              <Button
-                onClick={() => approveCheckpointAction(activeCheckpoint.checkpointType)}
-                disabled={!!actionLoading}
-              >
-                {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                Approve{STAGE_EXIT_CHECKPOINT[data.workflowStage] === activeCheckpoint.checkpointType ? " & Continue" : ""}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Locked checkpoint hint */}
-      {activeCheckpoint && activeCheckpoint.status === "locked" && (
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-          <Lock className="h-4 w-4 shrink-0" />
-          Complete the work in this stage first — approval will unlock when reviewable content is ready.
-        </div>
-      )}
-
-      {/* Approved checkpoint badge */}
-      {activeCheckpoint && activeCheckpoint.status === "approved" && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {activeCheckpoint.title} approved{activeCheckpoint.confirmedBy ? ` by ${activeCheckpoint.confirmedBy}` : ""}.
-          {data.workflowStage !== "finalized" && (
-            <Button size="sm" variant="outline" className="ml-auto" onClick={() => workflowAction("advance")} disabled={!!actionLoading}>
-              Continue to Next Stage
-            </Button>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <aside
+          className={cn(
+            "relative z-10 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start",
+            phaseNavCollapsed ? "lg:w-[4.75rem]" : "w-full lg:w-72"
           )}
-        </div>
-      )}
+        >
+          <AssessmentPhaseNav
+            workflowStage={data.workflowStage}
+            workspaceTab={inWorkspace ? workspaceTab : undefined}
+            workspaceInitialized={workspaceInitialized || controlProgress.total > 0}
+            scopeSection={scopeSection}
+            controlProgress={controlProgress}
+            useCaseCount={data.useCases.length}
+            totalScoped={totalScoped}
+            scopingApproved={scopingReady}
+            disabled={!!actionLoading}
+            collapsed={phaseNavCollapsed}
+            onToggleCollapsed={togglePhaseNavCollapsed}
+            onSelectScope={(section) => void handleSelectScope(section)}
+            onSelectWorkspace={(tab) => void handleSelectWorkspace(tab)}
+            onSelectDeliver={() => void handleSelectDeliver()}
+          />
+        </aside>
+
+        <main className="min-w-0 flex-1 space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-600/80">
+              Current focus
+            </p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">{phaseFocus.title}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">{phaseFocus.description}</p>
+            {inScope && scopeNavigationBlocker && (
+              <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {scopeNavigationBlocker}
+              </p>
+            )}
+          </section>
+
+          {showWorkspaceCheckpoint && activeCheckpoint?.status === "pending" && renderCheckpointCard(activeCheckpoint)}
 
       {/* Stage: Client setup summary */}
-      {(data.workflowStage === "client_setup" || data.workflowStage === "use_cases") && (
+      {inScope && scopeSection === "overview" && (
         <Card>
           <CardHeader>
             <CardTitle>Client & Framework Scope</CardTitle>
@@ -550,120 +606,122 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
         </Card>
       )}
 
-      {/* Stage: Use Cases — editable when on this stage or requirement scoping (incl. when navigated back) */}
-      {canEditUseCases && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+      {/* Stage: Use Cases */}
+      {inScope && scopeSection === "use_cases" && canEditUseCases && (
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-[#f6f7f9] shadow-sm">
+          <div className="border-b border-slate-200/80 bg-white px-6 py-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <CardTitle>AI Use Cases</CardTitle>
-                <CardDescription>
-                  Add all AI systems in scope. Assign a workshop department so facilitation can be grouped by the
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600">
+                  Assessment scope
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+                  AI use case registry
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+                  Register every AI system in scope. Assign workshop departments so facilitation groups
                   stakeholders who own related framework requirements.
-                </CardDescription>
+                </p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setShowAddUseCase(!showAddUseCase)}>
-                <Plus className="mr-1 h-4 w-4" /> Add Use Case
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 bg-white"
+                onClick={() => setShowAddUseCase(!showAddUseCase)}
+              >
+                <Plus className="mr-1 h-4 w-4" /> {showAddUseCase ? "Cancel" : "Add system"}
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {showAddUseCase && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                <input
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  placeholder="Use case name (e.g. Customer Support Chatbot)"
-                  value={newUseCase.name}
-                  onChange={(e) => setNewUseCase({ ...newUseCase, name: e.target.value })}
-                />
-                <textarea
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  rows={2}
-                  placeholder="Description of the AI system and how it's used"
-                  value={newUseCase.description}
-                  onChange={(e) => setNewUseCase({ ...newUseCase, description: e.target.value })}
-                />
-                <select
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  value={newUseCase.useCaseType}
-                  onChange={(e) => setNewUseCase({ ...newUseCase, useCaseType: e.target.value })}
-                >
-                  {USE_CASE_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-                <DepartmentSelect
-                  value={newUseCase.department}
-                  onChange={(department) => setNewUseCase({ ...newUseCase, department })}
-                  options={departmentOptions}
-                  emptyLabel="Select department (optional)"
-                />
-                {departmentOptions.length > 0 && data && (
-                  <p className="text-xs text-slate-500">
-                    Departments are suggested from your selected AI frameworks
-                    {data.scope?.frameworkCodes?.length
-                      ? ` (${data.scope.frameworkCodes.join(", ")})`
-                      : ""}
-                    . Leave unassigned for organization-wide workshops.
+          </div>
+
+          <div className="space-y-5 p-5 sm:p-6">
+            {showAddUseCase && data && (
+              <div className="overflow-hidden rounded-2xl border border-indigo-200/60 bg-white shadow-sm">
+                <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white px-5 py-4">
+                  <p className="text-sm font-semibold text-slate-900">Register new AI system</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Choose discovery or established intake, then capture system details.
                   </p>
-                )}
-                <Button size="sm" onClick={addUseCase} disabled={actionLoading === "add_use_case"}>
-                  {actionLoading === "add_use_case" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                  Save Use Case
+                </div>
+                <div className="space-y-4 p-5">
+                  <GovernanceReadinessSelector
+                    value={useCaseIntakeMode}
+                    compact
+                    onChange={(mode) => {
+                      setUseCaseIntakeMode(mode);
+                      setNewUseCase(createEmptyUseCaseDraft(newUseCase.useCaseType, mode));
+                    }}
+                  />
+                  <UseCaseIntakeCard
+                    index={data.useCases.length}
+                    draft={newUseCase}
+                    frameworkCodes={data.scope?.frameworkCodes ?? []}
+                    intakeMode={useCaseIntakeMode}
+                    onChange={setNewUseCase}
+                  />
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={addUseCase} disabled={actionLoading === "add_use_case"}>
+                      {actionLoading === "add_use_case" ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : null}
+                      Save system
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {data.useCases.length === 0 && !showAddUseCase && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Bot className="h-6 w-6" />
+                </span>
+                <p className="mt-4 text-base font-semibold text-slate-900">No AI systems registered yet</p>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
+                  Add at least one AI system to scope framework requirements and begin the workshop.
+                </p>
+                <Button size="sm" className="mt-5" onClick={() => setShowAddUseCase(true)}>
+                  <Plus className="mr-1 h-4 w-4" /> Add first system
                 </Button>
               </div>
             )}
 
-            {data.useCases.length === 0 && (
-              <p className="text-sm text-slate-500">No use cases yet. Add at least one to continue.</p>
-            )}
-
-            {data.useCases.map((uc) => (
-              <div key={uc.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <span className="font-medium">{uc.name}</span>
-                  <Badge variant="outline" className="ml-2">{titleCase(uc.useCaseType.replace(/_/g, " "))}</Badge>
-                  {uc.department && (
-                    <Badge variant="secondary" className="ml-1">{uc.department}</Badge>
-                  )}
-                  {uc.riskTier && <Badge variant="secondary" className="ml-1">{uc.riskTier} risk</Badge>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <DepartmentSelect
-                    value={uc.department ?? ""}
-                    onChange={(department) => updateUseCaseDepartment(uc.id, department)}
-                    options={departmentOptions}
-                    emptyLabel="Not assigned"
-                    className="w-56 rounded-lg border px-2 py-1 text-xs"
-                  />
-                  {uc._count.scopedRequirements > 0 && (
-                    <Badge variant="secondary">{uc._count.scopedRequirements} reqs</Badge>
-                  )}
-                  <Button size="sm" variant="ghost" onClick={() => removeUseCase(uc.id)}>
-                    <Trash2 className="h-4 w-4 text-slate-400" />
-                  </Button>
-                </div>
-              </div>
+            {data.useCases.map((uc, i) => (
+              <UseCaseRegistryRow
+                key={uc.id}
+                useCase={uc}
+                index={i}
+                departmentOptions={departmentOptions}
+                onDepartmentChange={(department) => updateUseCaseDepartment(uc.id, department)}
+                onRemove={() => removeUseCase(uc.id)}
+              />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Stage: Requirement Scoping */}
-      {data.workflowStage === "requirement_scoping" && (
+      {inScope && scopeSection === "requirements" && (
         <Card>
           <CardHeader>
             <CardTitle>Requirement Scoping</CardTitle>
             <CardDescription>
-              Auto-scope framework requirements for {data.useCases.length} use case(s). Requirements map to canonical controls for workshop analysis.
+              Requirements are scoped automatically from your frameworks and use cases. Review the mapping below, then open the workshop when ready.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {totalScoped === 0 ? (
-              <Button onClick={() => workflowAction("scope_requirements")} disabled={!!actionLoading || data.useCases.length === 0}>
-                {actionLoading === "scope_requirements" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Run Requirement Scoping
-              </Button>
+            {scopeNavigationBlocker && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {scopeNavigationBlocker}
+              </p>
+            )}
+            {totalScoped === 0 && data.useCases.length > 0 ? (
+              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-600" />
+                Scoping framework requirements for your use cases…
+              </div>
+            ) : totalScoped === 0 ? (
+              <p className="text-sm text-slate-500">Add use cases first — requirements will scope automatically.</p>
             ) : (
               <>
                 {data.useCases.map((uc) => (
@@ -672,15 +730,20 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
                     <Badge variant="secondary">{uc._count.scopedRequirements} requirements → controls</Badge>
                   </div>
                 ))}
-                {scopingCheckpoint?.status === "approved" && (
+                <div className="flex flex-wrap items-center gap-3">
                   <Button onClick={() => workflowAction("init_control_review")} disabled={!!actionLoading}>
                     {actionLoading === "init_control_review" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Start workshop ({totalScoped} reqs → controls)
                   </Button>
-                )}
-                {scopingCheckpoint?.status === "pending" && (
-                  <p className="text-sm text-amber-700">Approve the scoped requirements above before starting the workshop.</p>
-                )}
+                  <Button
+                    variant="outline"
+                    onClick={() => workflowAction("scope_requirements")}
+                    disabled={!!actionLoading || data.useCases.length === 0}
+                  >
+                    {actionLoading === "scope_requirements" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Re-sync scoping
+                  </Button>
+                </div>
               </>
             )}
           </CardContent>
@@ -688,10 +751,14 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
       )}
 
       {/* Stage: Workshop (evidence, validation, reports) */}
-      {isAnalysisStage(data.workflowStage) && (
-        <ControlReviewWorkspace
-          ref={workspaceRef}
-          assessmentId={assessmentId}
+      {inWorkspace && (
+        <div className="h-[calc(100dvh-12rem)] min-h-[32rem]">
+          <ControlReviewWorkspace
+            ref={workspaceRef}
+            assessmentId={assessmentId}
+            hideWorkspacePhaseTabs
+            activeWorkspaceTab={workspaceTab}
+            className="h-full min-h-0"
           onWorkspaceTabChange={setWorkspaceTab}
           onWorkspaceMetaChange={handleWorkspaceMetaChange}
           onProgressChange={setControlProgress}
@@ -704,13 +771,14 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
             await workflowAction("proceed_to_deliverables", { confirmedBy });
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          proceedLoading={actionLoading === "proceed_to_deliverables"}
-        />
+            proceedLoading={actionLoading === "proceed_to_deliverables"}
+          />
+        </div>
       )}
 
       {/* Stage: Deliverables — full package view (same as Reporting, plus approval flow) */}
-      {(data.workflowStage === "deliverables" || data.workflowStage === "finalized") && (
-        <div className="flex min-h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+      {inDeliver && (
+        <div className="flex h-[calc(100dvh-12rem)] min-h-[32rem] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
           <AssessmentReportingPanel
             assessmentId={assessmentId}
             reviewProgress={{
@@ -732,6 +800,8 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
           />
         </div>
       )}
+        </main>
+      </div>
     </div>
   );
 }

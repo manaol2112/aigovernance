@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { syncCheckpoints } from "@/lib/workflow";
+import { syncCheckpoints, bootstrapAssessmentScoping } from "@/lib/workflow";
 import { normalizeDepartmentName } from "@/lib/workshop-department";
-import type { UseCaseType, ActorType, RiskTier } from "@prisma/client";
+import type { UseCaseType, ActorType, RiskTier, AutonomyLevel, DeploymentStage } from "@prisma/client";
 
 export async function POST(
   request: Request,
@@ -24,11 +24,17 @@ export async function POST(
         riskTier: (body.riskTier as RiskTier) ?? null,
         dataCategories: body.dataCategories ?? [],
         department: normalizeDepartmentName(body.department),
+        businessOwner: body.businessOwner?.trim() || null,
+        vendor: body.vendor?.trim() || null,
+        deploymentStage: (body.deploymentStage as DeploymentStage) ?? "prod",
+        autonomyLevel: (body.autonomyLevel as AutonomyLevel) ?? "medium",
+        regions: body.regions ?? [],
         sortOrder: body.sortOrder ?? count,
       },
     });
 
     await syncCheckpoints(id);
+    await bootstrapAssessmentScoping(id);
     return NextResponse.json(useCase);
   } catch (error) {
     console.error("[use-cases POST]", error);
@@ -73,6 +79,7 @@ export async function PATCH(
 
     const updated = await prisma.useCase.findUnique({ where: { id: useCaseId } });
     await syncCheckpoints(id);
+    await bootstrapAssessmentScoping(id);
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[use-cases PATCH]", error);
@@ -97,6 +104,7 @@ export async function DELETE(
 
     await prisma.useCase.deleteMany({ where: { id: useCaseId, assessmentId: id } });
     await syncCheckpoints(id);
+    await bootstrapAssessmentScoping(id);
     return NextResponse.json({ deleted: true });
   } catch (error) {
     console.error("[use-cases DELETE]", error);

@@ -28,16 +28,16 @@ function CoverageCell({
 
   return (
     <td className="border-b border-slate-100 px-3 py-4 text-center">
-      <div className="group relative inline-flex flex-col items-center">
+      <div className="group/cell relative inline-flex flex-col items-center">
         <span
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white",
+            "flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white transition-transform duration-150 group-hover/cell:scale-105",
             intensity
           )}
         >
           {data.count}
         </span>
-        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-xl group-hover:block">
+        <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-56 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-xl group-hover/cell:block">
           <div className="text-xs font-semibold text-slate-500">{frameworkCode}</div>
           <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
             {data.requirements.slice(0, 8).map((req) => (
@@ -68,8 +68,8 @@ function PillarRow({ row }: { row: PillarMatrixRow }) {
 
   return (
     <>
-      <tr className="group transition-colors hover:bg-slate-50/80">
-        <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-4 py-4 group-hover:bg-slate-50/80">
+      <tr className="group/row transition-colors hover:bg-slate-50/80">
+        <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-4 py-4 group-hover/row:bg-slate-50/80">
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
@@ -200,7 +200,7 @@ function PillarRow({ row }: { row: PillarMatrixRow }) {
 
 export function RiskControlMatrixTable({ rows }: { rows: PillarMatrixRow[] }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[960px] border-collapse text-sm">
           <thead>

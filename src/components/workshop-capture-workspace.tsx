@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { EvidencePipelineStepper } from "@/components/evidence-pipeline-stepper";
 import { SourceNotebookChatLauncher } from "@/components/source-notebook-chat";
 import { FollowUpQuestionsExportButton } from "@/components/follow-up-questions-export-button";
+import { AnalysisAuditTrail } from "@/components/analysis-audit-trail";
 import { evidenceKindLabel } from "@/lib/evidence-classifier";
 import { isAnalyzableEvidence, parseEvidenceKind } from "@/lib/transcript-evidence";
 import type { EvidencePipelineStepId } from "@/lib/evidence-pipeline";
@@ -547,7 +548,7 @@ export function WorkshopCaptureWorkspace({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f6f7f9]">
       {/* Top bar */}
       <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Evidence pipeline</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
@@ -585,7 +586,7 @@ export function WorkshopCaptureWorkspace({
           </div>
         </div>
         {!isResultsMode && (
-          <div className="mx-auto mt-5 max-w-[1440px]">
+          <div className="mt-5">
             <EvidencePipelineStepper
               readyCount={readyCount}
               hasIndex={indexStats.chunkCount > 0}
@@ -597,7 +598,7 @@ export function WorkshopCaptureWorkspace({
           </div>
         )}
         {isResultsMode && (
-          <div className="mx-auto mt-5 max-w-[1440px]">
+          <div className="mt-5">
             <EvidencePipelineStepper
               readyCount={readyCount}
               hasIndex={indexStats.chunkCount > 0}
@@ -612,7 +613,7 @@ export function WorkshopCaptureWorkspace({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1440px] px-6 py-6">
+        <div className="px-6 py-6">
           {isResultsMode && analysisSummary ? (
             <div className="space-y-6">
               {needsReanalyze && (
@@ -641,6 +642,8 @@ export function WorkshopCaptureWorkspace({
 
               <div className="space-y-5">
                 <AnalysisCompleteCard summary={analysisSummary} onOpenMapping={onGoToMapping} />
+
+                {analysisSummary.auditTrail && <AnalysisAuditTrail audit={analysisSummary.auditTrail} />}
 
                 {analysisSummary.topicsNotDiscussed.length > 0 && (
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

@@ -106,7 +106,8 @@ export function isJourneyPhaseReachable(
   target: JourneyPhaseId,
   workflowStage: string,
   workspaceInitialized: boolean,
-  workspaceTab?: WorkshopWorkspacePhaseId
+  workspaceTab?: WorkshopWorkspacePhaseId,
+  scopingApproved = false
 ): boolean {
   const targetIdx = journeyPhaseIndex(target);
   const active = resolveActiveJourneyPhase(workflowStage, workspaceTab);
@@ -116,15 +117,32 @@ export function isJourneyPhaseReachable(
   if (target === "deliver") {
     return DELIVER_STAGES.has(workflowStage) || activeIdx >= journeyPhaseIndex("validate");
   }
-  if (SCOPE_STAGES.has(workflowStage)) return false;
-  if (!workspaceInitialized) {
-    if (isAnalysisStage(workflowStage) && target === "facilitate") return true;
+  if (SCOPE_STAGES.has(workflowStage)) {
+    if (target === "facilitate" && scopingApproved) return true;
     return false;
   }
   if (isAnalysisStage(workflowStage)) {
+    if (target === "facilitate") return true;
+    if (workspaceInitialized) return true;
     return targetIdx <= activeIdx + 1;
   }
   return targetIdx <= activeIdx + 1;
+}
+
+/** Whether a workspace tab can be opened from the phase stepper. */
+export function isWorkspaceTabReachable(
+  tab: WorkshopWorkspacePhaseId,
+  workflowStage: string,
+  workspaceInitialized: boolean,
+  scopingApproved: boolean
+): boolean {
+  if (DELIVER_STAGES.has(workflowStage)) return true;
+  if (SCOPE_STAGES.has(workflowStage)) {
+    return scopingApproved;
+  }
+  if (!isAnalysisStage(workflowStage)) return false;
+  if (tab === "workshop") return true;
+  return workspaceInitialized;
 }
 
 export type NextActionContext = {
@@ -196,19 +214,12 @@ export function resolveNextAction(ctx: NextActionContext): NextAction {
     }
     if (workflowStage === "requirement_scoping" && ctx.totalScoped === 0) {
       return {
-        label: "Run requirement scoping",
-        hint: "Map framework requirements to canonical controls.",
+        label: "Add use cases",
+        hint: "Requirements scope automatically once use cases are defined.",
         journeyPhase: "scope",
       };
     }
-    if (workflowStage === "requirement_scoping" && ctx.scopingCheckpointStatus === "pending") {
-      return {
-        label: "Approve scoped requirements",
-        hint: ctx.pendingCheckpointTitle ?? "Confirm scope before starting the engagement workspace.",
-        journeyPhase: "scope",
-      };
-    }
-    if (workflowStage === "requirement_scoping" && ctx.scopingCheckpointStatus === "approved") {
+    if (workflowStage === "requirement_scoping" && ctx.totalScoped > 0) {
       return {
         label: "Open assessment workspace",
         hint: "Initialize controls and start the governance intelligence workflow.",

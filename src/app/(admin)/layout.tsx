@@ -12,10 +12,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <AdminProviders initialTheme={colorTheme}>
-      <div className="flex min-h-screen bg-theme-page">
+      <div className="flex h-dvh overflow-hidden bg-theme-page">
         {!isMaturityPortal && <Sidebar pathname={pathname} />}
-        <div className="relative z-0 flex min-w-0 flex-1 flex-col">
-          <main className={cn("flex-1 overflow-auto", !isMaturityPortal && "p-8")}>
+        <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col">
+          <main
+            className={cn(
+              "min-h-0 flex-1",
+              isMaturityPortal ? "overflow-hidden p-0" : "overflow-auto p-8"
+            )}
+          >
             {children}
           </main>
         </div>

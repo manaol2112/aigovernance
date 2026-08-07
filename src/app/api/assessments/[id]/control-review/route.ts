@@ -21,8 +21,65 @@ import {
   mergeDepartmentOptions,
 } from "@/lib/workshop-departments";
 import { syncDisagreementFromReview } from "@/lib/governance-v2/reviewer-disagreement";
+import {
+  buildInitialWorkpaperContent,
+  createThreadMessage,
+  htmlToPlainText,
+  normalizeWorkpaperContent,
+  normalizeWorkpaperFieldState,
+  type WorkpaperFieldKey,
+  type WorkpaperReviewNoteThread,
+} from "@/lib/control-review-workpaper";
 
 export const maxDuration = 300;
+
+function documentValidationSummary(explainability: unknown): string {
+  if (!explainability || typeof explainability !== "object") return "";
+  const payload = explainability as {
+    documentationValidation?: { summary?: string };
+  };
+  return payload.documentationValidation?.summary?.trim() ?? "";
+}
+
+function serializeReviewThreads(
+  threads: Array<{
+    id: string;
+    fieldKey: string;
+    title: string | null;
+    status: "open" | "resolved" | "reopened";
+    assignee: string | null;
+    createdBy: string;
+    resolvedBy: string | null;
+    resolvedAt: Date | null;
+    messages: unknown;
+    createdAt: Date;
+    updatedAt: Date;
+  }>
+): WorkpaperReviewNoteThread[] {
+  return threads.map((thread) => ({
+    id: thread.id,
+    fieldKey: thread.fieldKey as WorkpaperFieldKey,
+    title: thread.title,
+    status: thread.status,
+    assignee: thread.assignee,
+    createdBy: thread.createdBy,
+    resolvedBy: thread.resolvedBy,
+    resolvedAt: thread.resolvedAt?.toISOString() ?? null,
+    messages: Array.isArray(thread.messages) ? (thread.messages as WorkpaperReviewNoteThread["messages"]) : [],
+    createdAt: thread.createdAt.toISOString(),
+    updatedAt: thread.updatedAt.toISOString(),
+  }));
+}
+
+async function countOpenReviewThreads(controlEvaluationIds: string[]) {
+  if (controlEvaluationIds.length === 0) return 0;
+  return prisma.controlReviewNoteThread.count({
+    where: {
+      controlEvaluationId: { in: controlEvaluationIds },
+      status: { in: ["open", "reopened"] },
+    },
+  });
+}
 
 export async function GET(
   request: Request,
@@ -48,6 +105,8 @@ export async function GET(
         include: {
           control: { select: { code: true, title: true, controlType: true, ownerRole: true } },
           citations: { orderBy: { citationIndex: "asc" } },
+          disagreements: { orderBy: { createdAt: "desc" } },
+          reviewNotes: { orderBy: { updatedAt: "desc" } },
         },
         orderBy: { control: { code: "asc" } },
       }),
@@ -72,7 +131,24 @@ export async function GET(
     }
 
     const scopedControlIds = new Set(controls.map((c) => c.id));
-    const filteredEvaluations = evaluations.filter((e) => scopedControlIds.has(e.controlId));
+    const filteredEvaluations = evaluations
+      .filter((e) => scopedControlIds.has(e.controlId))
+      .map((evaluation) => {
+        const initialWorkpaper = buildInitialWorkpaperContent({
+          inPlaceFindings: evaluation.inPlaceFindings,
+          gapFindings: evaluation.gapFindings,
+          recommendations: evaluation.recommendations,
+          complianceStatus: evaluation.complianceStatus,
+          documentationSummary: documentValidationSummary(evaluation.explainability),
+          overallConclusion: evaluation.reviewerNotes,
+        });
+        return {
+          ...evaluation,
+          workpaperContent: normalizeWorkpaperContent(evaluation.workpaperContent ?? initialWorkpaper),
+          workpaperFieldState: normalizeWorkpaperFieldState(evaluation.workpaperFieldState),
+          reviewNotes: serializeReviewThreads(evaluation.reviewNotes),
+        };
+      });
 
     const uniqueControlCount = controls.length;
 
@@ -217,6 +293,18 @@ export async function PATCH(
     reviewerNotes,
     confirmedBy,
     confirmedAt: confirmedAtParam,
+    fieldKey,
+    noteThreadId,
+    noteTitle,
+    noteBody,
+    assignee,
+    workpaperContent,
+    workpaperFieldState,
+    resolutionNote,
+    createdBy,
+    resolvedBy,
+    noteQuotedText,
+    noteHighlightId,
   } = body as {
     controlId?: string;
     controlIds?: string[];
@@ -233,6 +321,18 @@ export async function PATCH(
     reviewerNotes?: string;
     confirmedBy?: string;
     confirmedAt?: string;
+    fieldKey?: WorkpaperFieldKey;
+    noteThreadId?: string;
+    noteTitle?: string;
+    noteBody?: string;
+    assignee?: string;
+    workpaperContent?: Partial<Record<WorkpaperFieldKey, string>>;
+    workpaperFieldState?: Record<string, unknown>;
+    resolutionNote?: string;
+    createdBy?: string;
+    resolvedBy?: string;
+    noteQuotedText?: string;
+    noteHighlightId?: string;
   };
 
   function resolveSignOffDate(value?: string): Date {
@@ -247,7 +347,43 @@ export async function PATCH(
   const evalInclude = {
     control: { select: { code: true, title: true, controlType: true, ownerRole: true } },
     citations: { orderBy: { citationIndex: "asc" as const } },
+    disagreements: { orderBy: { createdAt: "desc" as const } },
+    reviewNotes: { orderBy: { updatedAt: "desc" as const } },
   };
+
+  function mergeWorkpaperState(existing: unknown) {
+    return normalizeWorkpaperFieldState(existing);
+  }
+
+  function mergeWorkpaperContentFromEvaluation(input: {
+    existingContent?: unknown;
+    existingFieldState?: unknown;
+    existingInPlace?: string | null;
+    existingGap?: string | null;
+    existingRecommendations?: string | null;
+    existingCompliance?: string | null;
+    existingReviewerNotes?: string | null;
+    existingExplainability?: unknown;
+    incoming?: Partial<Record<WorkpaperFieldKey, string>>;
+  }) {
+    const base =
+      input.existingContent ??
+      buildInitialWorkpaperContent({
+        inPlaceFindings: input.existingInPlace,
+        gapFindings: input.existingGap,
+        recommendations: input.existingRecommendations,
+        complianceStatus: input.existingCompliance,
+        documentationSummary: documentValidationSummary(input.existingExplainability),
+        overallConclusion: input.existingReviewerNotes,
+      });
+    return {
+      content: {
+        ...normalizeWorkpaperContent(base),
+        ...(input.incoming ?? {}),
+      },
+      fieldState: mergeWorkpaperState(input.existingFieldState),
+    };
+  }
 
   if (action === "batch_review") {
     const ids = controlIds?.length ? controlIds : controlId ? [controlId] : [];
@@ -262,6 +398,18 @@ export async function PATCH(
       reviewerComplete === true &&
       reviewerAccurate === true &&
       reviewerNoHallucination === true;
+
+    const reviewableEvals = await prisma.controlEvaluation.findMany({
+      where: { assessmentId: id, controlId: { in: ids } },
+      select: { id: true },
+    });
+    const openThreadCount = await countOpenReviewThreads(reviewableEvals.map((item) => item.id));
+    if (openThreadCount > 0) {
+      return NextResponse.json(
+        { error: "Resolve or reopen all open workpaper review notes before batch sign-off." },
+        { status: 400 }
+      );
+    }
 
     await prisma.controlEvaluation.updateMany({
       where: { assessmentId: id, controlId: { in: ids } },
@@ -313,28 +461,57 @@ export async function PATCH(
     return NextResponse.json(updated);
   }
 
-  if (action === "save_findings") {
+  if (action === "save_workpaper") {
     const existing = await prisma.controlEvaluation.findUnique({
       where: { assessmentId_controlId: { assessmentId: id, controlId } },
     });
+
+    const merged = mergeWorkpaperContentFromEvaluation({
+      existingContent: existing?.workpaperContent,
+      existingFieldState: existing?.workpaperFieldState,
+      existingInPlace: existing?.inPlaceFindings,
+      existingGap: existing?.gapFindings,
+      existingRecommendations: existing?.recommendations,
+      existingCompliance: existing?.complianceStatus,
+      existingReviewerNotes: existing?.reviewerNotes,
+      existingExplainability: existing?.explainability,
+      incoming: workpaperContent,
+    });
+
+    const nextFieldState = {
+      ...merged.fieldState,
+      ...(workpaperFieldState ?? {}),
+    };
+
+    const projectedCompliance =
+      complianceStatus ??
+      htmlToPlainText(merged.content.complianceStatus) ??
+      existing?.complianceStatus ??
+      "not_assessed";
 
     const updated = await prisma.controlEvaluation.upsert({
       where: { assessmentId_controlId: { assessmentId: id, controlId } },
       create: {
         assessmentId: id,
         controlId,
-        inPlaceFindings: inPlaceFindings ?? "",
-        gapFindings: gapFindings ?? "",
-        recommendations: recommendations ?? "",
-        complianceStatus: complianceStatus ?? "not_assessed",
+        inPlaceFindings: htmlToPlainText(merged.content.inPlaceFindings),
+        gapFindings: htmlToPlainText(merged.content.gapFindings),
+        recommendations: htmlToPlainText(merged.content.recommendations),
+        reviewerNotes: htmlToPlainText(merged.content.overallConclusion) || null,
+        complianceStatus: projectedCompliance || "not_assessed",
         status: "ai_draft",
         aiGenerated: true,
+        workpaperContent: merged.content,
+        workpaperFieldState: nextFieldState,
       },
       update: {
-        inPlaceFindings: inPlaceFindings ?? undefined,
-        gapFindings: gapFindings ?? undefined,
-        recommendations: recommendations ?? undefined,
-        complianceStatus: complianceStatus ?? undefined,
+        inPlaceFindings: htmlToPlainText(merged.content.inPlaceFindings),
+        gapFindings: htmlToPlainText(merged.content.gapFindings),
+        recommendations: htmlToPlainText(merged.content.recommendations),
+        reviewerNotes: htmlToPlainText(merged.content.overallConclusion) || null,
+        complianceStatus: projectedCompliance || "not_assessed",
+        workpaperContent: merged.content,
+        workpaperFieldState: nextFieldState,
         ...(existing?.status === "human_confirmed"
           ? {
               status: "ai_draft" as const,
@@ -348,6 +525,304 @@ export async function PATCH(
       },
       include: evalInclude,
     });
+    return NextResponse.json(updated);
+  }
+
+  if (action === "save_findings") {
+    const existing = await prisma.controlEvaluation.findUnique({
+      where: { assessmentId_controlId: { assessmentId: id, controlId } },
+    });
+
+    const merged = mergeWorkpaperContentFromEvaluation({
+      existingContent: existing?.workpaperContent,
+      existingFieldState: existing?.workpaperFieldState,
+      existingInPlace: existing?.inPlaceFindings,
+      existingGap: existing?.gapFindings,
+      existingRecommendations: existing?.recommendations,
+      existingCompliance: existing?.complianceStatus,
+      existingReviewerNotes: existing?.reviewerNotes,
+      existingExplainability: existing?.explainability,
+      incoming: {
+        ...(typeof inPlaceFindings === "string" ? { inPlaceFindings: buildInitialWorkpaperContent({ inPlaceFindings }).inPlaceFindings } : {}),
+        ...(typeof gapFindings === "string" ? { gapFindings: buildInitialWorkpaperContent({ gapFindings }).gapFindings } : {}),
+        ...(typeof recommendations === "string"
+          ? { recommendations: buildInitialWorkpaperContent({ recommendations }).recommendations }
+          : {}),
+        ...(typeof complianceStatus === "string"
+          ? { complianceStatus: buildInitialWorkpaperContent({ complianceStatus }).complianceStatus }
+          : {}),
+      },
+    });
+
+    const updated = await prisma.controlEvaluation.upsert({
+      where: { assessmentId_controlId: { assessmentId: id, controlId } },
+      create: {
+        assessmentId: id,
+        controlId,
+        inPlaceFindings: inPlaceFindings ?? "",
+        gapFindings: gapFindings ?? "",
+        recommendations: recommendations ?? "",
+        complianceStatus: complianceStatus ?? "not_assessed",
+        status: "ai_draft",
+        aiGenerated: true,
+        workpaperContent: merged.content,
+        workpaperFieldState: merged.fieldState,
+      },
+      update: {
+        inPlaceFindings: inPlaceFindings ?? undefined,
+        gapFindings: gapFindings ?? undefined,
+        recommendations: recommendations ?? undefined,
+        complianceStatus: complianceStatus ?? undefined,
+        workpaperContent: merged.content,
+        workpaperFieldState: merged.fieldState,
+        ...(existing?.status === "human_confirmed"
+          ? {
+              status: "ai_draft" as const,
+              confirmedBy: null,
+              confirmedAt: null,
+              reviewerComplete: null,
+              reviewerAccurate: null,
+              reviewerNoHallucination: null,
+            }
+          : {}),
+      },
+      include: evalInclude,
+    });
+    return NextResponse.json(updated);
+  }
+
+  if (action === "create_review_note") {
+    if (!fieldKey || !createdBy?.trim() || !noteBody?.trim()) {
+      return NextResponse.json(
+        { error: "fieldKey, createdBy, and noteBody are required" },
+        { status: 400 }
+      );
+    }
+
+    const evaluation = await prisma.controlEvaluation.findUnique({
+      where: { assessmentId_controlId: { assessmentId: id, controlId } },
+      select: { id: true },
+    });
+    if (!evaluation) {
+      return NextResponse.json({ error: "Control evaluation not found" }, { status: 404 });
+    }
+
+    const thread = await prisma.controlReviewNoteThread.create({
+      data: {
+        assessmentId: id,
+        controlEvaluationId: evaluation.id,
+        fieldKey,
+        title: noteTitle?.trim() || null,
+        assignee: assignee?.trim() || null,
+        createdBy: createdBy.trim(),
+        messages: [
+          createThreadMessage({
+            author: createdBy,
+            body: noteBody,
+            quotedText: noteQuotedText,
+            highlightId: noteHighlightId,
+          }),
+        ],
+      },
+    });
+    return NextResponse.json(thread);
+  }
+
+  if (action === "reply_review_note") {
+    if (!noteThreadId || !createdBy?.trim() || !noteBody?.trim()) {
+      return NextResponse.json(
+        { error: "noteThreadId, createdBy, and noteBody are required" },
+        { status: 400 }
+      );
+    }
+    const existingThread = await prisma.controlReviewNoteThread.findUnique({
+      where: { id: noteThreadId },
+    });
+    if (!existingThread) {
+      return NextResponse.json({ error: "Review note thread not found" }, { status: 404 });
+    }
+    const messages = Array.isArray(existingThread.messages)
+      ? [...existingThread.messages]
+      : [];
+    messages.push(createThreadMessage({ author: createdBy, body: noteBody }));
+    const updated = await prisma.controlReviewNoteThread.update({
+      where: { id: noteThreadId },
+      data: { messages },
+    });
+    return NextResponse.json(updated);
+  }
+
+  if (action === "assign_review_note") {
+    if (!noteThreadId || !createdBy?.trim() || !assignee?.trim()) {
+      return NextResponse.json(
+        { error: "noteThreadId, createdBy, and assignee are required" },
+        { status: 400 }
+      );
+    }
+    const existingThread = await prisma.controlReviewNoteThread.findUnique({
+      where: { id: noteThreadId },
+    });
+    if (!existingThread) {
+      return NextResponse.json({ error: "Review note thread not found" }, { status: 404 });
+    }
+    const messages = Array.isArray(existingThread.messages)
+      ? [...existingThread.messages]
+      : [];
+    messages.push(
+      createThreadMessage({
+        author: createdBy,
+        body: `Assigned to ${assignee.trim()}.`,
+        kind: "system",
+      })
+    );
+    const updated = await prisma.controlReviewNoteThread.update({
+      where: { id: noteThreadId },
+      data: {
+        assignee: assignee.trim(),
+        messages,
+      },
+    });
+    return NextResponse.json(updated);
+  }
+
+  if (action === "resolve_review_note") {
+    if (!noteThreadId || !resolvedBy?.trim()) {
+      return NextResponse.json(
+        { error: "noteThreadId and resolvedBy are required" },
+        { status: 400 }
+      );
+    }
+    const existingThread = await prisma.controlReviewNoteThread.findUnique({
+      where: { id: noteThreadId },
+    });
+    if (!existingThread) {
+      return NextResponse.json({ error: "Review note thread not found" }, { status: 404 });
+    }
+    const messages = Array.isArray(existingThread.messages)
+      ? [...existingThread.messages]
+      : [];
+    messages.push(
+      createThreadMessage({
+        author: resolvedBy,
+        body: resolutionNote?.trim()
+          ? `Resolved: ${resolutionNote.trim()}`
+          : "Thread resolved.",
+        kind: "system",
+      })
+    );
+    const updated = await prisma.controlReviewNoteThread.update({
+      where: { id: noteThreadId },
+      data: {
+        status: "resolved",
+        resolvedBy: resolvedBy.trim(),
+        resolvedAt: new Date(),
+        messages,
+      },
+    });
+    return NextResponse.json(updated);
+  }
+
+  if (action === "reopen_review_note") {
+    if (!noteThreadId || !createdBy?.trim()) {
+      return NextResponse.json(
+        { error: "noteThreadId and createdBy are required" },
+        { status: 400 }
+      );
+    }
+    const existingThread = await prisma.controlReviewNoteThread.findUnique({
+      where: { id: noteThreadId },
+    });
+    if (!existingThread) {
+      return NextResponse.json({ error: "Review note thread not found" }, { status: 404 });
+    }
+    const messages = Array.isArray(existingThread.messages)
+      ? [...existingThread.messages]
+      : [];
+    messages.push(
+      createThreadMessage({
+        author: createdBy,
+        body: resolutionNote?.trim()
+          ? `Reopened: ${resolutionNote.trim()}`
+          : "Thread reopened.",
+        kind: "system",
+      })
+    );
+    const updated = await prisma.controlReviewNoteThread.update({
+      where: { id: noteThreadId },
+      data: {
+        status: "reopened",
+        resolvedBy: null,
+        resolvedAt: null,
+        messages,
+      },
+    });
+    return NextResponse.json(updated);
+  }
+
+  if (action === "resolve_all_review_notes") {
+    if (!controlId || !resolvedBy?.trim()) {
+      return NextResponse.json(
+        { error: "controlId and resolvedBy are required" },
+        { status: 400 }
+      );
+    }
+    const evaluation = await prisma.controlEvaluation.findUnique({
+      where: { assessmentId_controlId: { assessmentId: id, controlId } },
+      select: { id: true },
+    });
+    if (!evaluation) {
+      return NextResponse.json({ error: "Control evaluation not found" }, { status: 404 });
+    }
+    const openThreads = await prisma.controlReviewNoteThread.findMany({
+      where: {
+        controlEvaluationId: evaluation.id,
+        status: { in: ["open", "reopened"] },
+      },
+    });
+    await prisma.$transaction(
+      openThreads.map((thread) => {
+        const messages = Array.isArray(thread.messages) ? [...thread.messages] : [];
+        messages.push(
+          createThreadMessage({
+            author: resolvedBy,
+            body: resolutionNote?.trim()
+              ? `Resolved in bulk: ${resolutionNote.trim()}`
+              : "Resolved in bulk from workpaper footer.",
+            kind: "system",
+          })
+        );
+        return prisma.controlReviewNoteThread.update({
+          where: { id: thread.id },
+          data: {
+            status: "resolved",
+            resolvedBy: resolvedBy.trim(),
+            resolvedAt: new Date(),
+            messages,
+          },
+        });
+      })
+    );
+    return NextResponse.json({ resolved: openThreads.length });
+  }
+
+  if (action === "request_changes") {
+    if (!confirmedBy?.trim()) {
+      return NextResponse.json({ error: "confirmedBy required" }, { status: 400 });
+    }
+    const updated = await prisma.controlEvaluation.update({
+      where: { assessmentId_controlId: { assessmentId: id, controlId } },
+      data: {
+        reviewerComplete: reviewerComplete ?? false,
+        reviewerAccurate: reviewerAccurate ?? false,
+        reviewerNoHallucination: reviewerNoHallucination ?? false,
+        reviewerNotes: reviewerNotes ?? null,
+        confirmedBy,
+        confirmedAt: signOffTimestamp,
+        status: "rejected",
+      },
+      include: evalInclude,
+    });
+    await syncDisagreementFromReview(id, updated.id, updated);
     return NextResponse.json(updated);
   }
 
@@ -376,6 +851,21 @@ export async function PATCH(
       reviewerComplete === true &&
       reviewerAccurate === true &&
       reviewerNoHallucination === true;
+
+    const evaluation = await prisma.controlEvaluation.findUnique({
+      where: { assessmentId_controlId: { assessmentId: id, controlId } },
+      select: { id: true },
+    });
+    if (!evaluation) {
+      return NextResponse.json({ error: "Control evaluation not found" }, { status: 404 });
+    }
+    const openThreadCount = await countOpenReviewThreads([evaluation.id]);
+    if (openThreadCount > 0) {
+      return NextResponse.json(
+        { error: "Resolve all open workpaper review notes before sign-off." },
+        { status: 400 }
+      );
+    }
 
     const updated = await prisma.controlEvaluation.update({
       where: { assessmentId_controlId: { assessmentId: id, controlId } },

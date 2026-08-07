@@ -118,6 +118,12 @@ enum EvaluationStatus {
   rejected
 }
 
+enum ControlReviewNoteStatus {
+  open
+  resolved
+  reopened
+}
+
 enum CheckpointStatus {
   locked
   pending
@@ -395,6 +401,7 @@ model Assessment {
   aiSystems              AISystem[]
   governanceEvidence     GovernanceEvidence[]
   reviewerDisagreements  ReviewerDisagreement[]
+  controlReviewNotes     ControlReviewNoteThread[]
   governanceInitiatives  GovernanceInitiative[]
 
   @@map("assessments")
@@ -463,6 +470,11 @@ model UseCase {
   riskTier        RiskTier?   @map("risk_tier")
   dataCategories  String[]    @map("data_categories")
   department      String?     @map("department")
+  businessOwner   String?     @map("business_owner")
+  vendor          String?
+  deploymentStage DeploymentStage @default(prod) @map("deployment_stage")
+  autonomyLevel   AutonomyLevel @default(medium) @map("autonomy_level")
+  regions         String[]    @default([]) @map("regions")
   sortOrder       Int         @default(0) @map("sort_order")
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
@@ -729,6 +741,8 @@ model ControlEvaluation {
   linkedEvidenceIds       String[]         @default([]) @map("linked_evidence_ids")
   linkedAiSystemIds       String[]         @default([]) @map("linked_ai_system_ids")
   explainability          Json?            @map("explainability")
+  workpaperContent        Json?            @map("workpaper_content")
+  workpaperFieldState     Json?            @map("workpaper_field_state")
   createdAt               DateTime         @default(now()) @map("created_at")
   updatedAt               DateTime         @updatedAt @map("updated_at")
 
@@ -736,10 +750,35 @@ model ControlEvaluation {
   control    CanonicalControl     @relation(fields: [controlId], references: [id], onDelete: Cascade)
   citations  EvaluationCitation[]
   disagreements ReviewerDisagreement[]
+  reviewNotes ControlReviewNoteThread[]
 
   @@unique([assessmentId, controlId])
   @@index([assessmentId])
   @@map("control_evaluations")
+}
+
+model ControlReviewNoteThread {
+  id                  String                  @id @default(cuid())
+  assessmentId        String                  @map("assessment_id")
+  controlEvaluationId String                  @map("control_evaluation_id")
+  fieldKey            String                  @map("field_key")
+  title               String?
+  status              ControlReviewNoteStatus @default(open)
+  assignee            String?
+  createdBy           String                  @map("created_by")
+  resolvedBy          String?                 @map("resolved_by")
+  resolvedAt          DateTime?               @map("resolved_at")
+  messages            Json
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+
+  assessment        Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  controlEvaluation ControlEvaluation @relation(fields: [controlEvaluationId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+  @@index([controlEvaluationId])
+  @@index([fieldKey])
+  @@map("control_review_note_threads")
 }
 
 model EvaluationCitation {

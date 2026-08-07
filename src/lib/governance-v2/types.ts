@@ -80,6 +80,26 @@ export type DependencyNode = {
   impactScore: number;
   implementationStatus?: string;
   blocked: boolean;
+  readiness: "effective" | "partial" | "ineffective" | "not_assessed";
+  readinessLabel: string;
+  docCoverage: number | null;
+  pillarId: string;
+  pillarLabel: string;
+  layer: number;
+  layerLabel: string;
+  blockingReasons: Array<{
+    controlId: string;
+    controlCode: string;
+    controlTitle: string;
+    readiness: string;
+    rationale: string;
+    whyFixFirst: string;
+    action: string;
+    impactScore: number;
+  }>;
+  x?: number;
+  y?: number;
+  z?: number;
 };
 
 export type DependencyEdge = {
@@ -89,13 +109,45 @@ export type DependencyEdge = {
   relationType: "depends_on" | "enables" | "blocked_by";
   impactScore: number;
   rationale?: string | null;
+  /** Edge is on a blocked path (prerequisite not satisfied). */
+  pathBlocked: boolean;
+};
+
+export type DependencyUnlockPath = {
+  controlId: string;
+  controlCode: string;
+  controlTitle: string;
+  /** Ordered prerequisite chain from foundation → target */
+  steps: Array<{
+    controlId?: string;
+    controlCode: string;
+    controlTitle: string;
+    readiness: string;
+    rationale?: string;
+    whyFixFirst?: string;
+    action: string;
+  }>;
 };
 
 export type DependencyGraph = {
   nodes: DependencyNode[];
   edges: DependencyEdge[];
   blockedControlIds: string[];
-  unlockPaths: Array<{ controlId: string; path: string[] }>;
+  unlockPaths: DependencyUnlockPath[];
+  layers: Array<{ index: number; label: string; description: string }>;
+  stats: {
+    effective: number;
+    partial: number;
+    ineffective: number;
+    notAssessed: number;
+    blocked: number;
+    criticalBlockers: number;
+  };
+};
+
+export type DependencyLayoutNode = DependencyNode & {
+  sx?: number;
+  sy?: number;
 };
 
 export type ScoringDimensions = {

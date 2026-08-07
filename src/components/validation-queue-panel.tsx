@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 const REASON_BADGE: Record<ValidationQueueReason, string> = {
   not_assessed: "bg-slate-100 text-slate-700",
   missing_analysis: "bg-violet-100 text-violet-800",
+  open_notes: "bg-amber-100 text-amber-900",
   needs_revision: "bg-rose-100 text-rose-800",
   gap: "bg-red-100 text-red-800",
   partial: "bg-amber-100 text-amber-900",
@@ -112,6 +113,11 @@ export function ValidationQueuePanel({
                     </span>
                   </span>
                   <span className="mt-0.5 line-clamp-1 block text-[11px] text-slate-600">{item.title}</span>
+                  {(item.openReviewNotes ?? 0) > 0 && (
+                    <span className="mt-1 inline-flex rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800">
+                      {item.openReviewNotes} open note{item.openReviewNotes === 1 ? "" : "s"}
+                    </span>
+                  )}
                 </span>
               </button>
             );

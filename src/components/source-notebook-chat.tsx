@@ -5,7 +5,7 @@ import { Loader2, MessageCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CitedAnalysis, CitationReferenceBar, SourceEvidenceDialog, type Citation } from "@/components/cited-analysis";
-import { openSharedEvidenceCitation, useEvidenceDrawer } from "@/components/evidence-drawer";
+import { isEvidenceDrawerInteraction, openSharedEvidenceCitation, useEvidenceDrawer } from "@/components/evidence-drawer";
 import type { CaptureQueryCitation, CaptureQueryHistoryItem } from "@/lib/capture-qa";
 
 type QueryHistoryItem = CaptureQueryHistoryItem;
@@ -305,6 +305,7 @@ export function SourceNotebookChatLauncher({
   contextHint?: string;
 }) {
   const ready = chunkCount > 0 && !disabled;
+  const evidenceDrawer = useEvidenceDrawer();
 
   return (
     <>
@@ -325,7 +326,25 @@ export function SourceNotebookChatLauncher({
       </button>
 
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[min(90vh,780px)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogContent
+          className="flex max-h-[min(90vh,780px)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+          onPointerDownOutside={(event) => {
+            if (evidenceDrawer?.isOpen || isEvidenceDrawerInteraction(event.target)) {
+              event.preventDefault();
+            }
+          }}
+          onInteractOutside={(event) => {
+            if (evidenceDrawer?.isOpen || isEvidenceDrawerInteraction(event.target)) {
+              event.preventDefault();
+            }
+          }}
+          onEscapeKeyDown={(event) => {
+            if (evidenceDrawer?.isOpen) {
+              event.preventDefault();
+              evidenceDrawer.close();
+            }
+          }}
+        >
           <div className="min-h-0 flex-1 overflow-y-auto">
             <CaptureSourceQueryPanel
               assessmentId={assessmentId}

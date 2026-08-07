@@ -99,12 +99,14 @@ type HeaderProps = {
   clientIndustry: string | null;
   frameworkCodes: string[];
   controlProgress: { confirmed: number; total: number };
-  nextActionLabel: string;
-  nextActionHint: string;
+  nextActionLabel?: string;
+  nextActionHint?: string;
   onNextAction?: () => void;
   nextActionLoading?: boolean;
   pendingCheckpointCount?: number;
   deleteButton?: React.ReactNode;
+  /** When false, hides the prominent next-step CTA (phase nav drives navigation). */
+  showNextAction?: boolean;
 };
 
 export function AssessmentEngagementHeader({
@@ -119,6 +121,7 @@ export function AssessmentEngagementHeader({
   nextActionLoading,
   pendingCheckpointCount = 0,
   deleteButton,
+  showNextAction = false,
 }: HeaderProps) {
   const progressPct =
     controlProgress.total > 0
@@ -126,7 +129,7 @@ export function AssessmentEngagementHeader({
       : null;
 
   return (
-    <header className="sticky top-0 z-20 -mx-8 border-b border-slate-200/80 bg-slate-50/95 px-8 py-4 backdrop-blur-md">
+    <header className="rounded-2xl border border-slate-200/80 bg-white px-5 py-4 shadow-sm sm:px-6">
       <div className="mb-3">
         <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 text-slate-500">
           <Link href="/assessments">
@@ -163,13 +166,15 @@ export function AssessmentEngagementHeader({
 
         <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
           {deleteButton}
-          {onNextAction && (
+          {showNextAction && onNextAction && nextActionLabel && (
             <div className="text-right">
               <Button size="sm" onClick={onNextAction} disabled={nextActionLoading} className="gap-1.5">
                 {nextActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {nextActionLabel}
               </Button>
-              <p className="mt-1 max-w-[220px] text-[11px] leading-snug text-slate-500">{nextActionHint}</p>
+              {nextActionHint && (
+                <p className="mt-1 max-w-[220px] text-[11px] leading-snug text-slate-500">{nextActionHint}</p>
+              )}
             </div>
           )}
         </div>

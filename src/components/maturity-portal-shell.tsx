@@ -17,11 +17,14 @@ export function MaturityPortalShell({
   const lightHeader = scrolled && lightZone;
 
   return (
-    <div className={cn("min-h-dvh scroll-smooth bg-theme-page", className)}>
+    <div
+      data-maturity-scroll
+      className={cn("h-full min-h-0 overflow-y-auto scroll-smooth bg-theme-page", className)}
+    >
       <ScrollProgressBar />
       <header
         className={cn(
-          "sticky top-0 z-40 border-b transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "relative z-40 border-b transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
           scrolled
             ? lightHeader
               ? "border-slate-200/80 bg-white/95 shadow-sm shadow-slate-900/5 backdrop-blur-xl"
@@ -42,10 +45,10 @@ export function MaturityPortalShell({
             className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
           >
             <div
-                className={cn(
-                  "flex items-center justify-center rounded-lg text-white shadow-sm transition-all duration-500",
-                  lightHeader ? "h-8 w-8 bg-slate-900" : "h-9 w-9 bg-indigo-600 shadow-indigo-500/30"
-                )}
+              className={cn(
+                "flex items-center justify-center rounded-lg text-white shadow-sm transition-all duration-500",
+                lightHeader ? "h-8 w-8 bg-slate-900" : "h-9 w-9 bg-indigo-600 shadow-indigo-500/30"
+              )}
             >
               <Shield className="h-4 w-4" />
             </div>
@@ -67,19 +70,6 @@ export function MaturityPortalShell({
                 Maturity Assessment
               </p>
             </div>
-          </Link>
-          <Link
-            href="/maturity-assessment/new"
-            className={cn(
-              "rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition-all duration-300 hover:scale-[1.02]",
-              scrolled
-                ? lightHeader
-                  ? "bg-indigo-600 text-white shadow-indigo-500/25 hover:bg-indigo-500"
-                  : "border border-white/15 bg-white/10 text-white backdrop-blur-sm hover:bg-white/15"
-                : "bg-white text-slate-900 hover:bg-slate-100"
-            )}
-          >
-            Start free assessment
           </Link>
         </MountReveal>
       </header>

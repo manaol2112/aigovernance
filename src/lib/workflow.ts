@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { CheckpointType, WorkflowStage } from "@prisma/client";
 import { WORKFLOW_STEPS } from "@/lib/use-case-types";
+import { scopeAllUseCasesForAssessment } from "@/lib/use-case-scoping";
 
 const CHECKPOINT_DEFS: Record<
   CheckpointType,
@@ -43,6 +44,12 @@ const STAGE_ORDER: WorkflowStage[] = [
   "deliverables",
   "finalized",
 ];
+
+const AUTO_APPROVED_SCOPE_CHECKPOINTS = new Set<CheckpointType>([
+  "scope_confirmation",
+  "use_case_confirmation",
+  "requirement_scoping_confirmation",
+]);
 
 function stageIndex(stage: WorkflowStage): number {
   return STAGE_ORDER.indexOf(stage);
@@ -126,8 +133,10 @@ function resolveCheckpointStatus(
   const currentIdx = stageIndex(assessment.workflowStage);
   const producedIdx = stageIndex(CHECKPOINT_DEFS[type].producedAtStage);
 
-  // Unlock when the assessment has reached or passed the stage that produces reviewable content
-  if (currentIdx >= producedIdx) return "pending";
+  if (currentIdx >= producedIdx) {
+    if (AUTO_APPROVED_SCOPE_CHECKPOINTS.has(type)) return "approved";
+    return "pending";
+  }
   return "locked";
 }
 
@@ -247,6 +256,33 @@ export async function isCheckpointApproved(assessmentId: string, type: Checkpoin
 
 export async function initializeWorkflowCheckpoints(assessmentId: string) {
   await syncCheckpoints(assessmentId);
+}
+
+/** Scope requirements when use cases exist but scoping is missing or incomplete. */
+export async function bootstrapAssessmentScoping(assessmentId: string): Promise<number> {
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    include: {
+      scope: true,
+      useCases: {
+        include: { _count: { select: { scopedRequirements: true } } },
+      },
+    },
+  });
+  if (!assessment?.scope || assessment.useCases.length === 0) return 0;
+
+  const needsScoping = assessment.useCases.some((uc) => uc._count.scopedRequirements === 0);
+  if (!needsScoping) {
+    return assessment.useCases.reduce((sum, uc) => sum + uc._count.scopedRequirements, 0);
+  }
+
+  const total = await scopeAllUseCasesForAssessment(assessmentId);
+  if (total > 0 && ["client_setup", "use_cases"].includes(assessment.workflowStage)) {
+    await advanceWorkflowStage(assessmentId, "requirement_scoping");
+  } else {
+    await syncCheckpoints(assessmentId);
+  }
+  return total;
 }
 
 export { CHECKPOINT_DEFS, STAGE_ORDER };

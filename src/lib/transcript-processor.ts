@@ -117,6 +117,7 @@ export async function processWorkshopTranscripts(
     analyzedAt: new Date().toISOString(),
     sourceEvidenceIds: sources.map((s) => s.id),
     fileNames: sources.map((s) => s.fileName),
+    auditTrail: notebook.auditTrail,
   };
 
   await prisma.assessmentRepository.upsert({
@@ -132,6 +133,7 @@ export async function processWorkshopTranscripts(
     topicsNotDiscussed: notebook.topicsNotDiscussed,
     warnings: notebook.processingWarnings,
     unmappedSentences: 0,
+    auditTrail: notebook.auditTrail,
   });
 
   return {

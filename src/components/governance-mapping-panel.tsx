@@ -615,7 +615,7 @@ export function GovernanceMappingPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f6f7f9]">
       <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Governance intelligence</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">Control mapping</h2>
@@ -636,7 +636,7 @@ export function GovernanceMappingPanel({
         </div>
 
         {rows.length > 0 && (
-          <div className="mx-auto mt-4 flex max-w-[1440px] flex-wrap gap-1.5">
+          <div className="mt-4 flex flex-wrap gap-1.5">
             {(
               [
                 ["all", "All"],
@@ -664,7 +664,7 @@ export function GovernanceMappingPanel({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1440px] px-6 py-6">
+        <div className="px-6 py-6">
           {rows.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center shadow-sm">
               <GitCompare className="mx-auto mb-3 h-10 w-10 text-slate-300" />

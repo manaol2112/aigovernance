@@ -13,10 +13,34 @@ import {
   LayoutDashboard,
   Palette,
   Shield,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "aigovernance-sidebar-expanded";
+
+function DeloitteBrandMark({ size = "md" }: { size?: "sm" | "md" }) {
+  const dotSize = size === "sm" ? "h-3 w-3" : "h-4 w-4";
+  const ringSize = size === "sm" ? "h-6 w-6" : "h-8 w-8";
+
+  return (
+    <span className="relative flex items-center justify-center" aria-hidden>
+      <span
+        className={cn(
+          "absolute rounded-full bg-[#86BC25] opacity-30 animate-ping",
+          ringSize
+        )}
+        style={{ animationDuration: "1.5s" }}
+      />
+      <span
+        className={cn(
+          "relative rounded-full bg-[#86BC25] shadow-[0_0_12px_rgba(134,188,37,0.5)]",
+          dotSize
+        )}
+      />
+    </span>
+  );
+}
 
 const nav = [
   {
@@ -42,6 +66,12 @@ const nav = [
     label: "Risk & Control Matrix",
     title: "Risk pillars linked to controls and coverage",
     icon: Grid3x3,
+  },
+  {
+    href: "/risk-taxonomy",
+    label: "Risk Taxonomy",
+    title: "Canonical AI risk statements by pillar",
+    icon: ShieldAlert,
   },
   {
     href: "/controls",
@@ -159,18 +189,25 @@ export function Sidebar({ pathname }: { pathname: string }) {
         )}
       >
         {expanded ? (
-          <>
-            <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Enterprise</div>
-            <div className="mt-1 text-lg font-bold tracking-tight">AI Governance</div>
-            <div className="text-xs text-slate-500">Crosswalk & Assessment</div>
-          </>
-        ) : (
-          <div
-            className="group relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-sm font-bold transition-all duration-200 hover:bg-white/15 hover:shadow-md hover:shadow-black/30"
-            title="AI Governance"
-          >
-            AI
+          <div className="flex items-start gap-3">
+            <span className="mt-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
+              <DeloitteBrandMark />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Enterprise</div>
+              <div className="mt-1 text-lg font-bold tracking-tight">AI Governance</div>
+              <div className="text-xs text-slate-500">Crosswalk & Assessment</div>
+            </div>
           </div>
+        ) : (
+          <Link
+            href="/"
+            className="group relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10 transition-all duration-200 hover:bg-white/10 hover:ring-white/20"
+            title="AI Governance"
+            aria-label="AI Governance home"
+          >
+            <DeloitteBrandMark />
+          </Link>
         )}
       </div>
 

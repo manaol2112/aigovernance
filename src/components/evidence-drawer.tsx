@@ -4,10 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { SourceTracePanel, type Citation } from "@/components/cited-analysis";
 import { cn } from "@/lib/utils";
@@ -26,6 +28,10 @@ type EvidenceDrawerContextValue = {
 };
 
 const EvidenceDrawerContext = createContext<EvidenceDrawerContextValue | null>(null);
+
+export function isEvidenceDrawerInteraction(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest("[data-evidence-drawer]"));
+}
 
 export function EvidenceDrawerProvider({
   children,
@@ -93,19 +99,51 @@ function EvidenceDrawerPanel({
   facilitatorNotes,
   evidenceTexts,
 }: PanelProps) {
-  return (
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [open, onClose]);
+
+  const handleBackdropPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  };
+
+  const panel = (
     <>
       <div
+        data-evidence-drawer="backdrop"
         className={cn(
-          "fixed inset-0 z-[60] bg-slate-900/25 backdrop-blur-[1px] transition-opacity",
+          "fixed inset-0 z-[80] bg-slate-900/25 backdrop-blur-[1px] transition-opacity",
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         )}
         aria-hidden={!open}
-        onClick={onClose}
+        onPointerDown={handleBackdropPointerDown}
+        onClick={handleBackdropClick}
       />
       <aside
+        data-evidence-drawer="panel"
         className={cn(
-          "fixed right-0 top-0 z-[70] flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-out",
+          "fixed right-0 top-0 z-[90] flex h-dvh max-h-dvh w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-out",
           open ? "translate-x-0" : "translate-x-full"
         )}
         aria-hidden={!open}
@@ -128,17 +166,20 @@ function EvidenceDrawerPanel({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden p-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
           <SourceTracePanel
             citation={citation}
             workshopNotes={workshopNotes}
             facilitatorNotes={facilitatorNotes}
             evidenceTexts={evidenceTexts}
-            minHeight="min-h-full"
-            className="h-full"
+            minHeight="min-h-0"
+            className="h-full min-h-0"
           />
         </div>
       </aside>
     </>
   );
+
+  if (!mounted) return null;
+  return createPortal(panel, document.body);
 }

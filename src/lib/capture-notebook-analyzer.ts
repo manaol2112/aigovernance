@@ -31,11 +31,16 @@ import {
 } from "@/lib/capture-finding-format";
 import { formatFindingSectionWithCitations } from "@/lib/finding-citations";
 import { loadControlRequirementSummaries } from "@/lib/control-requirement-context";
+import { buildCaptureAnalysisAudit } from "@/lib/capture-analysis-audit";
 import {
   polishAssessmentRowFindings,
   refineAssessmentRowsWithAI,
 } from "@/lib/finding-enterprise-voice";
-import type { GroundedFact, PersistedControlAssessment } from "@/lib/capture-analysis-types";
+import type {
+  CaptureAnalysisAudit,
+  GroundedFact,
+  PersistedControlAssessment,
+} from "@/lib/capture-analysis-types";
 import { persistControlAssessment } from "@/lib/capture-control-persist";
 import { runTargetedControlPass } from "@/lib/capture-targeted-assess";
 
@@ -58,6 +63,7 @@ export type NotebookAnalysisResult = {
   vectorChunksUsed: number;
   usedVectorRetrieval: boolean;
   targetedAssessedCount: number;
+  auditTrail: CaptureAnalysisAudit;
 };
 
 type IndexResponse = {
@@ -525,6 +531,19 @@ export async function runCaptureNotebookAnalysis(
       : "",
   ].filter(Boolean);
 
+  const controlsInScope = pillarTree.flatMap((pillar) =>
+    pillar.controls.map((control) => ({
+      code: control.code,
+      title: control.title,
+    }))
+  );
+  const auditTrail = await buildCaptureAnalysisAudit({
+    sources,
+    facts,
+    assessments: finalAssessments,
+    controlsInScope,
+  });
+
   return {
     summary:
       indexResult.data.summary?.trim() ||
@@ -539,6 +558,7 @@ export async function runCaptureNotebookAnalysis(
     vectorChunksUsed: corpusSelection.chunkCount,
     usedVectorRetrieval: corpusSelection.usedVectorRetrieval,
     targetedAssessedCount: targetedPass.assessed.length,
+    auditTrail,
   };
 }
 

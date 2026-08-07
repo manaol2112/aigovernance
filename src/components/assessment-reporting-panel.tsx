@@ -246,7 +246,7 @@ export function AssessmentReportingPanel({
         {/* Hero header */}
         <div className="relative shrink-0 overflow-hidden border-b border-slate-200/80 bg-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(79,70,229,0.12),transparent)]" />
-        <div className="relative mx-auto max-w-6xl px-6 py-8">
+        <div className="relative px-6 py-8">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-700">
@@ -311,7 +311,7 @@ export function AssessmentReportingPanel({
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 pt-6">
+      <div className="px-6 pt-6">
         <PreviewReadinessPanel
           controlConfirmed={reviewProgress.confirmed}
           controlTotal={reviewProgress.total}
@@ -327,7 +327,7 @@ export function AssessmentReportingPanel({
 
       {/* Document package */}
       <div className="shrink-0 border-b border-slate-200/80 bg-white/80 px-6 py-5 backdrop-blur-sm">
-        <div className="mx-auto max-w-6xl">
+        <div className="w-full">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Download report package</h3>
@@ -416,7 +416,7 @@ export function AssessmentReportingPanel({
 
       {/* Content */}
       <div className="px-6 py-6">
-        <div className="mx-auto max-w-6xl space-y-6 pb-8">
+        <div className="space-y-6 pb-8">
           {activeTab === "overview" && (
             <>
               <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-8 text-white shadow-xl">
@@ -698,7 +698,7 @@ function ProceedToDeliverablesCard({
   onProceed: () => Promise<void>;
 }) {
   return (
-    <div className="mx-auto max-w-6xl px-6 pb-10">
+    <div className="px-6 pb-10">
       <div className="overflow-hidden rounded-2xl border-2 border-indigo-200/90 bg-gradient-to-br from-indigo-50 via-white to-violet-50 shadow-md">
         <div className="h-1 bg-gradient-to-r from-indigo-600 to-violet-600" />
         <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
@@ -762,7 +762,7 @@ function DeliverablesApprovalCard({
   const isApproved = deliverableCheckpoint?.status === "approved";
 
   return (
-    <div className="mx-auto max-w-6xl px-6 pb-10">
+    <div className="px-6 pb-10">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-600" />
         <div className="p-6">

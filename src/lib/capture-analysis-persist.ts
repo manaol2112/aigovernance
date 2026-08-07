@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { buildCaptureAnalysisSummary } from "@/lib/capture-analysis-summary";
-import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
+import type { CaptureAnalysisAudit, CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
 import { isAnalyzableEvidence } from "@/lib/transcript-evidence";
 import { getCaptureSources } from "@/lib/capture-sources";
 
@@ -11,6 +11,7 @@ export type CaptureAnalysisMeta = {
   analyzedAt: string;
   sourceEvidenceIds: string[];
   fileNames: string[];
+  auditTrail?: CaptureAnalysisAudit | null;
 };
 
 export type CaptureAnalysisState = {
@@ -32,6 +33,10 @@ function parseMeta(raw: unknown): CaptureAnalysisMeta | null {
     analyzedAt: m.analyzedAt,
     sourceEvidenceIds: m.sourceEvidenceIds,
     fileNames: Array.isArray(m.fileNames) ? m.fileNames : [],
+    auditTrail:
+      m.auditTrail && typeof m.auditTrail === "object"
+        ? (m.auditTrail as CaptureAnalysisAudit)
+        : null,
   };
 }
 
@@ -147,6 +152,7 @@ export async function loadCaptureAnalysisState(assessmentId: string): Promise<Ca
     topicsNotDiscussed: meta?.topicsNotDiscussed ?? [],
     warnings: meta?.warnings ?? [],
     unmappedSentences: 0,
+    auditTrail: meta?.auditTrail ?? null,
   });
 
   if (analysisSummary.mappings.length === 0) {

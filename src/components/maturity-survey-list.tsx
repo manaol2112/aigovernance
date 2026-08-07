@@ -34,16 +34,16 @@ import { MaturityReportPreviewShowcase } from "@/components/maturity-report-prev
 
 const CURIOSITY_HOOKS = [
   {
-    question: "Would your board pass an AI governance review tomorrow?",
-    detail: "Regulators and auditors are no longer asking if — they're asking how mature.",
+    question: "Can your board articulate your AI governance posture today?",
+    detail: "Regulators and audit committees expect documented evidence — not informal assurance.",
   },
   {
-    question: "Which risk pillar is actually your weakest?",
-    detail: "Most leaders guess wrong until they score all ten dimensions side by side.",
+    question: "Which governance pillar warrants investment first?",
+    detail: "Pillar-level scoring surfaces priorities leaders often misjudge without a structured view.",
   },
   {
-    question: "How aligned are you — really — with ISO 42001 & the EU AI Act?",
-    detail: "Self-assurance isn't evidence. A maturity baseline tells you where you stand.",
+    question: "How aligned is your program with ISO 42001 and the EU AI Act?",
+    detail: "A maturity baseline replaces self-assurance with framework-mapped insight you can defend.",
   },
 ];
 
@@ -85,25 +85,22 @@ export function MaturityAssessmentLanding() {
               <MountReveal delay={0}>
                 <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">
                   <Sparkles className="h-3.5 w-3.5" />
-                  Free · 10-minute benchmark
+                  AI governance diagnostic · Board-ready output
                 </p>
               </MountReveal>
 
               <MountReveal delay={60}>
                 <h1 className="mt-5 text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl xl:text-[3.25rem]">
-                  Most organizations{" "}
-                  <span className="text-slate-400">can&apos;t answer this</span>{" "}
-                  <span className="mt-1 block">
-                    <ShimmerGradientText>with confidence.</ShimmerGradientText>
-                  </span>
+                  Establish a{" "}
+                  <ShimmerGradientText>defensible AI governance baseline</ShimmerGradientText>
                 </h1>
               </MountReveal>
 
               <MountReveal delay={140}>
                 <p className="mt-6 max-w-lg text-lg leading-relaxed text-slate-400">
-                  How mature is your AI governance —{" "}
-                  <em className="text-slate-300 not-italic">really</em>? Get an instant executive
-                  score across ten risk pillars, mapped to NIST, ISO 42001, and the EU AI Act.
+                  A structured maturity diagnostic across ten risk pillars — aligned to NIST AI RMF,
+                  ISO 42001, and the EU AI Act — so leadership can prioritize investment with
+                  evidence, not assumptions.
                 </p>
               </MountReveal>
 
@@ -115,7 +112,7 @@ export function MaturityAssessmentLanding() {
                     className="group h-12 gap-2 rounded-xl bg-white px-8 text-base font-semibold text-slate-900 shadow-xl shadow-indigo-500/20 transition-all hover:scale-[1.02] hover:bg-slate-100"
                   >
                     <Link href="/maturity-assessment/new">
-                      Discover your maturity score
+                      Start your maturity diagnostic
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>
@@ -126,11 +123,11 @@ export function MaturityAssessmentLanding() {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Lock className="h-3.5 w-3.5" />
-                    Confidential results
+                    Confidential
                   </span>
                   <span className="flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    No credit card
+                    Framework-aligned
                   </span>
                 </p>
               </MountReveal>
@@ -152,10 +149,10 @@ export function MaturityAssessmentLanding() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <ScrollReveal variant="premium" className="mx-auto max-w-2xl text-center">
             <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Three questions every board should be able to answer
+              Three questions boards are already asking
             </h2>
             <p className="mt-3 text-slate-400">
-              If these make you pause, you&apos;re exactly who this assessment is for.
+              A structured baseline helps you answer each with evidence leadership can stand behind.
             </p>
           </ScrollReveal>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
@@ -199,7 +196,7 @@ export function MaturityAssessmentLanding() {
               <ul className="mt-8 space-y-4">
                 {[
                   { icon: Gauge, text: "Weighted maturity score across 10 governance pillars" },
-                  { icon: BarChart3, text: "Visual heatmap — see strengths and blind spots instantly" },
+                  { icon: BarChart3, text: "Visual heatmap — see strengths and blind spots clearly" },
                   { icon: Map, text: "90-day, 6-month, and 12-month remediation roadmap" },
                   { icon: FileText, text: "Executive narrative ready for board or audit committee" },
                 ].map((item) => (
@@ -272,7 +269,7 @@ export function MaturityAssessmentLanding() {
           <div className="mt-10 flex flex-col items-center gap-0 md:flex-row md:justify-center md:gap-0">
             {[
               { n: "1", label: "Answer", sub: "Plain-language questions per pillar" },
-              { n: "2", label: "Score", sub: "Instant maturity profile" },
+              { n: "2", label: "Score", sub: "Structured maturity profile" },
               { n: "3", label: "Act", sub: "Gaps + roadmap delivered" },
             ].map((step, i) => (
               <ScrollReveal key={step.n} variant="premium" delay={i * 80} className="flex items-center">
@@ -301,12 +298,12 @@ export function MaturityAssessmentLanding() {
         <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
           <ScrollReveal variant="premium">
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-              Your governance maturity
-              <span className="mt-1 block text-indigo-400">is waiting to be measured.</span>
+              Build the baseline
+              <span className="mt-1 block text-indigo-400">your stakeholders expect.</span>
             </h2>
             <p className="mx-auto mt-5 max-w-xl text-base text-slate-400">
-              Join the organizations turning AI governance from a question mark into a documented
-              strength. Takes less time than a status meeting.
+              Move from fragmented assurance to a documented maturity view — pillar scores, prioritized
+              gaps, and a roadmap your leadership team can act on in a single working session.
             </p>
             <Button
               asChild
@@ -314,7 +311,7 @@ export function MaturityAssessmentLanding() {
               className="group mt-10 h-14 gap-2 rounded-xl bg-indigo-500 px-10 text-base font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] hover:bg-indigo-400"
             >
               <Link href="/maturity-assessment/new">
-                Start my free assessment
+                Start your maturity diagnostic
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </Button>

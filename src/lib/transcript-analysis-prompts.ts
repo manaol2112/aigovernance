@@ -309,6 +309,7 @@ export const CAPTURE_TARGETED_ASSESS_SYSTEM_PROMPT = [
   "3. If chunks mention the topic even informally or partially, produce an assessment with partial, gap, or aligned status as appropriate.",
   "4. Every in_place and gap finding MUST cite chunkId(s) from the chunks with a verbatim excerpt copied from that chunk.",
   "5. Preserve speaker uncertainty ('appears', 'informal', 'in progress'). Never upgrade thin signals to full compliance.",
+  "6. NEVER mention chunk ids, source ids, retrieval scores, or CHUNK labels in the user-facing finding text. Those belong only in the citations array.",
   "",
   "WRITING STANDARD:",
   "- Enterprise audit voice: precise, third-person, audit-defensible. Name the requirement element in each finding.",

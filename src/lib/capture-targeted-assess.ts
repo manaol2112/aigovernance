@@ -57,6 +57,35 @@ function normalizeWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+function stripChunkMetadata(text: string): string {
+  return text
+    .replace(/\[CHUNK[^\]]*\]/gi, "")
+    .replace(/\[\/CHUNK\]/gi, "")
+    .replace(/\bchunkId\s*[:=]\s*["']?[A-Za-z0-9_-]+["']?/gi, "")
+    .replace(/\bsourceId\s*[:=]\s*["']?[A-Za-z0-9_-]+["']?/gi, "")
+    .replace(/\bchunk\s+\d+\b/gi, "")
+    .replace(/\bid\s*=\s*["'][^"']+["']/gi, "")
+    .replace(/\bscore\s*=\s*["'][^"']+["']/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .trim();
+}
+
+function sanitizeFindingItems(items: unknown): string[] {
+  return normalizeFindingItems(coerceFindingItems(items))
+    .map((item) => stripChunkMetadata(item))
+    .filter(Boolean);
+}
+
+function sanitizeChunkCitations(citations: ChunkCitation[] | undefined): ChunkCitation[] | undefined {
+  if (!citations?.length) return citations;
+  return citations.map((citation) => ({
+    ...citation,
+    claimText: stripChunkMetadata(citation.claimText),
+    excerpt: citation.excerpt ? stripChunkMetadata(citation.excerpt) : citation.excerpt,
+  }));
+}
+
 function resolveChunk(chunks: SourceChunkRecord[], ref?: string): SourceChunkRecord | null {
   if (!ref?.trim()) return null;
   const trimmed = ref.trim();
@@ -161,23 +190,24 @@ function buildPersistedFromTargetedRow(
     controlTitle,
   });
 
-  const inPlaceRaw = coerceFindingItems(polished.inPlaceFindings);
-  const gapRaw = coerceFindingItems(polished.gapFindings);
-  const recRaw = coerceFindingItems(polished.recommendations);
+  const inPlaceRaw = sanitizeFindingItems(polished.inPlaceFindings);
+  const gapRaw = sanitizeFindingItems(polished.gapFindings);
+  const recRaw = sanitizeFindingItems(polished.recommendations);
+  const sanitizedCitations = sanitizeChunkCitations(row.citations);
 
   const polishCtx = { controlCode: row.controlCode, controlTitle };
   const inPlaceItems = polishEnterpriseFindingItems(
-    normalizeFindingItems(inPlaceRaw),
+    inPlaceRaw,
     "in_place",
     polishCtx
   );
   const gapItems = polishEnterpriseFindingItems(
-    normalizeFindingItems(gapRaw),
+    gapRaw,
     "gap",
     polishCtx
   );
   const recItems = polishEnterpriseFindingItems(
-    normalizeFindingItems(recRaw),
+    recRaw,
     "recommendation",
     polishCtx
   );
@@ -188,7 +218,7 @@ function buildPersistedFromTargetedRow(
   const inPlace = formatSectionWithChunkCitations(
     "in_place",
     inPlaceItems,
-    row.citations,
+    sanitizedCitations,
     chunks,
     textByEvidenceId,
     citations,
@@ -197,7 +227,7 @@ function buildPersistedFromTargetedRow(
   const gaps = formatSectionWithChunkCitations(
     "gap",
     gapItems,
-    row.citations,
+    sanitizedCitations,
     chunks,
     textByEvidenceId,
     citations,
@@ -206,7 +236,7 @@ function buildPersistedFromTargetedRow(
   const recs = formatSectionWithChunkCitations(
     "recommendation",
     recItems,
-    row.citations,
+    sanitizedCitations,
     chunks,
     textByEvidenceId,
     citations,
@@ -215,15 +245,15 @@ function buildPersistedFromTargetedRow(
   );
 
   const citedChunks = new Set(
-    (row.citations ?? [])
+    (sanitizedCitations ?? [])
       .map((c) => resolveChunk(chunks, c.chunkId))
       .filter(Boolean) as SourceChunkRecord[]
   );
 
   const workshopNotes = [...citedChunks]
     .map((chunk) => {
-      const cite = row.citations?.find((c) => resolveChunk(chunks, c.chunkId)?.id === chunk.id);
-      const excerpt = cite?.excerpt?.trim() || chunk.text.slice(0, 280);
+      const cite = sanitizedCitations?.find((c) => resolveChunk(chunks, c.chunkId)?.id === chunk.id);
+      const excerpt = stripChunkMetadata(cite?.excerpt?.trim() || chunk.text.slice(0, 280));
       return `[${chunk.fileName}] ${excerpt}`;
     })
     .join("\n\n");

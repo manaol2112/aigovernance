@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import {
   advanceWorkflowStage,
   approveCheckpoint,
+  bootstrapAssessmentScoping,
   canGoToStage,
   getCheckpointForStage,
   getNextStage,
@@ -10,7 +11,6 @@ import {
   normalizeStageForNavigation,
   syncCheckpoints,
 } from "@/lib/workflow";
-import { scopeAllUseCasesForAssessment } from "@/lib/use-case-scoping";
 import { initControlEvaluations } from "@/lib/control-scoping";
 import { initPillarWorkshop } from "@/lib/pillar-workshop";
 import { analyzeAllControls } from "@/lib/control-analyzer";
@@ -24,6 +24,7 @@ export async function GET(
   try {
     const { id } = await params;
     await syncCheckpoints(id);
+    await bootstrapAssessmentScoping(id);
 
     const assessment = await prisma.assessment.findUnique({
       where: { id },
@@ -113,10 +114,12 @@ export async function PATCH(
     }
 
     case "scope_requirements": {
-      const count = await scopeAllUseCasesForAssessment(id);
-      await advanceWorkflowStage(id, "requirement_scoping");
-      await syncCheckpoints(id);
-      return NextResponse.json({ scopedCount: count, workflowStage: "requirement_scoping" });
+      const count = await bootstrapAssessmentScoping(id);
+      return NextResponse.json({
+        scopedCount: count,
+        workflowStage: (await prisma.assessment.findUnique({ where: { id }, select: { workflowStage: true } }))
+          ?.workflowStage,
+      });
     }
 
     case "init_workshop":

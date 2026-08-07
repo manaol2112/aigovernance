@@ -35,6 +35,20 @@ const FILLER_PATTERNS = [
 
 const MALFORMED_FINDING = /\[object Object\]/;
 
+function stripChunkMetadata(text: string): string {
+  return text
+    .replace(/\[CHUNK[^\]]*\]/gi, "")
+    .replace(/\[\/CHUNK\]/gi, "")
+    .replace(/\bchunkId\s*[:=]\s*["']?[A-Za-z0-9_-]+["']?/gi, "")
+    .replace(/\bsourceId\s*[:=]\s*["']?[A-Za-z0-9_-]+["']?/gi, "")
+    .replace(/\bchunk\s+\d+\b/gi, "")
+    .replace(/\bid\s*=\s*["'][^"']+["']/gi, "")
+    .replace(/\bscore\s*=\s*["'][^"']+["']/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .trim();
+}
+
 /** True when persisted findings were stringified from objects (legacy bad AI parse). */
 export function isMalformedFindingText(text: string): boolean {
   return MALFORMED_FINDING.test(text);
@@ -53,44 +67,44 @@ function joinLabelParts(prefix: string, body: string, suffixLabel: string, suffi
 
 /** Coerce LLM JSON finding entries (string or structured object) to display text. */
 export function coerceFindingItem(item: unknown): string {
-  if (typeof item === "string") return item.trim();
+  if (typeof item === "string") return stripChunkMetadata(item);
   if (item == null) return "";
   if (typeof item === "number" || typeof item === "boolean") return String(item);
   if (Array.isArray(item)) {
-    return item.map(coerceFindingItem).filter(Boolean).join(" ").trim();
+    return stripChunkMetadata(item.map(coerceFindingItem).filter(Boolean).join(" ").trim());
   }
   if (typeof item !== "object") return String(item).trim();
 
   const o = item as Record<string, unknown>;
-  if (typeof o.text === "string") return o.text.trim();
-  if (typeof o.finding === "string") return o.finding.trim();
-  if (typeof o.claimText === "string") return o.claimText.trim();
-  if (typeof o.content === "string") return o.content.trim();
+  if (typeof o.text === "string") return stripChunkMetadata(o.text);
+  if (typeof o.finding === "string") return stripChunkMetadata(o.finding);
+  if (typeof o.claimText === "string") return stripChunkMetadata(o.claimText);
+  if (typeof o.content === "string") return stripChunkMetadata(o.content);
 
   const observed = o.observedPractice ?? o.observed ?? o.observed_practice;
   if (typeof observed === "string") {
     const evidence = o.evidence ?? o.basis ?? o.support;
     return typeof evidence === "string" && evidence.trim()
-      ? joinLabelParts("Observed practice:", observed, "Evidence:", evidence)
-      : observed.trim();
+      ? stripChunkMetadata(joinLabelParts("Observed practice:", observed, "Evidence:", evidence))
+      : stripChunkMetadata(observed);
   }
 
   if (typeof o.gap === "string") {
     const basis = o.basis ?? o.evidence ?? o.support;
     return typeof basis === "string" && basis.trim()
-      ? joinLabelParts("Gap:", o.gap, "Basis:", basis)
-      : o.gap.trim();
+      ? stripChunkMetadata(joinLabelParts("Gap:", o.gap, "Basis:", basis))
+      : stripChunkMetadata(o.gap);
   }
 
   if (typeof o.recommendation === "string") {
     const rationale = o.rationale ?? o.reason;
     return typeof rationale === "string" && rationale.trim()
-      ? joinLabelParts("Recommendation:", o.recommendation, "Rationale:", rationale)
-      : o.recommendation.trim();
+      ? stripChunkMetadata(joinLabelParts("Recommendation:", o.recommendation, "Rationale:", rationale))
+      : stripChunkMetadata(o.recommendation);
   }
 
   const stringValues = Object.values(o).filter((v) => typeof v === "string") as string[];
-  if (stringValues.length > 0) return stringValues.join(" ").trim();
+  if (stringValues.length > 0) return stripChunkMetadata(stringValues.join(" ").trim());
 
   try {
     return JSON.stringify(o);

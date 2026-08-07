@@ -13,6 +13,49 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const EASE_PREMIUM = "cubic-bezier(0.16, 1, 0.3, 1)";
+const MATURITY_SCROLL_SELECTOR = "[data-maturity-scroll]";
+
+function getMaturityScrollRoot(): HTMLElement {
+  if (typeof document === "undefined") {
+    return document.documentElement;
+  }
+  return (
+    (document.querySelector(MATURITY_SCROLL_SELECTOR) as HTMLElement | null) ??
+    document.documentElement
+  );
+}
+
+function isDocumentScrollRoot(root: HTMLElement): boolean {
+  return root === document.documentElement || root === document.body;
+}
+
+function getScrollTop(root: HTMLElement): number {
+  return isDocumentScrollRoot(root) ? window.scrollY : root.scrollTop;
+}
+
+function getScrollMetrics(root: HTMLElement): { scrollTop: number; scrollable: number } {
+  if (isDocumentScrollRoot(root)) {
+    return {
+      scrollTop: window.scrollY,
+      scrollable: document.documentElement.scrollHeight - window.innerHeight,
+    };
+  }
+  return {
+    scrollTop: root.scrollTop,
+    scrollable: root.scrollHeight - root.clientHeight,
+  };
+}
+
+function subscribeMaturityScroll(onScroll: () => void): () => void {
+  const root = getMaturityScrollRoot();
+  const handler = () => onScroll();
+  if (isDocumentScrollRoot(root)) {
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }
+  root.addEventListener("scroll", handler, { passive: true });
+  return () => root.removeEventListener("scroll", handler);
+}
 
 export function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -38,15 +81,14 @@ function useScrollY(): number {
     const onScroll = () => {
       if (!ticking) {
         requestAnimationFrame(() => {
-          setScrollY(window.scrollY);
+          setScrollY(getScrollTop(getMaturityScrollRoot()));
           ticking = false;
         });
         ticking = true;
       }
     };
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return subscribeMaturityScroll(onScroll);
   }, [reduced]);
 
   return scrollY;
@@ -60,20 +102,18 @@ export function ScrollProgressBar() {
   useEffect(() => {
     if (reduced) return;
     const onScroll = () => {
-      const doc = document.documentElement;
-      const scrollable = doc.scrollHeight - window.innerHeight;
-      setProgress(scrollable > 0 ? window.scrollY / scrollable : 0);
+      const { scrollTop, scrollable } = getScrollMetrics(getMaturityScrollRoot());
+      setProgress(scrollable > 0 ? scrollTop / scrollable : 0);
     };
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return subscribeMaturityScroll(onScroll);
   }, [reduced]);
 
   if (reduced) return null;
 
   return (
     <div
-      className="pointer-events-none fixed left-0 top-0 z-[60] h-[2px] w-full origin-left bg-[var(--theme-brand)] shadow-[0_0_12px_color-mix(in_srgb,var(--theme-brand)_60%,transparent)]"
+      className="pointer-events-none sticky top-0 z-[60] h-[2px] w-full origin-left bg-[var(--theme-brand)] shadow-[0_0_12px_color-mix(in_srgb,var(--theme-brand)_60%,transparent)]"
       style={{ transform: `scaleX(${progress})` }}
       aria-hidden
     />
@@ -85,10 +125,9 @@ export function useScrolledPast(threshold = 48): boolean {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > threshold);
+    const onScroll = () => setScrolled(getScrollTop(getMaturityScrollRoot()) > threshold);
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return subscribeMaturityScroll(onScroll);
   }, [threshold]);
 
   return scrolled;
@@ -102,11 +141,16 @@ export function useLightHeaderZone(): boolean {
     const targets = document.querySelectorAll('[data-header-theme="light"]');
     if (!targets.length) return;
 
+    const root = getMaturityScrollRoot();
     const observer = new IntersectionObserver(
       (entries) => {
         setLight(entries.some((e) => e.isIntersecting));
       },
-      { threshold: 0, rootMargin: "-64px 0px -55% 0px" }
+      {
+        threshold: 0,
+        root: isDocumentScrollRoot(root) ? null : root,
+        rootMargin: "-64px 0px -55% 0px",
+      }
     );
 
     targets.forEach((el) => observer.observe(el));
@@ -314,10 +358,9 @@ export function StickyScrollCTA() {
 
   useEffect(() => {
     if (reduced) return;
-    const onScroll = () => setVisible(window.scrollY > 520);
+    const onScroll = () => setVisible(getScrollTop(getMaturityScrollRoot()) > 520);
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return subscribeMaturityScroll(onScroll);
   }, [reduced]);
 
   return (
@@ -332,7 +375,7 @@ export function StickyScrollCTA() {
         href="/maturity-assessment/new"
         className="group flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/90 px-5 py-2.5 text-sm font-semibold text-white shadow-2xl shadow-indigo-500/25 backdrop-blur-md transition-transform hover:scale-[1.03]"
       >
-        Discover your score
+        Start your maturity diagnostic
         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
       </Link>
     </div>
