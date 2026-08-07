@@ -18,8 +18,11 @@ export async function scopeRequirementsForUseCase(
   if (!useCase) throw new Error("Use case not found");
 
   const typeDef = getUseCaseTypeDef(useCase.useCaseType);
-  const actor = useCase.actorRole ?? typeDef.defaultActor;
-  const riskTier = useCase.riskTier ?? typeDef.defaultRiskTier;
+  const storedActor = useCase.actorRole ?? typeDef.defaultActor;
+  const storedRisk = useCase.riskTier ?? typeDef.defaultRiskTier;
+  // When intake is discovery-mode, keep "general" on record but infer scoping from system category.
+  const actor = storedActor === "general" ? typeDef.defaultActor : storedActor;
+  const riskTier = storedRisk === "general" ? typeDef.defaultRiskTier : storedRisk;
 
   const requirements = await prisma.frameworkRequirement.findMany({
     where: {

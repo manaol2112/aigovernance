@@ -1,0 +1,42 @@
+Acme Financial Services — AI Governance Workshop
+Session 1: Governance & AI Policy
+Date: June 15, 2026 | Facilitator: Jordan Rivera
+Participants: Sarah Chen (CIO), Marcus Webb (CRO), Elena Vasquez (Legal)
+
+[00:02:14] Facilitator: Sarah, can you start with how leadership has endorsed responsible AI?
+
+[00:02:22] Sarah Chen: Yes. The board formally endorsed responsible AI in March 2025. Our CEO signed a public commitment aligned with OECD principles. Marcus as CRO is accountable — he reports quarterly to the board risk committee.
+
+[00:03:01] Marcus Webb: That's correct. We treat AI risk as part of enterprise risk management, integrated with COSO ERM, not as a standalone IT issue.
+
+[00:04:18] Facilitator: Walk us through the AI policy — version, approval, coverage.
+
+[00:04:25] Elena Vasquez: We have AI Policy v2.1, board-approved in 2024 and last reviewed January 2026. It covers prohibited uses — no covert biometric profiling, no undisclosed automated legal decisions. It explicitly addresses high-risk AI, third-party AI, and generative AI.
+
+[00:05:44] Sarah Chen: Policy is on the intranet. All engineers and product owners get mandatory annual training. We cross-reference security, privacy, data governance, and procurement policies.
+
+[00:06:52] Facilitator: Example where policy blocked something?
+
+[00:07:01] Marcus Webb: Q1 2026 — we blocked an external resume-screening vendor until bias testing was completed. Exceptions go through me and are logged in the governance register.
+
+[00:08:30] Facilitator: Any policy gaps for emerging AI?
+
+[00:08:38] Elena Vasquez: Agentic AI and employee use of public ChatGPT aren't fully covered yet. Updates are planned in the next 12 months — that's in progress, not done.
+
+[00:09:55] Facilitator: Governance structure — who oversees in-scope systems?
+
+[00:10:03] Sarah Chen: Board risk committee for oversight. I'm executive sponsor. AI Ethics & Risk Committee meets monthly. ML Platform Lead, DPO, and business unit AI champions handle operations.
+
+[00:11:20] Facilitator: Can developers deploy to production without review?
+
+[00:11:28] Sarah Chen: No. Production requires Model Risk Management sign-off and security approval. CI/CD gates enforce segregation of duties. Roles in IAM, reviewed quarterly.
+
+[00:12:45] Facilitator: AI system inventory?
+
+[00:12:52] Sarah Chen: Centralized inventory in ServiceNow with business owner, technical owner, risk tier. Re-evaluated at intake. Honestly — vendor-sourced models sometimes get added informally before inventory update. We're tightening that.
+
+[00:14:10] Facilitator: Legacy systems without formal risk assessment?
+
+[00:14:18] Marcus Webb: Two legacy fraud rules engines pre-date our formal AI risk assessment process. Partial documentation only. Remediation is planned but not yet implemented.
+
+[END SESSION 1]

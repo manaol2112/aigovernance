@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { CheckpointType, WorkflowStage } from "@prisma/client";
 import { WORKFLOW_STEPS } from "@/lib/use-case-types";
+import { scopeAllUseCasesForAssessment } from "@/lib/use-case-scoping";
 
 const CHECKPOINT_DEFS: Record<
   CheckpointType,
@@ -22,9 +23,9 @@ const CHECKPOINT_DEFS: Record<
     producedAtStage: "requirement_scoping",
   },
   evaluation_review: {
-    title: "Confirm Evaluation Results",
-    summaryTemplate: "Validate gap/alignment findings against workshop notes and evidence before generating deliverables.",
-    producedAtStage: "evaluation",
+    title: "Confirm Control Analysis Results",
+    summaryTemplate: "Validate per-control AI analysis, citation traceability, and reviewer sign-off before generating deliverables.",
+    producedAtStage: "workshop",
   },
   deliverable_approval: {
     title: "Approve Final Deliverables",
@@ -44,6 +45,12 @@ const STAGE_ORDER: WorkflowStage[] = [
   "finalized",
 ];
 
+const AUTO_APPROVED_SCOPE_CHECKPOINTS = new Set<CheckpointType>([
+  "scope_confirmation",
+  "use_case_confirmation",
+  "requirement_scoping_confirmation",
+]);
+
 function stageIndex(stage: WorkflowStage): number {
   return STAGE_ORDER.indexOf(stage);
 }
@@ -59,6 +66,7 @@ async function loadAssessmentForCheckpoints(assessmentId: string) {
         include: { _count: { select: { scopedRequirements: true, pillarWorkshopResponses: true } } },
       },
       requirementEvaluations: true,
+      controlEvaluations: true,
       deliverables: true,
     },
   });
@@ -73,7 +81,10 @@ function isCheckpointReady(type: CheckpointType, assessment: AssessmentSnapshot)
     case "requirement_scoping_confirmation":
       return assessment.useCases.some((uc) => uc._count.scopedRequirements > 0);
     case "evaluation_review":
-      return assessment.requirementEvaluations.length > 0;
+      return (
+        assessment.controlEvaluations.length > 0 &&
+        assessment.controlEvaluations.every((e) => e.status === "human_confirmed")
+      );
     case "deliverable_approval":
       return assessment.deliverables.length > 0;
     default:
@@ -97,9 +108,12 @@ async function buildReviewSummary(type: CheckpointType, assessment: AssessmentSn
       return `${total} total requirements scoped across ${assessment.useCases.length} use case(s):\n${lines.join("\n")}`;
     }
     case "evaluation_review": {
-      const aligned = assessment.requirementEvaluations.filter((e) => e.complianceStatus === "aligned").length;
-      const gaps = assessment.requirementEvaluations.filter((e) => e.complianceStatus !== "aligned").length;
-      return `${assessment.requirementEvaluations.length} requirements evaluated | ${aligned} aligned | ${gaps} gaps/partial`;
+      const total = assessment.controlEvaluations.length;
+      const confirmed = assessment.controlEvaluations.filter((e) => e.status === "human_confirmed").length;
+      const analyzed = assessment.controlEvaluations.filter((e) => e.status !== "pending").length;
+      const aligned = assessment.controlEvaluations.filter((e) => e.complianceStatus === "aligned").length;
+      const gaps = assessment.controlEvaluations.filter((e) => e.complianceStatus !== "aligned").length;
+      return `${total} controls in scope | ${analyzed} analyzed | ${confirmed} reviewer-confirmed | ${aligned} aligned | ${gaps} gaps/partial\nAll controls must be reviewer-confirmed before deliverables.`;
     }
     case "deliverable_approval":
       return assessment.deliverables.map((d) => `• ${d.title} (${d.status})`).join("\n");
@@ -119,8 +133,10 @@ function resolveCheckpointStatus(
   const currentIdx = stageIndex(assessment.workflowStage);
   const producedIdx = stageIndex(CHECKPOINT_DEFS[type].producedAtStage);
 
-  // Unlock when the assessment has reached or passed the stage that produces reviewable content
-  if (currentIdx >= producedIdx) return "pending";
+  if (currentIdx >= producedIdx) {
+    if (AUTO_APPROVED_SCOPE_CHECKPOINTS.has(type)) return "approved";
+    return "pending";
+  }
   return "locked";
 }
 
@@ -188,9 +204,34 @@ export async function advanceWorkflowStage(assessmentId: string, stage: Workflow
 }
 
 export function getNextStage(current: WorkflowStage): WorkflowStage | null {
+  // Combined analysis path: workshop → deliverables (skip legacy evaluation/human_review)
+  if (current === "workshop" || current === "evaluation" || current === "human_review") {
+    return "deliverables";
+  }
   const idx = WORKFLOW_STEPS.findIndex((s) => s.stage === current);
   if (idx === -1 || idx >= WORKFLOW_STEPS.length - 1) return null;
-  return WORKFLOW_STEPS[idx + 1].stage as WorkflowStage;
+  const next = WORKFLOW_STEPS[idx + 1].stage as WorkflowStage;
+  return next;
+}
+
+/** Collapse legacy analysis stages to the combined workshop step for navigation. */
+export function normalizeStageForNavigation(stage: string): WorkflowStage {
+  if (stage === "evaluation" || stage === "human_review") return "workshop";
+  return stage as WorkflowStage;
+}
+
+/** Stepper index used for back/forward navigation (matches displayStepIndex). */
+export function navigationStageIndex(stage: string): number {
+  if (stage === "evaluation" || stage === "human_review") return 3;
+  if (stage === "deliverables") return 4;
+  if (stage === "finalized") return 5;
+  const idx = WORKFLOW_STEPS.findIndex((s) => s.stage === stage);
+  return idx >= 0 ? idx : 0;
+}
+
+/** Users may revisit any stage at or before their current progress. */
+export function canGoToStage(current: string, target: string): boolean {
+  return navigationStageIndex(target) <= navigationStageIndex(current);
 }
 
 export function getCheckpointForStage(stage: WorkflowStage): CheckpointType | null {
@@ -198,6 +239,7 @@ export function getCheckpointForStage(stage: WorkflowStage): CheckpointType | nu
     client_setup: "scope_confirmation",
     use_cases: "use_case_confirmation",
     requirement_scoping: "requirement_scoping_confirmation",
+    workshop: "evaluation_review",
     evaluation: "evaluation_review",
     human_review: "evaluation_review",
     deliverables: "deliverable_approval",
@@ -214,6 +256,33 @@ export async function isCheckpointApproved(assessmentId: string, type: Checkpoin
 
 export async function initializeWorkflowCheckpoints(assessmentId: string) {
   await syncCheckpoints(assessmentId);
+}
+
+/** Scope requirements when use cases exist but scoping is missing or incomplete. */
+export async function bootstrapAssessmentScoping(assessmentId: string): Promise<number> {
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    include: {
+      scope: true,
+      useCases: {
+        include: { _count: { select: { scopedRequirements: true } } },
+      },
+    },
+  });
+  if (!assessment?.scope || assessment.useCases.length === 0) return 0;
+
+  const needsScoping = assessment.useCases.some((uc) => uc._count.scopedRequirements === 0);
+  if (!needsScoping) {
+    return assessment.useCases.reduce((sum, uc) => sum + uc._count.scopedRequirements, 0);
+  }
+
+  const total = await scopeAllUseCasesForAssessment(assessmentId);
+  if (total > 0 && ["client_setup", "use_cases"].includes(assessment.workflowStage)) {
+    await advanceWorkflowStage(assessmentId, "requirement_scoping");
+  } else {
+    await syncCheckpoints(assessmentId);
+  }
+  return total;
 }
 
 export { CHECKPOINT_DEFS, STAGE_ORDER };

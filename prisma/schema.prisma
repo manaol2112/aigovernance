@@ -118,6 +118,12 @@ enum EvaluationStatus {
   rejected
 }
 
+enum ControlReviewNoteStatus {
+  open
+  resolved
+  reopened
+}
+
 enum CheckpointStatus {
   locked
   pending
@@ -273,6 +279,17 @@ model RequirementRiskLink {
   @@map("requirement_risk_links")
 }
 
+enum MaturitySurveyStatus {
+  draft
+  in_progress
+  completed
+}
+
+enum MaturitySurveyMode {
+  quick
+  deep_dive
+}
+
 model CanonicalControl {
   id                 String             @id @default(cuid())
   code               String             @unique
@@ -293,6 +310,10 @@ model CanonicalControl {
   riskLinks        ControlRiskLink[]
   responses        AssessmentResponse[]
   gapFindings      GapFinding[]
+  controlEvaluations ControlEvaluation[]
+  maturitySurveyResponses MaturitySurveyResponse[]
+  dependenciesAsSource ControlDependency[] @relation("DependencySource")
+  dependenciesAsTarget ControlDependency[] @relation("DependencyTarget")
 
   @@map("canonical_controls")
 }
@@ -373,6 +394,15 @@ model Assessment {
   checkpoints            HumanCheckpoint[]
   deliverables           Deliverable[]
   workshopSessions       WorkshopSession[]
+  repository             AssessmentRepository?
+  evidenceFiles          AssessmentEvidence[]
+  controlEvaluations     ControlEvaluation[]
+  captureSourceChunks    CaptureSourceChunk[]
+  aiSystems              AISystem[]
+  governanceEvidence     GovernanceEvidence[]
+  reviewerDisagreements  ReviewerDisagreement[]
+  controlReviewNotes     ControlReviewNoteThread[]
+  governanceInitiatives  GovernanceInitiative[]
 
   @@map("assessments")
 }
@@ -439,6 +469,12 @@ model UseCase {
   actorRole       ActorType?  @map("actor_role")
   riskTier        RiskTier?   @map("risk_tier")
   dataCategories  String[]    @map("data_categories")
+  department      String?     @map("department")
+  businessOwner   String?     @map("business_owner")
+  vendor          String?
+  deploymentStage DeploymentStage @default(prod) @map("deployment_stage")
+  autonomyLevel   AutonomyLevel @default(medium) @map("autonomy_level")
+  regions         String[]    @default([]) @map("regions")
   sortOrder       Int         @default(0) @map("sort_order")
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
@@ -448,6 +484,7 @@ model UseCase {
   workshopResponses    WorkshopResponse[]
   pillarWorkshopResponses WorkshopPillarResponse[]
   requirementEvaluations RequirementEvaluation[]
+  aiSystem             AISystem?
 
   @@index([assessmentId])
   @@map("use_cases")
@@ -615,4 +652,368 @@ model Deliverable {
 
   @@unique([assessmentId, type])
   @@map("deliverables")
+}
+
+model AssessmentRepository {
+  id               String   @id @default(cuid())
+  assessmentId     String   @unique @map("assessment_id")
+  workshopNotes    String?  @map("workshop_notes") @db.Text
+  facilitatorNotes String?  @map("facilitator_notes") @db.Text
+  departmentNotes  Json     @default("{}") @map("department_notes")
+  captureQueries       Json     @default("[]") @map("capture_queries")
+  captureAnalysisMeta  Json?    @map("capture_analysis_meta")
+  followUpQuestions    Json     @default("{}") @map("follow_up_questions")
+  reportNarrativeCache Json?   @map("report_narrative_cache")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@map("assessment_repositories")
+}
+
+model AssessmentEvidence {
+  id            String   @id @default(cuid())
+  assessmentId  String   @map("assessment_id")
+  fileName      String   @map("file_name")
+  filePath      String   @map("file_path")
+  mimeType      String   @map("mime_type")
+  fileSize      Int      @map("file_size")
+  description   String?  @db.Text
+  extractedText String?  @map("extracted_text") @db.Text
+  controlCodes  String[] @map("control_codes")
+  useCaseId     String?  @map("use_case_id")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
+
+  assessment Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  citations  EvaluationCitation[]
+  sourceChunks CaptureSourceChunk[]
+  governanceEvidence GovernanceEvidence[]
+
+  @@index([assessmentId])
+  @@map("assessment_evidence")
+}
+
+model CaptureSourceChunk {
+  id           String   @id @default(cuid())
+  assessmentId String   @map("assessment_id")
+  evidenceId   String   @map("evidence_id")
+  chunkIndex   Int      @map("chunk_index")
+  fileName     String   @map("file_name")
+  text         String   @db.Text
+  startOffset  Int      @map("start_offset")
+  endOffset    Int      @map("end_offset")
+  embedding    Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  evidence   AssessmentEvidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@unique([evidenceId, chunkIndex])
+  @@index([assessmentId])
+  @@map("capture_source_chunks")
+}
+
+model ControlEvaluation {
+  id                      String           @id @default(cuid())
+  assessmentId            String           @map("assessment_id")
+  controlId               String           @map("control_id")
+  inPlaceFindings         String           @default("") @map("in_place_findings") @db.Text
+  gapFindings             String           @default("") @map("gap_findings") @db.Text
+  recommendations         String           @default("") @map("recommendations") @db.Text
+  workshopNotes           String?          @map("workshop_notes") @db.Text
+  facilitatorNotes        String?          @map("facilitator_notes") @db.Text
+  complianceStatus        String           @default("not_assessed") @map("compliance_status")
+  status                  EvaluationStatus @default(pending)
+  aiGenerated             Boolean          @default(false) @map("ai_generated")
+  reviewerComplete        Boolean?         @map("reviewer_complete")
+  reviewerAccurate        Boolean?         @map("reviewer_accurate")
+  reviewerNoHallucination Boolean?         @map("reviewer_no_hallucination")
+  confirmedBy             String?          @map("confirmed_by")
+  confirmedAt             DateTime?        @map("confirmed_at")
+  reviewerNotes           String?          @map("reviewer_notes") @db.Text
+  analyzedAt              DateTime?        @map("analyzed_at")
+  mappingConfidence       Float?           @map("mapping_confidence")
+  evidenceStrength        Float?           @map("evidence_strength")
+  riskReductionScore      Float?           @map("risk_reduction_score")
+  implementationStatus    ControlImplementationStatus? @map("implementation_status")
+  ambiguityFlags          String[]         @default([]) @map("ambiguity_flags")
+  linkedEvidenceIds       String[]         @default([]) @map("linked_evidence_ids")
+  linkedAiSystemIds       String[]         @default([]) @map("linked_ai_system_ids")
+  explainability          Json?            @map("explainability")
+  workpaperContent        Json?            @map("workpaper_content")
+  workpaperFieldState     Json?            @map("workpaper_field_state")
+  createdAt               DateTime         @default(now()) @map("created_at")
+  updatedAt               DateTime         @updatedAt @map("updated_at")
+
+  assessment Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  control    CanonicalControl     @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  citations  EvaluationCitation[]
+  disagreements ReviewerDisagreement[]
+  reviewNotes ControlReviewNoteThread[]
+
+  @@unique([assessmentId, controlId])
+  @@index([assessmentId])
+  @@map("control_evaluations")
+}
+
+model ControlReviewNoteThread {
+  id                  String                  @id @default(cuid())
+  assessmentId        String                  @map("assessment_id")
+  controlEvaluationId String                  @map("control_evaluation_id")
+  fieldKey            String                  @map("field_key")
+  title               String?
+  status              ControlReviewNoteStatus @default(open)
+  assignee            String?
+  createdBy           String                  @map("created_by")
+  resolvedBy          String?                 @map("resolved_by")
+  resolvedAt          DateTime?               @map("resolved_at")
+  messages            Json
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+
+  assessment        Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  controlEvaluation ControlEvaluation @relation(fields: [controlEvaluationId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+  @@index([controlEvaluationId])
+  @@index([fieldKey])
+  @@map("control_review_note_threads")
+}
+
+model EvaluationCitation {
+  id                  String @id @default(cuid())
+  controlEvaluationId String @map("control_evaluation_id")
+  section             String
+  claimIndex          Int    @map("claim_index")
+  claimText           String @map("claim_text") @db.Text
+  sourceType          String @map("source_type")
+  sourceId            String? @map("source_id")
+  sourceLabel         String @map("source_label")
+  excerpt             String @db.Text
+  startOffset         Int    @map("start_offset")
+  endOffset           Int    @map("end_offset")
+  citationIndex       Int    @map("citation_index")
+
+  controlEvaluation ControlEvaluation   @relation(fields: [controlEvaluationId], references: [id], onDelete: Cascade)
+  evidence          AssessmentEvidence? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([controlEvaluationId])
+  @@map("evaluation_citations")
+}
+
+// ── Governance Intelligence v2 ─────────────────────────────────────────────
+
+model AISystem {
+  id               String            @id @default(cuid())
+  assessmentId     String            @map("assessment_id")
+  useCaseId        String?           @unique @map("use_case_id")
+  name             String
+  useCaseSummary   String?           @map("use_case_summary") @db.Text
+  businessFunction String?           @map("business_function")
+  modelType        AISystemModelType @default(llm) @map("model_type")
+  vendor           String?
+  deploymentStage  DeploymentStage   @default(prod) @map("deployment_stage")
+  riskLevel        RiskTier?         @map("risk_level")
+  dataTypes        String[]          @default([]) @map("data_types")
+  autonomyLevel    AutonomyLevel     @default(medium) @map("autonomy_level")
+  users            String?
+  regions          String[]          @default([])
+  detectedByAi     Boolean           @default(false) @map("detected_by_ai")
+  confidenceScore  Float?            @map("confidence_score")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  assessment         Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  useCase            UseCase?             @relation(fields: [useCaseId], references: [id], onDelete: SetNull)
+  governanceEvidence GovernanceEvidence[]
+
+  @@index([assessmentId])
+  @@map("ai_systems")
+}
+
+model GovernanceEvidence {
+  id                String                   @id @default(cuid())
+  assessmentId      String                   @map("assessment_id")
+  source            GovernanceEvidenceSource
+  rawText           String                   @map("raw_text") @db.Text
+  structuredSignals Json                     @map("structured_signals")
+  confidenceScore   Float                    @default(0) @map("confidence_score")
+  linkedAiSystemId  String?                  @map("linked_ai_system_id")
+  sourceEvidenceId  String?                  @map("source_evidence_id")
+  capturedAt        DateTime                 @default(now()) @map("captured_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  aiSystem   AISystem?          @relation(fields: [linkedAiSystemId], references: [id], onDelete: SetNull)
+  sourceFile AssessmentEvidence? @relation(fields: [sourceEvidenceId], references: [id], onDelete: SetNull)
+
+  @@index([assessmentId])
+  @@index([linkedAiSystemId])
+  @@map("governance_evidence")
+}
+
+model ControlDependency {
+  id                 String                 @id @default(cuid())
+  controlId          String                 @map("control_id")
+  dependsOnControlId String                 @map("depends_on_control_id")
+  relationType       DependencyRelationType @default(depends_on) @map("relation_type")
+  impactScore        Float                  @default(1) @map("impact_score")
+  rationale          String?                @db.Text
+  createdAt          DateTime               @default(now()) @map("created_at")
+
+  control   CanonicalControl @relation("DependencySource", fields: [controlId], references: [id], onDelete: Cascade)
+  dependsOn CanonicalControl @relation("DependencyTarget", fields: [dependsOnControlId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, dependsOnControlId, relationType])
+  @@index([controlId])
+  @@index([dependsOnControlId])
+  @@map("control_dependencies")
+}
+
+model ReviewerDisagreement {
+  id                       String                       @id @default(cuid())
+  assessmentId             String                       @map("assessment_id")
+  controlEvaluationId      String                       @map("control_evaluation_id")
+  aiComplianceStatus       String                       @map("ai_compliance_status")
+  reviewerComplianceStatus String?                      @map("reviewer_compliance_status")
+  reviewerOverride         String?                      @map("reviewer_override") @db.Text
+  mismatchReason           String?                      @map("mismatch_reason") @db.Text
+  disputedField            String?                      @map("disputed_field")
+  status                   DisagreementResolutionStatus @default(open)
+  patternTag               String?                      @map("pattern_tag")
+  resolvedBy               String?                      @map("resolved_by")
+  resolvedAt               DateTime?                    @map("resolved_at")
+  createdAt                DateTime                     @default(now()) @map("created_at")
+  updatedAt                DateTime                     @updatedAt @map("updated_at")
+
+  assessment        Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  controlEvaluation ControlEvaluation @relation(fields: [controlEvaluationId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+  @@index([controlEvaluationId])
+  @@map("reviewer_disagreements")
+}
+
+model GovernanceInitiative {
+  id                   String   @id @default(cuid())
+  assessmentId         String   @map("assessment_id")
+  title                String
+  description          String   @db.Text
+  governanceRoiScore   Float    @map("governance_roi_score")
+  riskReduction        Float    @map("risk_reduction")
+  complianceCoverage   Float    @map("compliance_coverage")
+  dependencyUnlock     Float    @map("dependency_unlock")
+  effortEstimate       Float    @map("effort_estimate")
+  dependsOnControlIds  String[] @default([]) @map("depends_on_control_ids")
+  unlocksControlIds    String[] @default([]) @map("unlocks_control_ids")
+  phase                String
+  rank                 Int      @default(0)
+  whyPrioritized       String?  @map("why_prioritized") @db.Text
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+  @@map("governance_initiatives")
+}
+
+model MaturitySurvey {
+  id                 String               @id @default(cuid())
+  title              String
+  organizationName   String?              @map("organization_name")
+  respondentName     String?              @map("respondent_name")
+  respondentRole     String?              @map("respondent_role")
+  frameworkCodes     String[]             @map("framework_codes")
+  surveyMode         MaturitySurveyMode   @default(quick) @map("survey_mode")
+  status             MaturitySurveyStatus @default(draft)
+  currentStepIndex   Int                  @default(0) @map("current_step_index")
+  submittedAt        DateTime?            @map("submitted_at")
+  reportCache        Json?                @map("report_cache")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  responses MaturitySurveyResponse[]
+
+  @@map("maturity_surveys")
+}
+
+enum ColorTheme {
+  light
+  dark
+  deloitte
+}
+
+enum AISystemModelType {
+  llm
+  ml
+  agent
+  rule_based
+}
+
+enum DeploymentStage {
+  idea
+  dev
+  prod
+}
+
+enum AutonomyLevel {
+  low
+  medium
+  high
+}
+
+enum GovernanceEvidenceSource {
+  workshop
+  document
+  system
+  reviewer
+}
+
+enum ControlImplementationStatus {
+  missing
+  partial
+  implemented
+  effective
+}
+
+enum DependencyRelationType {
+  depends_on
+  enables
+  blocked_by
+}
+
+enum DisagreementResolutionStatus {
+  open
+  resolved
+  accepted_ai
+  accepted_reviewer
+}
+
+model AppSetting {
+  id         String     @id @default("singleton")
+  colorTheme ColorTheme @default(light) @map("color_theme")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+model MaturitySurveyResponse {
+  id        String        @id @default(cuid())
+  surveyId  String        @map("survey_id")
+  pillarId  String        @map("pillar_id")
+  controlId String        @map("control_id")
+  maturity  MaturityLevel @default(not_implemented)
+  notes     String?       @db.Text
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  survey  MaturitySurvey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  control CanonicalControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@unique([surveyId, controlId])
+  @@index([surveyId])
+  @@map("maturity_survey_responses")
 }

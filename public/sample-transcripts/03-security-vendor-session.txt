@@ -1,0 +1,40 @@
+Acme Financial Services — AI Governance Workshop
+Session 3: Security, Explainability & Third-Party AI
+Date: June 16, 2026 | Facilitator: Jordan Rivera
+Participants: James Okonkwo (ML Platform), Sarah Chen (CIO), Vendor Manager: Tom Reed
+
+[00:01:10] Facilitator: AI-specific security threats for in-scope systems?
+
+[00:01:18] James Okonkwo: Prompt injection, data poisoning, model extraction for chatbot and credit API. Documented in our security risk register. STRIDE done for credit API. Chatbot and RAG corpus — no formal AI threat modeling yet. Gap.
+
+[00:02:45] Facilitator: Controls in production?
+
+[00:02:52] James Okonkwo: Input validation, output filtering, rate limiting, API auth on inference endpoints. Model weights have integrity checks in artifact registry. RBAC, MFA, least privilege — audit logged.
+
+[00:04:05] Facilitator: Red team or adversarial testing?
+
+[00:04:12] James Okonkwo: Annual pen test includes some prompt injection for chatbot. No dedicated adversarial ML red team. Planned but not performed.
+
+[00:05:20] Facilitator: Public chatbot guardrails?
+
+[00:05:28] James Okonkwo: The public-facing chatbot API doesn't have comprehensive guardrails against prompt injection. We use a third-party embedding model without a completed security review. That's a known gap.
+
+[00:06:50] Facilitator: Explainability for chatbot and fraud models?
+
+[00:06:58] James Okonkwo: Credit uses SHAP internally but not consistently to end users. No enterprise explainability framework. Chatbot recommendations — users can't understand why. Fraud ensemble is black-box. Not implemented for those.
+
+[00:08:15] Facilitator: Third-party AI vendors — due diligence?
+
+[00:08:22] Tom Reed: Major cloud ML and chatbot platform are inventoried. Smaller SaaS tools found ad hoc — inventory incomplete. We have an AI vendor checklist but haven't applied it to chatbot vendor or embedding provider. Missing security and bias assessments for two vendors.
+
+[00:09:40] Sarah Chen: Contract AI clauses — data processing terms yes, but AI-specific clauses like model update notification only in two of five contracts.
+
+[00:10:55] Facilitator: Foundation models and shadow AI use?
+
+[00:11:03] Sarah Chen: Teams use OpenAI and open-source LLMs for prototyping without centralized approval. Shadow use of public foundation models is widespread and undocumented. No GPAI governance policy. CIO committed to centralizing approval by Q4 2026 — current state is a gap.
+
+[00:12:30] Facilitator: Human oversight on lending?
+
+[00:12:38] James Okonkwo: Credit below threshold routes to human underwriter. Fraud alerts need analyst review. Override procedures documented. Underwriters trained on limitations.
+
+[END SESSION 3]
