@@ -1,8 +1,12 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  maturitySchemaVersion?: number;
 };
+
+/** Bump when MaturitySurvey schema changes so dev hot-reload drops stale clients. */
+const MATURITY_SCHEMA_VERSION = 3;
 
 /** Models every page needs — keep minimal so hot-reload never bricks unrelated routes. */
 const CORE_DELEGATES = [
@@ -18,7 +22,11 @@ const CORE_DELEGATES = [
 ] as const;
 
 /** Newer models — checked only where used (maturity survey). */
-const MATURITY_DELEGATES = ["maturitySurvey", "maturitySurveyResponse"] as const;
+const MATURITY_DELEGATES = [
+  "maturitySurvey",
+  "maturitySurveyResponse",
+  "maturitySurveyDocumentResponse",
+] as const;
 
 function hasDelegate(client: PrismaClient, key: string): boolean {
   if (Object.prototype.hasOwnProperty.call(client, key)) return true;
@@ -38,6 +46,11 @@ function isMaturityPrismaReady(client: PrismaClient): boolean {
   return MATURITY_DELEGATES.every((key) => hasDelegate(client, key));
 }
 
+function isMaturitySchemaCurrent(): boolean {
+  const fields = Prisma.MaturitySurveyScalarFieldEnum;
+  return "parentSurveyId" in fields && "focusPillarIds" in fields;
+}
+
 function createPrismaClient(): PrismaClient {
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
@@ -46,8 +59,14 @@ function createPrismaClient(): PrismaClient {
 
 function getPrismaClient(): PrismaClient {
   const cached = globalForPrisma.prisma;
+  const schemaCurrent = isMaturitySchemaCurrent();
 
-  if (cached && isCorePrismaReady(cached)) {
+  if (
+    cached &&
+    isCorePrismaReady(cached) &&
+    schemaCurrent &&
+    globalForPrisma.maturitySchemaVersion === MATURITY_SCHEMA_VERSION
+  ) {
     return cached;
   }
 
@@ -55,6 +74,13 @@ function getPrismaClient(): PrismaClient {
     void cached.$disconnect().catch(() => {
       /* replacing stale singleton */
     });
+    globalForPrisma.prisma = undefined;
+  }
+
+  if (!schemaCurrent) {
+    throw new PrismaNotReadyError(
+      "Prisma client is missing maturity survey continuation fields. Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
+    );
   }
 
   const client = createPrismaClient();
@@ -67,6 +93,7 @@ function getPrismaClient(): PrismaClient {
 
   if (process.env.NODE_ENV !== "production") {
     globalForPrisma.prisma = client;
+    globalForPrisma.maturitySchemaVersion = MATURITY_SCHEMA_VERSION;
   }
 
   return client;
@@ -103,6 +130,11 @@ export function assertPrismaReady(): void {
   if (!isMaturityPrismaReady(client)) {
     throw new PrismaNotReadyError(
       "Maturity survey models are not in the Prisma client. Run `npx prisma generate` and restart the dev server."
+    );
+  }
+  if (!isMaturitySchemaCurrent()) {
+    throw new PrismaNotReadyError(
+      "Prisma client is missing maturity survey continuation fields. Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
     );
   }
 }

@@ -1,23 +1,96 @@
 import { prisma, assertPrismaReady, PrismaNotReadyError } from "@/lib/db";
 import { buildMaturitySurveyCatalog } from "@/lib/maturity-survey-catalog-server";
 import { buildMaturitySurveyReport } from "@/lib/maturity-survey-analysis";
-import { countSurveyQuestions } from "@/lib/maturity-survey-types";
+import type { PillarQuickScanBaseline } from "@/lib/maturity-survey-analysis";
+import { MATURITY_LABELS } from "@/lib/maturity-survey-constants";
+import { countSurveyQuestions, filterCatalogByPillars, formatFocusPillarLabels } from "@/lib/maturity-survey-types";
 
 export { PrismaNotReadyError };
+
+export async function resolveParentQuickScanMeta(
+  parentSurveyId: string | null,
+  responses: Array<{ controlId: string }>
+) {
+  if (!parentSurveyId) return undefined;
+
+  const parent = await prisma.maturitySurvey.findUnique({
+    where: { id: parentSurveyId },
+    include: { responses: { select: { controlId: true } } },
+  });
+
+  if (!parent || parent.surveyMode !== "quick") return undefined;
+
+  const parentControlIds = new Set(parent.responses.map((response) => response.controlId));
+  const carriedControlCount = responses.filter((response) =>
+    parentControlIds.has(response.controlId)
+  ).length;
+
+  return {
+    surveyId: parent.id,
+    carriedControlCount,
+  };
+}
+
+export async function resolveQuickScanPillarBaseline(
+  parentSurveyId: string | null,
+  pillarId: string
+): Promise<PillarQuickScanBaseline | undefined> {
+  if (!parentSurveyId) return undefined;
+
+  const parent = await prisma.maturitySurvey.findUnique({
+    where: { id: parentSurveyId },
+    include: {
+      responses: {
+        where: { pillarId },
+        include: { control: { select: { code: true, title: true } } },
+      },
+    },
+  });
+
+  if (!parent || parent.surveyMode !== "quick") return undefined;
+
+  const response = parent.responses[0];
+  if (!response) return undefined;
+
+  return {
+    controlCode: response.control.code,
+    controlTitle: response.control.title,
+    maturity: response.maturity,
+    maturityLabel: MATURITY_LABELS[response.maturity],
+  };
+}
 
 export async function loadMaturitySurveyBundle(surveyId: string) {
   assertPrismaReady();
 
   const survey = await prisma.maturitySurvey.findUnique({
     where: { id: surveyId },
-    include: { responses: true },
+    include: {
+      responses: true,
+      documentResponses: true,
+    },
   });
   if (!survey) return null;
 
   const mode = (survey.surveyMode ?? "quick") as import("@/lib/maturity-survey-mode").SurveyMode;
-  const catalog = await buildMaturitySurveyCatalog(survey.frameworkCodes, mode);
+  const fullCatalog = await buildMaturitySurveyCatalog(survey.frameworkCodes, mode);
+  const catalog = filterCatalogByPillars(fullCatalog, survey.focusPillarIds ?? []);
   const fullLibraryCatalog = await buildMaturitySurveyCatalog(survey.frameworkCodes, "deep_dive");
   const libraryControlCount = countSurveyQuestions(fullLibraryCatalog);
+  const focusPillarIds = survey.focusPillarIds ?? [];
+  const focusPillarLabels = formatFocusPillarLabels(fullLibraryCatalog, focusPillarIds);
+  const pillarLibraryControlCount =
+    mode === "deep_dive" && focusPillarIds.length === 1
+      ? countSurveyQuestions(filterCatalogByPillars(fullLibraryCatalog, focusPillarIds))
+      : undefined;
+  const parentQuickScan = await resolveParentQuickScanMeta(
+    survey.parentSurveyId,
+    survey.responses
+  );
+  const quickScanPillarBaseline =
+    mode === "deep_dive" && focusPillarIds.length === 1
+      ? await resolveQuickScanPillarBaseline(survey.parentSurveyId, focusPillarIds[0]!)
+      : undefined;
   const report = buildMaturitySurveyReport({
     surveyTitle: survey.title,
     organizationName: survey.organizationName,
@@ -25,11 +98,21 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
     surveyMode: mode,
     catalog,
     libraryControlCount,
+    focusPillarIds,
+    focusPillarLabels,
+    parentQuickScan,
+    quickScanPillarBaseline,
+    pillarLibraryControlCount,
     responses: survey.responses.map((r) => ({
       controlId: r.controlId,
       pillarId: r.pillarId,
       maturity: r.maturity,
       notes: r.notes,
+    })),
+    documentResponses: survey.documentResponses.map((r) => ({
+      documentId: r.documentId,
+      pillarId: r.pillarId,
+      status: r.status,
     })),
   });
 

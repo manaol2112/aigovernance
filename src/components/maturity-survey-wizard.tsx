@@ -3,21 +3,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
-import type { MaturityLevel, MaturitySurvey } from "@prisma/client";
+import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, Loader2 } from "lucide-react";
+import type { MaturityLevel, MaturityDocumentStatus, MaturitySurvey } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MaturityLevelPicker } from "@/components/maturity-level-picker";
+import {
+  MaturityDocumentationChecklist,
+  type DocumentResponseState,
+} from "@/components/maturity-documentation-checklist";
 import { MATURITY_LEVEL_GUIDANCE } from "@/lib/maturity-survey-constants";
 import { cn } from "@/lib/utils";
 import type { SurveyMode } from "@/lib/maturity-survey-mode";
 import { SURVEY_MODE_META } from "@/lib/maturity-survey-mode";
 import { getPillarCriticalQuestion } from "@/lib/maturity-survey-quick-questions";
-import {
-  computeSurveyProgress,
-  isStepAnswered,
-} from "@/lib/maturity-survey-progress";
+import { computeSurveyProgress, isStepAnswered } from "@/lib/maturity-survey-progress";
 import type { SurveyPillarGroup } from "@/lib/maturity-survey-types";
+import {
+  buildDocumentationChecklistGroups,
+  countDocumentationChecklistItems,
+  isDocumentationChecklistComplete,
+} from "@/lib/maturity-survey-documents";
 import { toast } from "@/components/ui/toast";
 
 type SurveyResponse = {
@@ -27,12 +33,19 @@ type SurveyResponse = {
   notes: string | null;
 };
 
+type WizardPhase = "questions" | "documentation";
+
 type SurveyBundle = {
   survey: MaturitySurvey & {
     surveyMode: SurveyMode;
+    parentSurveyId: string | null;
+    focusPillarIds: string[];
     responses: SurveyResponse[];
+    documentResponses: DocumentResponseState[];
   };
   catalog: SurveyPillarGroup[];
+  seededControlIds: string[];
+  focusPillarLabels: string[];
 };
 
 export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
@@ -41,10 +54,33 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   const mode = (survey.surveyMode ?? "quick") as SurveyMode;
   const modeMeta = SURVEY_MODE_META[mode];
   const questionAnchorRef = useRef<HTMLDivElement>(null);
+  const seededControlIds = useMemo(
+    () => new Set(initial.seededControlIds),
+    [initial.seededControlIds]
+  );
+  const focusPillarLabels = initial.focusPillarLabels;
+  const showDocumentationPhase = mode === "deep_dive";
+
+  const checklistPillarIds = useMemo(() => {
+    if (survey.focusPillarIds.length > 0) return survey.focusPillarIds;
+    return initial.catalog.map((group) => group.pillarId);
+  }, [survey.focusPillarIds, initial.catalog]);
+
+  const documentationGroups = useMemo(
+    () => buildDocumentationChecklistGroups(checklistPillarIds),
+    [checklistPillarIds]
+  );
+
+  const totalDocumentationItems = countDocumentationChecklistItems(documentationGroups);
 
   const [responseList, setResponseList] = useState<SurveyResponse[]>(initial.survey.responses);
+  const [documentList, setDocumentList] = useState<DocumentResponseState[]>(
+    initial.survey.documentResponses
+  );
+  const [phase, setPhase] = useState<WizardPhase>("questions");
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [savingDocumentId, setSavingDocumentId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [stepTransition, setStepTransition] = useState(false);
   const [showSavedHint, setShowSavedHint] = useState(false);
@@ -54,15 +90,26 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     [initial.catalog, responseList]
   );
 
-  const { steps, totalSteps, answeredStepCount, allComplete, unansweredSteps, progressPct } =
-    progress;
+  const { steps, totalSteps, allComplete, unansweredSteps, progressPct } = progress;
+
+  const documentationComplete = useMemo(
+    () => isDocumentationChecklistComplete(documentationGroups, documentList),
+    [documentationGroups, documentList]
+  );
+
+  const documentationAnsweredCount = documentList.length;
+  const documentationProgressPct =
+    totalDocumentationItems > 0
+      ? Math.round((documentationAnsweredCount / totalDocumentationItems) * 100)
+      : 0;
 
   useEffect(() => {
+    if (phase !== "questions") return;
     const saved = survey.currentStepIndex ?? 0;
     const clamped = Math.min(saved, Math.max(0, totalSteps - 1));
     setStepIndex(clamped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [survey.id, totalSteps]);
+  }, [survey.id, totalSteps, phase]);
 
   const current = steps[stepIndex];
   const isLastStep = stepIndex >= totalSteps - 1;
@@ -92,8 +139,11 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     [survey.id]
   );
 
-  async function saveResponse(maturity: MaturityLevel) {
+  async function saveResponse(patch: Partial<Pick<SurveyResponse, "maturity">>) {
     if (!current) return;
+    const maturity = patch.maturity ?? existing?.maturity;
+    if (!maturity) return;
+
     setSaving(true);
     setShowSavedHint(false);
     try {
@@ -128,6 +178,37 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     }
   }
 
+  async function saveDocumentStatus(input: {
+    documentId: string;
+    pillarId: string;
+    status: MaturityDocumentStatus;
+  }) {
+    setSavingDocumentId(input.documentId);
+    try {
+      const res = await fetch(`/api/maturity-surveys/${survey.id}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const saved = await res.json();
+
+      setDocumentList((prev) => {
+        const next = prev.filter((item) => item.documentId !== saved.documentId);
+        next.push({
+          documentId: saved.documentId,
+          pillarId: saved.pillarId,
+          status: saved.status,
+        });
+        return next;
+      });
+    } catch {
+      toast("Failed to save document status.", { variant: "error" });
+    } finally {
+      setSavingDocumentId(null);
+    }
+  }
+
   async function goToStep(index: number) {
     const clamped = Math.max(0, Math.min(index, totalSteps - 1));
     if (clamped === stepIndex) return;
@@ -147,8 +228,19 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     await goToStep(stepIndex + 1);
   }
 
+  function handleGoToDocumentation() {
+    if (!allComplete) return;
+    setPhase("documentation");
+    requestAnimationFrame(() => scrollToQuestion());
+  }
+
   async function handleSubmit() {
-    if (!allComplete) {
+    if (showDocumentationPhase && !documentationComplete) {
+      toast("Please set a status for each document in the checklist.", { variant: "error" });
+      return;
+    }
+
+    if (!showDocumentationPhase && !allComplete) {
       const labels = unansweredSteps.map((s) => s.pillarLabel).slice(0, 3);
       toast(
         labels.length > 0
@@ -188,6 +280,90 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     }
   }
 
+  if (phase === "documentation") {
+    return (
+      <div className="mx-auto max-w-2xl pb-28">
+        <div ref={questionAnchorRef} className="scroll-mt-6" />
+
+        <div className="mb-6">
+          <Button asChild variant="ghost" size="sm" className="-ml-2 mb-4 text-slate-500">
+            <Link href="/maturity-assessment">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Exit
+            </Link>
+          </Button>
+
+          <div className="rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50 to-white px-4 py-4 shadow-sm">
+            <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-700">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Documentation checklist
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              What do you have in place?
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              Review expected artifacts for your assessed pillar
+              {focusPillarLabels.length === 1 ? ` (${focusPillarLabels[0]})` : "s"} and mark the
+              current status of each document.
+            </p>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-4">
+            <p className="text-sm font-medium text-slate-600">
+              {documentationAnsweredCount} of {totalDocumentationItems} documents reviewed
+            </p>
+            <p className="text-sm tabular-nums text-indigo-600">{documentationProgressPct}%</p>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+              style={{ width: `${documentationProgressPct}%` }}
+            />
+          </div>
+        </div>
+
+        {documentationComplete && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Checklist complete — ready to view your results.
+          </div>
+        )}
+
+        <MaturityDocumentationChecklist
+          groups={documentationGroups}
+          responses={documentList}
+          savingDocumentId={savingDocumentId}
+          onStatusChange={saveDocumentStatus}
+        />
+
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm md:left-[4.25rem]">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+            <Button type="button" variant="ghost" onClick={() => setPhase("questions")}>
+              Back to questions
+            </Button>
+            <Button
+              type="button"
+              disabled={submitting || !documentationComplete}
+              onClick={handleSubmit}
+              className="gap-1.5"
+              size="lg"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Generating…
+                </>
+              ) : (
+                <>
+                  View results
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!current || totalSteps === 0) {
     return (
       <div className="mx-auto max-w-lg py-16 text-center text-slate-500">
@@ -197,6 +373,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   }
 
   const nextStep = !isLastStep ? steps[stepIndex + 1] : null;
+  const readyForDocumentation = allComplete && showDocumentationPhase;
 
   return (
     <div className="mx-auto max-w-2xl pb-28">
@@ -208,6 +385,24 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
             <ArrowLeft className="mr-1 h-4 w-4" /> Exit
           </Link>
         </Button>
+
+        {mode === "deep_dive" && survey.parentSurveyId && (
+          <div className="mb-4 rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-white px-4 py-4 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+              Level 2 · Pillar deep dive
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {focusPillarLabels.length > 0
+                ? `Focused on ${focusPillarLabels.join(", ")}`
+                : "Building on your quick scan baseline"}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              {seededControlIds.size} quick scan answer{seededControlIds.size === 1 ? "" : "s"}{" "}
+              carried forward. After the control questions, you&apos;ll review a documentation
+              checklist for what you have in place.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{modeMeta.label}</Badge>
@@ -248,14 +443,20 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         </div>
       </div>
 
-      {allComplete && (
+      {readyForDocumentation && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+          <ClipboardList className="h-4 w-4 shrink-0" />
+          All control questions answered — continue to the documentation checklist next.
+        </div>
+      )}
+
+      {allComplete && !showDocumentationPhase && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           All questions answered — you can view your results.
         </div>
       )}
 
-      {/* Question — animates on step change */}
       <div
         key={stepIndex}
         className={cn(
@@ -276,6 +477,14 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
           </>
         ) : (
           <>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-mono text-[10px] text-indigo-600">{current.control.code}</p>
+              {seededControlIds.has(current.control.id) && (
+                <Badge variant="success" className="text-[10px]">
+                  From quick scan
+                </Badge>
+              )}
+            </div>
             <h1 className="mt-3 text-xl font-semibold leading-snug text-slate-900">
               {current.control.title}
             </h1>
@@ -290,7 +499,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
             variant="survey"
             guideInitiallyOpen={stepIndex === 0}
             onChange={(level) => {
-              void saveResponse(level);
+              void saveResponse({ maturity: level });
             }}
           />
         </div>
@@ -319,7 +528,6 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         )}
       </div>
 
-      {/* Sticky footer */}
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm md:left-[4.25rem]">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <Button
@@ -337,7 +545,17 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
                 {unansweredSteps.length} question{unansweredSteps.length === 1 ? "" : "s"} remaining
               </p>
             )}
-            {isLastStep || allComplete ? (
+            {readyForDocumentation ? (
+              <Button
+                type="button"
+                onClick={handleGoToDocumentation}
+                className="gap-1.5"
+                size="lg"
+              >
+                Continue to documentation
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : isLastStep || allComplete ? (
               <Button
                 type="button"
                 disabled={submitting || !allComplete}
