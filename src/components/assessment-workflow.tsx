@@ -339,36 +339,38 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
     );
   }
 
+  const assessment = data;
+
   const activeCheckpoint =
-    data.checkpoints.find((c) => c.status === "pending")
-    ?? CHECKPOINT_ORDER.map((t) => data.checkpoints.find((c) => c.checkpointType === t))
+    assessment.checkpoints.find((c) => c.status === "pending")
+    ?? CHECKPOINT_ORDER.map((t) => assessment.checkpoints.find((c) => c.checkpointType === t))
         .find((c) => c && c.status !== "approved" && c.status !== "locked");
-  const evaluationCheckpoint = data.checkpoints.find((c) => c.checkpointType === "evaluation_review");
-  const deliverableCheckpoint = data.checkpoints.find((c) => c.checkpointType === "deliverable_approval");
-  const totalScoped = data.useCases.reduce((s, u) => s + u._count.scopedRequirements, 0);
+  const evaluationCheckpoint = assessment.checkpoints.find((c) => c.checkpointType === "evaluation_review");
+  const deliverableCheckpoint = assessment.checkpoints.find((c) => c.checkpointType === "deliverable_approval");
+  const totalScoped = assessment.useCases.reduce((s, u) => s + u._count.scopedRequirements, 0);
   const scopingReady = totalScoped > 0;
   const canEditUseCases =
     scopeSection === "use_cases" &&
-    (data.workflowStage === "client_setup" ||
-      data.workflowStage === "use_cases" ||
-      data.workflowStage === "requirement_scoping");
-  const pendingCheckpointCount = data.checkpoints.filter((c) => c.status === "pending").length;
+    (assessment.workflowStage === "client_setup" ||
+      assessment.workflowStage === "use_cases" ||
+      assessment.workflowStage === "requirement_scoping");
+  const pendingCheckpointCount = assessment.checkpoints.filter((c) => c.status === "pending").length;
 
   const checkpointStatuses = Object.fromEntries(
-    data.checkpoints.map((checkpoint) => [checkpoint.checkpointType, checkpoint.status])
+    assessment.checkpoints.map((checkpoint) => [checkpoint.checkpointType, checkpoint.status])
   ) as Record<string, string | undefined>;
 
   const scopeNavigationBlocker = scopeAdvanceBlocker({
     targetSection: scopeSection,
-    workflowStage: data.workflowStage,
-    useCaseCount: data.useCases.length,
+    workflowStage: assessment.workflowStage,
+    useCaseCount: assessment.useCases.length,
     checkpointStatuses,
   });
 
   async function advanceScopeStageIfReady(stage: string) {
     if (
       !canAdvanceScopeStage(stage, checkpointStatuses, {
-        useCaseCount: data.useCases.length,
+        useCaseCount: assessment.useCases.length,
         totalScoped,
       })
     ) {
@@ -519,7 +521,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
               disabled={!!actionLoading}
             >
               {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              Approve{STAGE_EXIT_CHECKPOINT[data.workflowStage] === checkpoint.checkpointType ? " & Continue" : ""}
+              Approve{STAGE_EXIT_CHECKPOINT[assessment.workflowStage] === checkpoint.checkpointType ? " & Continue" : ""}
             </Button>
           </div>
         </CardContent>
@@ -796,7 +798,9 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
                 confirmedBy,
               });
             }}
-            onFinalizeAssessment={() => workflowAction("finalize")}
+            onFinalizeAssessment={async () => {
+              await workflowAction("finalize");
+            }}
           />
         </div>
       )}

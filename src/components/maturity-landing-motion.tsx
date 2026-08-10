@@ -17,7 +17,7 @@ const MATURITY_SCROLL_SELECTOR = "[data-maturity-scroll]";
 
 function getMaturityScrollRoot(): HTMLElement {
   if (typeof document === "undefined") {
-    return document.documentElement;
+    return null as unknown as HTMLElement;
   }
   return (
     (document.querySelector(MATURITY_SCROLL_SELECTOR) as HTMLElement | null) ??
