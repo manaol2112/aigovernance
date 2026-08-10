@@ -16,6 +16,12 @@ import {
 } from "@/lib/maturity-survey-constants";
 import { summarizeDocumentResponses } from "@/lib/maturity-survey-documents";
 
+export type FindingEngagementGuide = {
+  headline: string;
+  intro: string;
+  actions: Array<{ title: string; description: string }>;
+};
+
 export { MATURITY_LABELS, MATURITY_LEVELS, MATURITY_SCORE, MATURITY_LEVEL_GUIDANCE } from "@/lib/maturity-survey-constants";
 
 const CRITICALITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2 };
@@ -52,6 +58,7 @@ export type SurveyControlResponse = {
   pillarCriticality: string;
   maturity: MaturityLevel;
   notes: string | null;
+  frameworkCodes: string[];
 };
 
 export type SurveyGapItem = {
@@ -142,17 +149,22 @@ export type PillarDeepDiveSummary = {
   controlFindings: Array<{
     controlCode: string;
     controlTitle: string;
+    controlDescription: string;
     maturity: MaturityLevel;
     maturityLabel: string;
     compliance: "aligned" | "partial" | "gap";
     ownerRole: string;
     recommendation: string | null;
+    frameworkCodes: string[];
+    engagementGuide: FindingEngagementGuide | null;
   }>;
 };
 
 export type MaturitySurveyReport = {
   generatedAt: string;
   organizationName: string;
+  respondentName: string | null;
+  respondentRole: string | null;
   surveyTitle: string;
   surveyMode: SurveyMode;
   surveyModeLabel: string;
@@ -216,11 +228,14 @@ function buildPillarDeepDiveSummary(input: {
     return {
       controlCode: control.controlCode,
       controlTitle: control.controlTitle,
+      controlDescription: control.controlDescription,
       maturity: control.maturity,
       maturityLabel: MATURITY_LABELS[control.maturity],
       compliance,
       ownerRole: control.ownerRole,
       recommendation: gap?.summary ?? null,
+      frameworkCodes: control.frameworkCodes,
+      engagementGuide: null,
     };
   });
 
@@ -256,7 +271,7 @@ function buildPillarDeepDiveSummary(input: {
 
   const narrative =
     pillar.gapCount > 0
-      ? `You assessed ${pillar.reviewedControls} of ${totalControlsInPillar} in-scope controls in ${pillar.pillarLabel}. ${pillar.gapCount} control${pillar.gapCount === 1 ? "" : "s"} sit at initial or not-implemented maturity, ${pillar.partialCount} at developing or defined, and ${pillar.alignedCount} at managed or optimized. Every finding maps to a canonical control you rated — no AI-generated content.`
+      ? `You assessed ${pillar.reviewedControls} of ${totalControlsInPillar} in-scope controls in ${pillar.pillarLabel}. ${pillar.gapCount} control${pillar.gapCount === 1 ? "" : "s"} sit at initial or not-implemented maturity, ${pillar.partialCount} at developing or defined, and ${pillar.alignedCount} at managed or optimized. Every finding reflects a control you rated directly — scores are rule-based, not AI-generated.`
       : pillar.partialCount > 0
         ? `You assessed ${pillar.reviewedControls} of ${totalControlsInPillar} controls in ${pillar.pillarLabel}. No critical maturity gaps were found; ${pillar.partialCount} control${pillar.partialCount === 1 ? "" : "s"} remain at partial maturity and should be elevated toward managed practice.`
         : `All ${pillar.reviewedControls} assessed controls in ${pillar.pillarLabel} are at managed or optimized maturity. Focus on sustaining assurance and periodic re-validation.`;
@@ -366,6 +381,8 @@ function findPillarMeta(
 export function buildMaturitySurveyReport(input: {
   surveyTitle: string;
   organizationName: string | null;
+  respondentName?: string | null;
+  respondentRole?: string | null;
   frameworkCodes: string[];
   surveyMode?: SurveyMode;
   catalog: SurveyPillarGroup[];
@@ -420,6 +437,7 @@ export function buildMaturitySurveyReport(input: {
       pillarCriticality: pillar.criticality,
       maturity,
       notes: response.notes,
+      frameworkCodes: control.frameworkCodes,
     });
 
     assessmentMatrix.push({
@@ -582,14 +600,14 @@ export function buildMaturitySurveyReport(input: {
 
   const methodologyNote =
     mode === "quick"
-      ? `This ${modeLabel.toLowerCase()} evaluated ${answeredCount} representative control${answeredCount === 1 ? "" : "s"} across ${pillarMaturity.length} risk pillar${pillarMaturity.length === 1 ? "" : "s"}. Scores are computed deterministically from your maturity selections against the canonical control library — no AI-generated findings.`
+      ? `This ${modeLabel.toLowerCase()} evaluated ${answeredCount} representative control${answeredCount === 1 ? "" : "s"} across ${pillarMaturity.length} risk pillar${pillarMaturity.length === 1 ? "" : "s"}. Scores are computed directly from your maturity selections — rule-based scoring, not AI-generated findings.`
       : input.parentQuickScan
         ? input.focusPillarIds?.length === 1 && input.focusPillarLabels?.[0]
-          ? `This pillar deep dive for ${input.focusPillarLabels[0]} assessed ${answeredCount} of ${input.pillarLibraryControlCount ?? answeredCount} in-scope canonical controls. ${input.parentQuickScan.carriedControlCount} quick scan rating${input.parentQuickScan.carriedControlCount === 1 ? "" : "s"} carried forward. Scores derive from your maturity selections against seeded controls — no AI-generated findings.`
-          : `This deep dive continues your completed quick scan. ${input.parentQuickScan.carriedControlCount} control rating${input.parentQuickScan.carriedControlCount === 1 ? "" : "s"} were carried forward; ${Math.max(0, answeredCount - input.parentQuickScan.carriedControlCount)} additional in-scope control${Math.max(0, answeredCount - input.parentQuickScan.carriedControlCount) === 1 ? "" : "s"} were assessed here. All scores derive from selected maturity levels against seeded canonical controls — no AI-generated findings.`
+          ? `This detailed assessment for ${input.focusPillarLabels[0]} covered ${answeredCount} of ${input.pillarLibraryControlCount ?? answeredCount} in-scope controls. ${input.parentQuickScan.carriedControlCount} baseline rating${input.parentQuickScan.carriedControlCount === 1 ? "" : "s"} carried forward. Scores derive from your maturity selections — rule-based, not AI-generated.`
+          : `This assessment continues your completed baseline scan. ${input.parentQuickScan.carriedControlCount} control rating${input.parentQuickScan.carriedControlCount === 1 ? "" : "s"} were carried forward; ${Math.max(0, answeredCount - input.parentQuickScan.carriedControlCount)} additional in-scope control${Math.max(0, answeredCount - input.parentQuickScan.carriedControlCount) === 1 ? "" : "s"} were assessed here. All scores derive from your maturity selections — rule-based, not AI-generated.`
         : input.focusPillarLabels && input.focusPillarLabels.length > 0
-          ? `This ${modeLabel.toLowerCase()} evaluated ${answeredCount} in-scope control${answeredCount === 1 ? "" : "s"} across ${input.focusPillarLabels.join(", ")}. Scores are computed deterministically from your maturity selections — no AI-generated findings.`
-          : `This ${modeLabel.toLowerCase()} evaluated ${answeredCount} in-scope control${answeredCount === 1 ? "" : "s"} across ${pillarMaturity.length} pillar${pillarMaturity.length === 1 ? "" : "s"}. Scores are computed deterministically from your maturity selections — no AI-generated findings.`;
+          ? `This ${modeLabel.toLowerCase()} evaluated ${answeredCount} in-scope control${answeredCount === 1 ? "" : "s"} across ${input.focusPillarLabels.join(", ")}. Scores are computed directly from your maturity selections — rule-based, not AI-generated.`
+          : `This ${modeLabel.toLowerCase()} evaluated ${answeredCount} in-scope control${answeredCount === 1 ? "" : "s"} across ${pillarMaturity.length} pillar${pillarMaturity.length === 1 ? "" : "s"}. Scores are computed directly from your maturity selections — rule-based, not AI-generated.`;
 
   const org = input.organizationName ?? "Your organization";
   const libraryControlCount = Math.max(
@@ -622,8 +640,8 @@ export function buildMaturitySurveyReport(input: {
     : `${org} — ${MATURITY_LABELS[overallMaturity]} AI governance maturity`;
 
   const executiveNarrative = pillarDeepDive
-    ? `${pillarDeepDive.pathForward.narrative}${pillarDeepDive.quickScanBaseline ? (pillarDeepDive.quickScanBaseline.unchanged ? ` Your quick scan baseline for the flagship control (${pillarDeepDive.quickScanBaseline.controlCode}) remained ${pillarDeepDive.quickScanBaseline.maturityLabel} after assessing additional controls.` : ` The flagship control (${pillarDeepDive.quickScanBaseline.controlCode}) moved from ${pillarDeepDive.quickScanBaseline.maturityLabel} at quick scan to ${pillarDeepDive.quickScanBaseline.deepDiveMaturityLabel} in context of the full pillar assessment.`) : ""}`
-    : `${methodologyNote} Overall weighted maturity is ${MATURITY_LABELS[overallMaturity].toLowerCase()} (${overallScorePct}%) across assessed pillars mapped to ${frameworksReferenced.length || input.frameworkCodes.length} framework${(frameworksReferenced.length || input.frameworkCodes.length) === 1 ? "" : "s"}. ${
+    ? `${pillarDeepDive.pathForward.narrative}${pillarDeepDive.quickScanBaseline ? (pillarDeepDive.quickScanBaseline.unchanged ? ` Your baseline rating for the flagship control (${pillarDeepDive.quickScanBaseline.controlCode}) remained ${pillarDeepDive.quickScanBaseline.maturityLabel} after assessing additional controls.` : ` The flagship control (${pillarDeepDive.quickScanBaseline.controlCode}) moved from ${pillarDeepDive.quickScanBaseline.maturityLabel} at baseline scan to ${pillarDeepDive.quickScanBaseline.deepDiveMaturityLabel} in context of the full pillar assessment.`) : ""}`
+    : `${org} achieved ${MATURITY_LABELS[overallMaturity].toLowerCase()} AI governance maturity (${overallScorePct}%) across ${pillarMaturity.length} assessed pillar${pillarMaturity.length === 1 ? "" : "s"}, mapped to ${frameworksReferenced.length || input.frameworkCodes.length} framework${(frameworksReferenced.length || input.frameworkCodes.length) === 1 ? "" : "s"}. ${
         criticalGaps > 0
           ? `${criticalGaps} critical gap${criticalGaps === 1 ? "" : "s"} within the assessed scope need executive attention.`
           : gaps.length > 0
@@ -635,7 +653,7 @@ export function buildMaturitySurveyReport(input: {
           : partialPillars.length > 0
             ? `Foundational progress in ${partialPillars.map((p) => p.pillarLabel).slice(0, 3).join(", ")} — focus on elevating to managed maturity.`
             : ""
-      }${mode === "quick" ? " Continue with a deep dive to assess the remaining in-scope controls in the canonical library." : input.parentQuickScan ? " Compare with your quick scan baseline to see how pillar coverage expanded." : ""}`;
+      }${mode === "quick" ? " Continue with a detailed pillar assessment to evaluate the remaining in-scope controls." : input.parentQuickScan ? " Compare with your baseline scan to see how pillar coverage expanded." : ""}`;
 
   const boardActions = pillarDeepDive
     ? [
@@ -644,8 +662,8 @@ export function buildMaturitySurveyReport(input: {
           ? `Sequence remediation using the phased roadmap below — ${roadmapByPhase.immediate.length} immediate, ${roadmapByPhase.short_term.length} near-term, and ${roadmapByPhase.medium_term.length} strategic action${roadmapByPhase.medium_term.length === 1 ? "" : "s"}.`
           : "Publish this pillar as a reference implementation and replicate operating patterns in weaker pillars.",
         input.parentQuickScan
-          ? "Return to your quick scan results to deep dive the next priority pillar or schedule a full client assessment for evidence-backed validation."
-          : "Establish quarterly re-assessment for this pillar using the canonical control library.",
+          ? "Return to your baseline results to assess the next priority pillar, or schedule a full client assessment for evidence-backed validation."
+          : "Establish quarterly re-assessment for this pillar to track progress over time.",
       ]
     : [
         criticalGaps > 0
@@ -654,14 +672,16 @@ export function buildMaturitySurveyReport(input: {
             ? "Prioritize the assessed improvement areas below with pillar owners and measurable 90-day targets."
             : "Sustain current governance cadence and advance partial pillars toward managed maturity.",
         mode === "quick"
-          ? "Schedule a deep-dive maturity assessment to validate findings across the full control library."
+          ? "Schedule a detailed pillar assessment to validate findings across the full control set."
           : "Align remediation roadmap with enterprise risk appetite and regulatory obligations (EU AI Act, ISO 42001).",
-        "Establish quarterly maturity re-assessment using the canonical control library.",
+        "Establish quarterly maturity re-assessment to track progress and sustain gains.",
       ];
 
   return {
     generatedAt: new Date().toISOString(),
     organizationName: org,
+    respondentName: input.respondentName?.trim() || null,
+    respondentRole: input.respondentRole?.trim() || null,
     surveyTitle: input.surveyTitle,
     surveyMode: mode,
     surveyModeLabel: modeLabel,

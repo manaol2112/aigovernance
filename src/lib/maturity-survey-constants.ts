@@ -38,6 +38,8 @@ export const MATURITY_LEVEL_GUIDANCE: Record<
     label: string;
     headline: string;
     description: string;
+    /** One-line executive hint for baseline scan — what good looks like at this level. */
+    goodLooksLike: string;
     signals: string[];
     color: string;
     step: number;
@@ -48,6 +50,7 @@ export const MATURITY_LEVEL_GUIDANCE: Record<
     label: "Not implemented",
     headline: "Nothing is in place yet",
     description: "No formal capability, policy, or process exists for this area.",
+    goodLooksLike: "No formal program yet — start by naming an executive owner.",
     signals: [
       "No documented policy, process, or tooling",
       "No clear owner or accountability",
@@ -59,6 +62,7 @@ export const MATURITY_LEVEL_GUIDANCE: Record<
     label: "Initial",
     headline: "Informal or reactive only",
     description: "Awareness exists, but work is ad hoc and inconsistent.",
+    goodLooksLike: "Awareness exists, but practices are ad hoc and person-dependent.",
     signals: [
       "Actions happen when issues arise, not by design",
       "Depends on individuals rather than the organization",
@@ -70,6 +74,7 @@ export const MATURITY_LEVEL_GUIDANCE: Record<
     label: "Developing",
     headline: "Early efforts, not yet consistent",
     description: "Emerging practices with partial documentation in some teams.",
+    goodLooksLike: "Pilots or drafts in some teams — not yet enterprise-wide.",
     signals: [
       "Pilots, drafts, or team-level practices exist",
       "Not applied reliably across the organization",
@@ -81,6 +86,7 @@ export const MATURITY_LEVEL_GUIDANCE: Record<
     label: "Defined",
     headline: "Documented but uneven in practice",
     description: "Processes are written and communicated, but not fully measured.",
+    goodLooksLike: "Policies are documented; execution and measurement still vary.",
     signals: [
       "Policies and procedures are documented",
       "Execution varies; limited metrics or assurance",
@@ -92,6 +98,7 @@ export const MATURITY_LEVEL_GUIDANCE: Record<
     label: "Managed",
     headline: "Consistent and accountable",
     description: "Routinely executed with ownership, metrics, and periodic review.",
+    goodLooksLike: "Consistent execution with owners, metrics, and periodic review.",
     signals: [
       "Defined owners and operating rhythm",
       "KPIs, audits, or reviews happen on schedule",
@@ -103,6 +110,7 @@ export const MATURITY_LEVEL_GUIDANCE: Record<
     label: "Optimized",
     headline: "Leading practice, continuously improving",
     description: "Benchmark-leading capability with automation and proactive improvement.",
+    goodLooksLike: "Benchmark-leading practice with automation and continuous improvement.",
     signals: [
       "Automated controls and benchmarked performance",
       "Lessons learned feed back into design",

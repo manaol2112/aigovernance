@@ -9,7 +9,6 @@ import {
   Building2,
   CheckCircle2,
   Clock,
-  Layers,
   Lock,
   Shield,
   Sparkles,
@@ -21,7 +20,6 @@ import { IndustrySelect } from "@/components/industry-select";
 import {
   FilmGrain,
   HeroAmbientOrbs,
-  HoverLift,
   MountReveal,
   ScrollReveal,
   ScrollSection,
@@ -35,7 +33,6 @@ import {
 import { DEFAULT_SURVEY_FRAMEWORKS } from "@/lib/maturity-survey-constants";
 import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
 import {
-  DEFAULT_SURVEY_MODE,
   SURVEY_MODE_META,
   type SurveyMode,
 } from "@/lib/maturity-survey-mode";
@@ -50,15 +47,6 @@ const ALL_FRAMEWORKS = [
   { code: "COSO-ERM", name: "COSO ERM 2017" },
 ];
 
-const MODE_OPTIONS: {
-  id: SurveyMode;
-  icon: typeof Zap;
-  featured?: boolean;
-}[] = [
-  { id: "quick", icon: Zap, featured: true },
-  { id: "deep_dive", icon: Layers },
-];
-
 const INPUT_CLASS =
   "mt-2 w-full rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10";
 
@@ -66,9 +54,8 @@ const SECTION_CARD =
   "overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]";
 
 const STEPS = [
-  { n: 1, label: "Assessment type" },
-  { n: 2, label: "Organization" },
-  { n: 3, label: "Framework scope" },
+  { n: 1, label: "Organization" },
+  { n: 2, label: "Framework scope" },
 ];
 
 function StepRail({ active }: { active: number }) {
@@ -148,7 +135,7 @@ function SectionHeader({
 export function NewMaturitySurveyForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [surveyMode, setSurveyMode] = useState<SurveyMode>(DEFAULT_SURVEY_MODE);
+  const surveyMode: SurveyMode = "quick";
   const [frameworkCodes, setFrameworkCodes] = useState<string[]>([...DEFAULT_SURVEY_FRAMEWORKS]);
   const [industrySelection, setIndustrySelection] = useState("");
   const [customIndustry, setCustomIndustry] = useState("");
@@ -159,8 +146,7 @@ export function NewMaturitySurveyForm() {
     respondentRole: "",
   });
 
-  const stepActive =
-    form.organizationName.trim().length > 0 ? 3 : surveyMode ? 2 : 1;
+  const stepActive = form.organizationName.trim().length > 0 ? 2 : 1;
 
   function toggleFramework(code: string) {
     setFrameworkCodes((prev) =>
@@ -251,8 +237,8 @@ export function NewMaturitySurveyForm() {
 
           <MountReveal delay={180}>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-400">
-              Choose your depth, confirm your organization, and select the frameworks to benchmark
-              against. You&apos;ll answer one question at a time — no login required.
+              Confirm your organization and framework scope. You&apos;ll answer one question per
+              pillar (~10 minutes), then receive a board-ready baseline with options to go deeper.
             </p>
           </MountReveal>
 
@@ -260,7 +246,7 @@ export function NewMaturitySurveyForm() {
             <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-indigo-400" />
-                ~10 minutes for quick scan
+                ~10 minutes for baseline scan
               </span>
               <span className="flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 text-indigo-400" />
@@ -280,70 +266,33 @@ export function NewMaturitySurveyForm() {
             <StepRail active={stepActive} />
           </ScrollReveal>
 
-          {/* Assessment type */}
+          {/* Baseline overview */}
           <ScrollReveal variant="premium" delay={0}>
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">
-                  1
-                </span>
-                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
-                  Assessment type
-                </h2>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {MODE_OPTIONS.map(({ id, icon: Icon, featured }) => {
-                  const meta = SURVEY_MODE_META[id];
-                  const selected = surveyMode === id;
-                  return (
-                    <HoverLift key={id}>
-                      <button
-                        type="button"
-                        onClick={() => setSurveyMode(id)}
-                        className={cn(
-                          "group relative h-full w-full overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300",
-                          selected
-                            ? "border-indigo-500 bg-gradient-to-br from-indigo-50 to-white shadow-lg shadow-indigo-500/15 ring-2 ring-indigo-500/20"
-                            : "border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-md"
-                        )}
-                      >
-                        {featured && (
-                          <span className="absolute right-4 top-4 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                            Recommended
-                          </span>
-                        )}
-                        <div
-                          className={cn(
-                            "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
-                            selected
-                              ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/30"
-                              : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
-                          )}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <p className="mt-4 text-base font-bold text-slate-900">{meta.label}</p>
-                        <p className="mt-1 text-xs font-semibold text-indigo-600">{meta.duration}</p>
-                        <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                          {meta.description}
-                        </p>
-                        <p className="mt-4 flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
-                          <Clock className="h-3 w-3" />
-                          {meta.questionHint}
-                        </p>
-                        {selected && (
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500" />
-                        )}
-                      </button>
-                    </HoverLift>
-                  );
-                })}
+            <section className={cn(SECTION_CARD, "overflow-hidden")}>
+              <div className="border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-white px-6 py-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/30">
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-600">
+                      Step 1 · Baseline scan
+                    </p>
+                    <h2 className="mt-1 text-base font-bold text-slate-900">
+                      {SURVEY_MODE_META.quick.label}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {SURVEY_MODE_META.quick.description} Detailed pillar assessments unlock from
+                      your results.
+                    </p>
+                  </div>
+                </div>
               </div>
             </section>
           </ScrollReveal>
 
           {/* Organization */}
-          <ScrollReveal variant="premium" delay={80} className="mt-10">
+          <ScrollReveal variant="premium" delay={40} className="mt-10">
             <section className={SECTION_CARD}>
               <SectionHeader
                 icon={Building2}
@@ -382,6 +331,26 @@ export function NewMaturitySurveyForm() {
                   <p className="mt-1.5 text-[11px] text-slate-400">
                     e.g. &ldquo;Q2 2026 AI Governance Maturity Review&rdquo;
                   </p>
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700">Your name</label>
+                    <input
+                      className={INPUT_CLASS}
+                      value={form.respondentName}
+                      onChange={(e) => setForm({ ...form, respondentName: e.target.value })}
+                      placeholder="Optional — appears on your report"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700">Your role</label>
+                    <input
+                      className={INPUT_CLASS}
+                      value={form.respondentRole}
+                      onChange={(e) => setForm({ ...form, respondentRole: e.target.value })}
+                      placeholder="e.g. Chief Risk Officer"
+                    />
+                  </div>
                 </div>
               </div>
             </section>
@@ -437,7 +406,7 @@ export function NewMaturitySurveyForm() {
                 <div>
                   <p className="text-sm font-bold text-slate-900">Ready to begin?</p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {SURVEY_MODE_META[surveyMode].label} · {SURVEY_MODE_META[surveyMode].duration} ·{" "}
+                    Baseline scan · {SURVEY_MODE_META.quick.duration} ·{" "}
                     {frameworkCodes.length} framework{frameworkCodes.length === 1 ? "" : "s"} selected
                   </p>
                 </div>
@@ -447,7 +416,7 @@ export function NewMaturitySurveyForm() {
                   disabled={loading}
                   className="group h-12 shrink-0 gap-2 rounded-xl bg-indigo-600 px-8 text-base font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] hover:bg-indigo-500 sm:w-auto w-full"
                 >
-                  {loading ? "Starting…" : "Start assessment"}
+                  {loading ? "Starting…" : "Start baseline scan"}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </Button>
               </div>

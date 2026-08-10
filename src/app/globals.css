@@ -359,3 +359,35 @@ body {
     animation: none !important;
   }
 }
+
+/* Maturity report print layout */
+@media print {
+  @page {
+    margin: 1.2cm;
+  }
+
+  body {
+    background: white !important;
+    color: #0f172a !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:bg-white {
+    background: white !important;
+  }
+
+  .print\:text-slate-900 {
+    color: #0f172a !important;
+  }
+
+  .print\:text-slate-700 {
+    color: #334155 !important;
+  }
+}

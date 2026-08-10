@@ -36,6 +36,12 @@ import {
 import { MaturityPillarDeepDiveResults } from "@/components/maturity-pillar-deep-dive-results";
 import type { DeepDiveContinuationState } from "@/lib/maturity-survey-continue";
 import { isPillarFocusedDeepDive } from "@/lib/maturity-survey-analysis";
+import { formatGapSeverity } from "@/lib/maturity-client-copy";
+import { MaturityFrameworkTags } from "@/components/maturity-framework-tags";
+import { MaturityReportExportButton } from "@/components/maturity-report-export-button";
+import { MaturityReportSharePanel } from "@/components/maturity-report-share-panel";
+import { MaturityPillarComparisonPanel } from "@/components/maturity-pillar-comparison-panel";
+import type { PillarComparisonRecord } from "@/lib/maturity-pillar-comparison";
 import {
   MountReveal,
   ScrollReveal,
@@ -172,9 +178,10 @@ function PriorityGapCard({ gap, rank }: { gap: SurveyGapItem; rank: number }) {
                     : "secondary"
               }
             >
-              {gap.severity}
+              {formatGapSeverity(gap.severity)}
             </Badge>
             <span className="text-xs font-medium text-slate-500">{gap.pillarLabel}</span>
+            <MaturityFrameworkTags frameworkCodes={gap.frameworkCodes} />
           </div>
           <p className="mt-2 font-semibold text-slate-900">{gap.controlTitle}</p>
           <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{gap.summary}</p>
@@ -329,11 +336,13 @@ export function MaturitySurveyResults({
   report,
   deepDiveContinuation,
   quickScanReport,
+  pillarComparisons = [],
 }: {
   surveyId: string;
   report: MaturitySurveyReport;
   deepDiveContinuation?: DeepDiveContinuationState | null;
   quickScanReport?: MaturitySurveyReport | null;
+  pillarComparisons?: PillarComparisonRecord[];
 }) {
   if (isPillarFocusedDeepDive(report) && report.pillarDeepDive) {
     return (
@@ -342,6 +351,7 @@ export function MaturitySurveyResults({
         report={report}
         deepDiveContinuation={deepDiveContinuation}
         quickScanReport={quickScanReport}
+        pillarComparisons={pillarComparisons}
       />
     );
   }
@@ -375,22 +385,45 @@ export function MaturitySurveyResults({
   const hasStrengths = report.executiveSummary.strengths.length > 0;
 
   return (
-    <div className="bg-slate-950">
+    <div className="bg-slate-950 print:bg-white">
       {/* ── VERDICT ── */}
-      <ScrollSection glow="indigo" className="text-white">
+      <ScrollSection glow="indigo" className="text-white print:bg-white print:text-slate-900">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_100%_0%,rgba(99,102,241,0.4),transparent)]" />
         <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
           <MountReveal delay={0}>
-            <Link
-              href="/maturity-assessment"
-              className="group inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 transition-colors hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-              Back to maturity assessment
-            </Link>
+            <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
+              <Link
+                href="/maturity-assessment"
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 transition-colors hover:text-white"
+              >
+                <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                Back to maturity assessment
+              </Link>
+              <MaturityReportExportButton
+                surveyId={surveyId}
+                organizationName={report.organizationName}
+              />
+            </div>
           </MountReveal>
 
-          <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          {/* Print-only cover attribution */}
+          <div className="hidden print:block">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+              AI Governance Maturity Report
+            </p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{report.organizationName}</p>
+            {report.respondentName && (
+              <p className="mt-2 text-sm text-slate-600">
+                Prepared by {report.respondentName}
+                {report.respondentRole ? ` · ${report.respondentRole}` : ""}
+              </p>
+            )}
+            <p className="mt-1 text-sm text-slate-500">
+              {report.surveyModeLabel} · {formatDate(new Date(report.generatedAt))}
+            </p>
+          </div>
+
+          <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between print:mt-4">
             <div className="max-w-2xl">
               <MountReveal delay={60}>
                 <div className="flex flex-wrap items-center gap-2">
@@ -417,9 +450,18 @@ export function MaturitySurveyResults({
               </MountReveal>
 
               <MountReveal delay={180}>
-                <p className="mt-4 text-base leading-relaxed text-slate-300">
+                <p className="mt-4 text-base leading-relaxed text-slate-300 print:text-slate-700">
                   {report.executiveSummary.narrative}
                 </p>
+                {report.respondentName && (
+                  <p className="mt-4 text-sm text-slate-400 print:hidden">
+                    Prepared by{" "}
+                    <span className="font-medium text-slate-300">
+                      {report.respondentName}
+                      {report.respondentRole ? ` · ${report.respondentRole}` : ""}
+                    </span>
+                  </p>
+                )}
               </MountReveal>
 
               <MountReveal delay={240}>
@@ -457,11 +499,17 @@ export function MaturitySurveyResults({
                   </p>
                 </div>
               )}
+              <MaturityReportSharePanel
+                surveyId={surveyId}
+                organizationName={report.organizationName}
+                surveyModeLabel={report.surveyModeLabel}
+                className="w-full max-w-xs"
+              />
             </MountReveal>
           </div>
 
           {/* In-page nav */}
-          <MountReveal delay={300} className="mt-10 flex flex-wrap gap-2">
+          <MountReveal delay={300} className="mt-10 flex flex-wrap gap-2 print:hidden">
             {SECTION_NAV.map((item) => (
               <a
                 key={item.id}
@@ -742,11 +790,12 @@ export function MaturitySurveyResults({
                                   : "secondary"
                             }
                           >
-                            {gap.severity}
+                            {formatGapSeverity(gap.severity)}
                           </Badge>
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium text-indigo-600">{gap.pillarLabel}</p>
-                            <p className="font-medium text-slate-900">{gap.controlTitle}</p>
+                            <MaturityFrameworkTags frameworkCodes={gap.frameworkCodes} className="mt-1" />
+                            <p className="mt-1 font-medium text-slate-900">{gap.controlTitle}</p>
                             <p className="mt-1 text-sm text-slate-600">{gap.summary}</p>
                           </div>
                           <Badge variant="outline">{gap.maturityLabel}</Badge>
@@ -759,8 +808,12 @@ export function MaturitySurveyResults({
             </CollapsibleSection>
           </ScrollReveal>
 
+          {pillarComparisons.length >= 2 && (
+            <MaturityPillarComparisonPanel comparisons={pillarComparisons} />
+          )}
+
           {deepDiveContinuation && (
-            <ScrollReveal variant="premium" delay={260}>
+            <ScrollReveal variant="premium" delay={260} className="print:hidden">
               <MaturityDeepDiveContinuePanel
                 surveyId={surveyId}
                 report={report}
@@ -775,12 +828,15 @@ export function MaturitySurveyResults({
             </ScrollReveal>
           )}
 
-          {/* ── UPSELL (end of journey) ── */}
-          <ScrollReveal variant="premium" delay={320}>
-            <MaturityAssessmentUpsellPanel report={report} />
-          </ScrollReveal>
+          {/* ── UPSELL (end of journey) — hidden when continue panel is primary next step ── */}
+          {!deepDiveContinuation && (
+            <ScrollReveal variant="premium" delay={320} className="print:hidden">
+              <MaturityAssessmentUpsellPanel report={report} />
+            </ScrollReveal>
+          )}
 
-          <ScrollReveal variant="premium" delay={360}>
+          {!deepDiveContinuation && (
+          <ScrollReveal variant="premium" delay={360} className="print:hidden">
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/90 bg-white px-6 py-5 shadow-sm">
               <div>
                 <p className="text-sm font-semibold text-slate-900">
@@ -790,7 +846,7 @@ export function MaturitySurveyResults({
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
                   {report.surveyMode === "quick"
-                    ? "Deep dive extends self-assessment; a full assessment adds workshop evidence and sign-off."
+                    ? "Detailed assessment extends self-assessment; a full assessment adds workshop evidence and sign-off."
                     : "Workshops, evidence analysis, and board-ready deliverables in a full client assessment."}
                 </p>
               </div>
@@ -803,12 +859,13 @@ export function MaturitySurveyResults({
                 </Button>
                 {report.surveyMode === "deep_dive" ? (
                   <Button asChild variant="outline" className="rounded-xl">
-                    <Link href="/maturity-assessment/new">New maturity survey</Link>
+                    <Link href="/maturity-assessment/new">New baseline scan</Link>
                   </Button>
                 ) : null}
               </div>
             </div>
           </ScrollReveal>
+          )}
         </div>
       </div>
     </div>

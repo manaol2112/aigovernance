@@ -7,18 +7,18 @@ export const SURVEY_MODE_META: Record<
   { label: string; duration: string; questionHint: string; description: string }
 > = {
   quick: {
-    label: "Quick scan",
+    label: "Baseline scan",
     duration: "~10 minutes",
     questionHint: "10 questions",
     description:
-      "One critical question per risk pillar — ideal for executives and first-pass maturity checks.",
+      "One focused question per risk pillar — the recommended starting point for leadership teams.",
   },
   deep_dive: {
-    label: "Deep dive",
-    duration: "~30–45 minutes",
-    questionHint: "Full control set",
+    label: "Detailed pillar assessment",
+    duration: "~15–30 minutes",
+    questionHint: "Full pillar review",
     description:
-      "Assess every canonical control in scope — for detailed gap analysis and audit preparation.",
+      "Expand one pillar with detailed control questions and a documentation review — available after your baseline scan.",
   },
 };
 

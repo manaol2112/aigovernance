@@ -88,7 +88,7 @@ function PillarDeepDiveCard({
         </span>
       </div>
       <p className="mt-1 text-[11px] text-slate-500">
-        1 baseline from quick scan · {pillar.libraryControlCount} total in pillar
+        1 baseline from scan · {pillar.libraryControlCount} total in pillar
       </p>
 
       <div className="mt-5 flex flex-col gap-2">
@@ -129,13 +129,13 @@ function PillarDeepDiveCard({
               </>
             ) : (
               <>
-                Deep dive this pillar
+                Assess this pillar
                 <ArrowRight className="ml-1 h-3.5 w-3.5" />
               </>
             )}
           </Button>
         ) : (
-          <p className="text-center text-xs text-slate-500">Fully assessed in quick scan scope</p>
+          <p className="text-center text-xs text-slate-500">Fully assessed in baseline scope</p>
         )}
         <p className="text-center text-[10px] text-slate-600">
           {estimateMinutes(pillar.additionalControls)}
@@ -184,14 +184,14 @@ export function MaturityDeepDiveContinuePanel({
       }
       toast(
         data.created
-          ? `${data.prefilledCount} quick scan answer${data.prefilledCount === 1 ? "" : "s"} carried forward.`
-          : "Resuming your deep dive.",
+          ? `${data.prefilledCount} baseline answer${data.prefilledCount === 1 ? "" : "s"} carried forward.`
+          : "Resuming your assessment.",
         { variant: "success" }
       );
       router.push(`/maturity-assessment/${data.surveyId}`);
       router.refresh();
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Failed to start deep dive.", {
+      toast(error instanceof Error ? error.message : "Failed to start assessment.", {
         variant: "error",
       });
     } finally {
@@ -227,15 +227,15 @@ export function MaturityDeepDiveContinuePanel({
         <div className="max-w-3xl">
           <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
             <Sparkles className="h-3.5 w-3.5" />
-            Level 2 · Pillar deep dive
+            Detailed pillar assessment
           </p>
           <h2 className="mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
             Go deeper where it matters — one pillar at a time
           </h2>
           <p className="mt-4 text-sm leading-relaxed text-slate-300 sm:text-base">
-            Your quick scan surfaced a baseline across every pillar. Choose where to go deeper next —
-            we recommend starting with the pillar that has the most room to strengthen.
-            Each pillar deep dive adds only that pillar&apos;s remaining canonical controls.
+            Your baseline scan surfaced a maturity snapshot across every pillar. Choose where to go
+            deeper next — we recommend starting with the pillar that has the most room to strengthen.
+            Each detailed assessment adds that pillar&apos;s remaining in-scope controls.
           </p>
         </div>
 
@@ -290,7 +290,7 @@ export function MaturityDeepDiveContinuePanel({
                     </>
                   ) : (
                     <>
-                      Deep dive recommended pillar
+                      Assess recommended pillar
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
@@ -306,7 +306,7 @@ export function MaturityDeepDiveContinuePanel({
               <p className="text-sm font-semibold text-white">Choose a pillar</p>
               <p className="mt-0.5 text-xs text-slate-400">
                 {completedCount > 0
-                  ? `${completedCount} pillar deep dive${completedCount === 1 ? "" : "s"} completed`
+                  ? `${completedCount} detailed assessment${completedCount === 1 ? "" : "s"} completed`
                   : "Pick one pillar per session — return anytime for another"}
               </p>
             </div>
@@ -336,7 +336,7 @@ export function MaturityDeepDiveContinuePanel({
             className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
           >
             <div>
-              <p className="text-sm font-semibold text-slate-200">Full library deep dive</p>
+              <p className="text-sm font-semibold text-slate-200">Full assessment (all pillars)</p>
               <p className="mt-0.5 text-xs text-slate-500">
                 All pillars at once · {fullDeepDive.additionalControls} additional controls · ~
                 30–45 min
@@ -355,8 +355,8 @@ export function MaturityDeepDiveContinuePanel({
               <ul className="space-y-2 text-sm text-slate-400">
                 {[
                   "Assesses every remaining in-scope control across all pillars",
-                  "Best when the client wants comprehensive coverage in one sitting",
-                  "Quick scan answers still carry forward per pillar",
+                  "Best when leadership wants comprehensive coverage in one sitting",
+                  "Baseline answers still carry forward per pillar",
                 ].map((item) => (
                   <li key={item} className="flex gap-2">
                     <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
@@ -368,13 +368,13 @@ export function MaturityDeepDiveContinuePanel({
                 {fullDeepDive.childStatus === "completed" && fullDeepDive.childSurveyId ? (
                   <Button asChild size="sm" className="rounded-xl bg-white/10 hover:bg-white/15">
                     <Link href={`/maturity-assessment/${fullDeepDive.childSurveyId}/results`}>
-                      View full deep dive results
+                      View full assessment results
                     </Link>
                   </Button>
                 ) : fullDeepDive.childStatus === "in_progress" && fullDeepDive.childSurveyId ? (
                   <Button asChild size="sm" className="rounded-xl bg-white/10 hover:bg-white/15">
                     <Link href={`/maturity-assessment/${fullDeepDive.childSurveyId}`}>
-                      Continue full deep dive
+                      Continue full assessment
                     </Link>
                   </Button>
                 ) : (
@@ -391,7 +391,7 @@ export function MaturityDeepDiveContinuePanel({
                         Preparing…
                       </>
                     ) : (
-                      "Start full library deep dive"
+                      "Start full assessment"
                     )}
                   </Button>
                 )}
@@ -423,20 +423,20 @@ export function MaturityDeepDiveBaselineBanner({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-600">
-            Continues quick scan baseline
+            Continues baseline scan
           </p>
           <p className="mt-1 text-sm font-semibold text-slate-900">
             Pillar focus: {focusLabel}
           </p>
           <p className="mt-1 text-xs leading-relaxed text-slate-600">
-            {report.scope.carriedFromQuickScanCount ?? 0} quick scan rating
+            {report.scope.carriedFromQuickScanCount ?? 0} baseline rating
             {(report.scope.carriedFromQuickScanCount ?? 0) === 1 ? "" : "s"} carried forward.
-            Findings remain tied to canonical controls — no AI-generated content.
+            Findings reflect the controls you rated — rule-based scoring, not AI-generated.
           </p>
         </div>
         <Button asChild variant="outline" size="sm" className="shrink-0 rounded-full">
           <Link href={`/maturity-assessment/${report.scope.parentQuickScanId}/results`}>
-            View quick scan
+            View baseline results
           </Link>
         </Button>
       </div>
