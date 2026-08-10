@@ -20,6 +20,12 @@ import { MATURITY_LEVEL_GUIDANCE } from "@/lib/maturity-survey-constants";
 import type { RoadmapStep } from "@/lib/control-review-reports";
 import { MaturityDeepDiveContinuePanel } from "@/components/maturity-deep-dive-continue-panel";
 import { MaturityAssessmentUpsellPanel } from "@/components/maturity-assessment-upsell-panel";
+import { MaturityFrameworkTags } from "@/components/maturity-framework-tags";
+import { MaturityReportExportButton } from "@/components/maturity-report-export-button";
+import { MaturityReportSharePanel } from "@/components/maturity-report-share-panel";
+import { MaturityPillarComparisonPanel } from "@/components/maturity-pillar-comparison-panel";
+import type { PillarComparisonRecord } from "@/lib/maturity-pillar-comparison";
+import { MaturityFindingEngagementHelp } from "@/components/maturity-finding-engagement-help";
 import {
   MountReveal,
   ScrollReveal,
@@ -166,51 +172,72 @@ export function MaturityPillarDeepDiveResults({
   report,
   deepDiveContinuation,
   quickScanReport,
+  pillarComparisons = [],
 }: {
   surveyId: string;
   report: MaturitySurveyReport;
   deepDiveContinuation?: DeepDiveContinuationState | null;
   quickScanReport?: MaturitySurveyReport | null;
+  pillarComparisons?: PillarComparisonRecord[];
 }) {
   const pillar = report.pillarDeepDive;
   if (!pillar) return null;
 
   const maturityColor = MATURITY_LEVEL_GUIDANCE[pillar.maturityLevel].color;
   const parentQuickScanId = report.scope.parentQuickScanId;
+  const findingsWithHelp = pillar.controlFindings.filter((c) => c.engagementGuide);
 
   return (
-    <div className="bg-slate-950">
-      <ScrollSection glow="emerald" className="text-white">
+    <div className="bg-slate-950 print:bg-white">
+      <ScrollSection glow="emerald" className="text-white print:bg-white print:text-slate-900">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_0%_0%,rgba(16,185,129,0.28),transparent)]" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_45%_at_100%_100%,rgba(99,102,241,0.22),transparent)]" />
 
         <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
           <MountReveal delay={0}>
-            {parentQuickScanId ? (
-              <Link
-                href={`/maturity-assessment/${parentQuickScanId}/results`}
-                className="group inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 transition-colors hover:text-white"
-              >
-                <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-                Back to quick scan results
-              </Link>
-            ) : (
-              <Link
-                href="/maturity-assessment"
-                className="group inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 transition-colors hover:text-white"
-              >
-                <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-                Back to maturity assessment
-              </Link>
-            )}
+            <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
+              {parentQuickScanId ? (
+                <Link
+                  href={`/maturity-assessment/${parentQuickScanId}/results`}
+                  className="group inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 transition-colors hover:text-white"
+                >
+                  <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                  Back to baseline results
+                </Link>
+              ) : (
+                <Link
+                  href="/maturity-assessment"
+                  className="group inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 transition-colors hover:text-white"
+                >
+                  <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                  Back to maturity assessment
+                </Link>
+              )}
+              <MaturityReportExportButton
+                surveyId={surveyId}
+                organizationName={report.organizationName}
+              />
+            </div>
           </MountReveal>
 
-          <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+          <div className="hidden print:block">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+              Detailed Pillar Assessment · {report.organizationName}
+            </p>
+            {report.respondentName && (
+              <p className="mt-2 text-sm text-slate-600">
+                Prepared by {report.respondentName}
+                {report.respondentRole ? ` · ${report.respondentRole}` : ""}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between print:mt-4">
             <div className="max-w-2xl">
               <MountReveal delay={60}>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge className="border-emerald-400/30 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/20">
-                    Pillar deep dive
+                    Detailed pillar assessment
                   </Badge>
                   <Badge variant="outline" className="border-white/15 text-slate-300">
                     {pillar.criticality} priority
@@ -228,9 +255,18 @@ export function MaturityPillarDeepDiveResults({
               </MountReveal>
 
               <MountReveal delay={180}>
-                <p className="mt-5 text-base leading-relaxed text-slate-300">
+                <p className="mt-5 text-base leading-relaxed text-slate-300 print:text-slate-700">
                   {pillar.pathForward.narrative}
                 </p>
+                {report.respondentName && (
+                  <p className="mt-4 text-sm text-slate-400 print:hidden">
+                    Prepared by{" "}
+                    <span className="font-medium text-slate-300">
+                      {report.respondentName}
+                      {report.respondentRole ? ` · ${report.respondentRole}` : ""}
+                    </span>
+                  </p>
+                )}
               </MountReveal>
 
               <MountReveal delay={240}>
@@ -248,7 +284,7 @@ export function MaturityPillarDeepDiveResults({
                   <StatTile
                     label="Method"
                     value="Rule-based"
-                    detail="canonical control scoring"
+                    detail="direct control scoring"
                   />
                 </div>
                 <p className="mt-3 text-[11px] text-slate-600">
@@ -273,6 +309,12 @@ export function MaturityPillarDeepDiveResults({
                   </p>
                 </div>
               )}
+              <MaturityReportSharePanel
+                surveyId={surveyId}
+                organizationName={report.organizationName}
+                surveyModeLabel={report.surveyModeLabel}
+                className="w-full max-w-xs"
+              />
             </MountReveal>
           </div>
         </div>
@@ -286,14 +328,14 @@ export function MaturityPillarDeepDiveResults({
             <ScrollReveal variant="premium">
               <section className="overflow-hidden rounded-3xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50 via-white to-white p-6 shadow-sm sm:p-8">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-600">
-                  Quick scan → deep dive
+                  Baseline → detailed assessment
                 </p>
                 <h2 className="mt-2 text-xl font-bold text-slate-900">
                   How the flagship control held up
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                  Your quick scan rated one representative control. This deep dive validated maturity
-                  across every in-scope control in {pillar.pillarLabel}.
+                  Your baseline scan rated one representative control. This detailed assessment
+                  validated maturity across every in-scope control in {pillar.pillarLabel}.
                 </p>
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -310,7 +352,7 @@ export function MaturityPillarDeepDiveResults({
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Quick scan
+                      Baseline scan
                     </p>
                     <p className="mt-2 text-lg font-bold text-slate-900">
                       {pillar.quickScanBaseline.maturityLabel}
@@ -318,7 +360,7 @@ export function MaturityPillarDeepDiveResults({
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      After deep dive
+                      After detailed assessment
                     </p>
                     <p className="mt-2 text-lg font-bold text-slate-900">
                       {pillar.quickScanBaseline.deepDiveMaturityLabel}
@@ -430,10 +472,30 @@ export function MaturityPillarDeepDiveResults({
                   Every control in {pillar.pillarLabel}
                 </h2>
                 <p className="mt-1.5 text-sm text-slate-500">
-                  Sorted by priority. Recommendations are derived from control descriptions and your
-                  selected maturity levels.
+                  Sorted by priority. Each gap or partial finding includes a detailed guide on how we
+                  can help you close it — from workshops to board-ready deliverables.
                 </p>
               </div>
+
+              {findingsWithHelp.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-white p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">
+                    Engagement support
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                    {findingsWithHelp.length} finding{findingsWithHelp.length === 1 ? "" : "s"} below
+                    include a tailored &ldquo;How we can help&rdquo; guide — workshop facilitation,
+                    evidence validation, target-state design, and remediation deliverables mapped to{" "}
+                    {pillar.pillarLabel}.
+                  </p>
+                  <Button asChild size="sm" className="mt-3 gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-500">
+                    <Link href="/assessments/new">
+                      Discuss an engagement for this pillar
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+              )}
 
               <div className="mb-4 flex flex-wrap gap-3">
                 {[
@@ -468,6 +530,9 @@ export function MaturityPillarDeepDiveResults({
                               {control.controlCode}
                             </span>
                             <Badge variant={style.badge}>{style.label}</Badge>
+                            {control.compliance !== "aligned" && (
+                              <MaturityFrameworkTags frameworkCodes={control.frameworkCodes} />
+                            )}
                           </div>
                           <p className="mt-2 font-semibold text-slate-900">{control.controlTitle}</p>
                           {control.recommendation && control.compliance !== "aligned" && (
@@ -486,6 +551,9 @@ export function MaturityPillarDeepDiveResults({
                           </span>
                         </div>
                       </div>
+                      {control.engagementGuide && (
+                        <MaturityFindingEngagementHelp guide={control.engagementGuide} />
+                      )}
                       <div className="h-1 bg-slate-100">
                         <div
                           className={cn("h-full transition-all", style.bar)}
@@ -537,8 +605,12 @@ export function MaturityPillarDeepDiveResults({
             </div>
           </ScrollReveal>
 
+          {pillarComparisons.length >= 2 && (
+            <MaturityPillarComparisonPanel comparisons={pillarComparisons} />
+          )}
+
           {deepDiveContinuation && quickScanReport && parentQuickScanId && (
-            <ScrollReveal variant="premium" delay={200}>
+            <ScrollReveal variant="premium" delay={200} className="print:hidden">
               <MaturityDeepDiveContinuePanel
                 surveyId={parentQuickScanId}
                 report={quickScanReport}
@@ -547,16 +619,16 @@ export function MaturityPillarDeepDiveResults({
             </ScrollReveal>
           )}
 
-          <ScrollReveal variant="premium" delay={240}>
+          <ScrollReveal variant="premium" delay={240} className="print:hidden">
             <MaturityAssessmentUpsellPanel report={report} />
           </ScrollReveal>
 
-          <ScrollReveal variant="premium" delay={280}>
+          <ScrollReveal variant="premium" delay={280} className="print:hidden">
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/90 bg-white px-6 py-5 shadow-sm">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Continue the maturity journey</p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Deep dive another pillar from your quick scan, or move to a full evidence-backed
+                  Assess another pillar from your baseline, or move to a full evidence-backed
                   assessment.
                 </p>
               </div>

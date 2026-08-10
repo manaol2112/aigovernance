@@ -25,6 +25,7 @@ import {
   isDocumentationChecklistComplete,
 } from "@/lib/maturity-survey-documents";
 import { toast } from "@/components/ui/toast";
+import { CLIENT_TERMS } from "@/lib/maturity-client-copy";
 
 type SurveyResponse = {
   controlId: string;
@@ -34,6 +35,54 @@ type SurveyResponse = {
 };
 
 type WizardPhase = "questions" | "documentation";
+
+function WizardPhaseStepper({
+  phase,
+  showDocumentation,
+}: {
+  phase: WizardPhase;
+  showDocumentation: boolean;
+}) {
+  if (!showDocumentation) return null;
+
+  const steps = [
+    { id: "questions" as const, label: "Questions" },
+    { id: "documentation" as const, label: "Documentation" },
+  ];
+
+  return (
+    <div className="mb-4 flex items-center justify-center gap-2">
+      {steps.map((step, i) => {
+        const active = phase === step.id;
+        const done = step.id === "questions" && phase === "documentation";
+        return (
+          <div key={step.id} className="flex items-center">
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                active && "bg-indigo-600 text-white shadow-sm",
+                done && "bg-emerald-100 text-emerald-800",
+                !active && !done && "bg-slate-100 text-slate-500"
+              )}
+            >
+              {done ? (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              ) : (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[10px]">
+                  {i + 1}
+                </span>
+              )}
+              {step.label}
+            </div>
+            {i < steps.length - 1 && (
+              <div className="mx-1 h-px w-6 bg-slate-200" aria-hidden />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 type SurveyBundle = {
   survey: MaturitySurvey & {
@@ -84,6 +133,8 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   const [submitting, setSubmitting] = useState(false);
   const [stepTransition, setStepTransition] = useState(false);
   const [showSavedHint, setShowSavedHint] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const progress = useMemo(
     () => computeSurveyProgress(initial.catalog, responseList),
@@ -124,6 +175,10 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   const criticalQ = current ? getPillarCriticalQuestion(current.pillarId) : null;
   const selectedGuidance = existing ? MATURITY_LEVEL_GUIDANCE[existing.maturity] : null;
 
+  useEffect(() => {
+    setNotesDraft(existing?.notes ?? "");
+  }, [current?.control.id, existing?.notes]);
+
   const scrollToQuestion = useCallback(() => {
     questionAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
@@ -139,7 +194,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     [survey.id]
   );
 
-  async function saveResponse(patch: Partial<Pick<SurveyResponse, "maturity">>) {
+  async function saveResponse(patch: Partial<Pick<SurveyResponse, "maturity" | "notes">>) {
     if (!current) return;
     const maturity = patch.maturity ?? existing?.maturity;
     if (!maturity) return;
@@ -154,6 +209,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
           controlId: current.control.id,
           pillarId: current.pillarId,
           maturity,
+          ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
         }),
       });
       if (!res.ok) throw new Error("Save failed");
@@ -175,6 +231,42 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
       toast("Failed to save response.", { variant: "error" });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveNotes(notes: string) {
+    if (!current || !existing?.maturity) return;
+    const trimmed = notes.trim();
+    if ((existing.notes ?? "") === trimmed) return;
+
+    setSavingNotes(true);
+    try {
+      const res = await fetch(`/api/maturity-surveys/${survey.id}/responses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          controlId: current.control.id,
+          pillarId: current.pillarId,
+          maturity: existing.maturity,
+          notes: trimmed,
+        }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const saved = await res.json();
+      setResponseList((prev) => {
+        const next = prev.filter((r) => r.controlId !== saved.controlId);
+        next.push({
+          controlId: saved.controlId,
+          pillarId: saved.pillarId,
+          maturity: saved.maturity,
+          notes: saved.notes,
+        });
+        return next;
+      });
+    } catch {
+      toast("Failed to save notes.", { variant: "error" });
+    } finally {
+      setSavingNotes(false);
     }
   }
 
@@ -212,6 +304,10 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   async function goToStep(index: number) {
     const clamped = Math.max(0, Math.min(index, totalSteps - 1));
     if (clamped === stepIndex) return;
+
+    if (existing?.maturity && notesDraft !== (existing.notes ?? "")) {
+      await saveNotes(notesDraft);
+    }
 
     setStepTransition(true);
     setShowSavedHint(false);
@@ -292,6 +388,8 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
             </Link>
           </Button>
 
+          <WizardPhaseStepper phase="documentation" showDocumentation={showDocumentationPhase} />
+
           <div className="rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50 to-white px-4 py-4 shadow-sm">
             <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-700">
               <ClipboardList className="h-3.5 w-3.5" />
@@ -335,7 +433,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
           onStatusChange={saveDocumentStatus}
         />
 
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm md:left-[4.25rem]">
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm">
           <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
             <Button type="button" variant="ghost" onClick={() => setPhase("questions")}>
               Back to questions
@@ -349,7 +447,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
             >
               {submitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Generating…
+                  <Loader2 className="h-4 w-4 animate-spin" /> Finalizing your report…
                 </>
               ) : (
                 <>
@@ -389,20 +487,22 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         {mode === "deep_dive" && survey.parentSurveyId && (
           <div className="mb-4 rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-white px-4 py-4 shadow-sm">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-              Level 2 · Pillar deep dive
+              {CLIENT_TERMS.detailedPillarAssessment}
             </p>
             <p className="mt-1 text-sm font-semibold text-slate-900">
               {focusPillarLabels.length > 0
                 ? `Focused on ${focusPillarLabels.join(", ")}`
-                : "Building on your quick scan baseline"}
+                : "Building on your baseline scan"}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-slate-600">
-              {seededControlIds.size} quick scan answer{seededControlIds.size === 1 ? "" : "s"}{" "}
+              {seededControlIds.size} baseline answer{seededControlIds.size === 1 ? "" : "s"}{" "}
               carried forward. After the control questions, you&apos;ll review a documentation
               checklist for what you have in place.
             </p>
           </div>
         )}
+
+        <WizardPhaseStepper phase="questions" showDocumentation={showDocumentationPhase} />
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{modeMeta.label}</Badge>
@@ -481,7 +581,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
               <p className="font-mono text-[10px] text-indigo-600">{current.control.code}</p>
               {seededControlIds.has(current.control.id) && (
                 <Badge variant="success" className="text-[10px]">
-                  From quick scan
+                  {CLIENT_TERMS.fromBaseline}
                 </Badge>
               )}
             </div>
@@ -498,11 +598,36 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
             disabled={saving}
             variant="survey"
             guideInitiallyOpen={stepIndex === 0}
+            showGoodLooksLikeHints={mode === "quick"}
             onChange={(level) => {
               void saveResponse({ maturity: level });
             }}
           />
         </div>
+
+        {currentAnswered && (
+          <div className="mt-6 border-t border-slate-100 pt-6">
+            <label htmlFor="question-notes" className="text-sm font-medium text-slate-700">
+              Optional context{" "}
+              <span className="font-normal text-slate-400">(visible in your report)</span>
+            </label>
+            <textarea
+              id="question-notes"
+              rows={3}
+              value={notesDraft}
+              disabled={savingNotes}
+              placeholder="Add context for leadership — e.g. current state, blockers, or owners."
+              className="mt-2 w-full resize-none rounded-xl border border-slate-200/90 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+              onChange={(e) => setNotesDraft(e.target.value)}
+              onBlur={() => void saveNotes(notesDraft)}
+            />
+            {savingNotes && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-400">
+                <Loader2 className="h-3 w-3 animate-spin" /> Saving notes…
+              </p>
+            )}
+          </div>
+        )}
 
         {saving && (
           <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
@@ -528,7 +653,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm md:left-[4.25rem]">
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <Button
             type="button"
@@ -565,7 +690,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Generating…
+                    <Loader2 className="h-4 w-4 animate-spin" /> Finalizing your report…
                   </>
                 ) : (
                   <>

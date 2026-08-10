@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     },
     update: {
       maturity,
-      notes: notes?.trim() || null,
+      ...(notes !== undefined ? { notes: notes?.trim() || null } : {}),
       pillarId,
     },
   });

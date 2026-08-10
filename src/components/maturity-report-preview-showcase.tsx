@@ -404,7 +404,7 @@ function ExecutiveSlide({ active }: { active: boolean }) {
         </div>
       </div>
       <p className="text-center text-[9px] text-slate-600">
-        Exportable PDF for board & audit committee
+        Exportable PDF & print-ready report
       </p>
     </div>
   );

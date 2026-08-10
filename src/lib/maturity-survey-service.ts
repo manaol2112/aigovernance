@@ -1,6 +1,39 @@
 import { prisma, assertPrismaReady, PrismaNotReadyError } from "@/lib/db";
 import { buildMaturitySurveyCatalog } from "@/lib/maturity-survey-catalog-server";
-import { buildMaturitySurveyReport } from "@/lib/maturity-survey-analysis";
+import {
+  buildMaturitySurveyReport,
+  type MaturitySurveyReport,
+} from "@/lib/maturity-survey-analysis";
+import { buildFindingEngagementGuide } from "@/lib/maturity-finding-engagement-guide";
+
+function enrichReportWithEngagementGuides(report: MaturitySurveyReport): MaturitySurveyReport {
+  if (!report.pillarDeepDive) return report;
+
+  const pillar = report.pillarDeepDive;
+  return {
+    ...report,
+    pillarDeepDive: {
+      ...pillar,
+      controlFindings: pillar.controlFindings.map((finding) => ({
+        ...finding,
+        engagementGuide:
+          finding.compliance === "aligned"
+            ? null
+            : buildFindingEngagementGuide({
+                pillarId: pillar.pillarId,
+                pillarLabel: pillar.pillarLabel,
+                controlCode: finding.controlCode,
+                controlTitle: finding.controlTitle,
+                controlDescription: finding.controlDescription,
+                maturity: finding.maturity,
+                compliance: finding.compliance,
+                ownerRole: finding.ownerRole,
+                frameworkCodes: finding.frameworkCodes,
+              }),
+      })),
+    },
+  };
+}
 import type { PillarQuickScanBaseline } from "@/lib/maturity-survey-analysis";
 import { MATURITY_LABELS } from "@/lib/maturity-survey-constants";
 import { countSurveyQuestions, filterCatalogByPillars, formatFocusPillarLabels } from "@/lib/maturity-survey-types";
@@ -91,9 +124,12 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
     mode === "deep_dive" && focusPillarIds.length === 1
       ? await resolveQuickScanPillarBaseline(survey.parentSurveyId, focusPillarIds[0]!)
       : undefined;
-  const report = buildMaturitySurveyReport({
+  const report = enrichReportWithEngagementGuides(
+    buildMaturitySurveyReport({
     surveyTitle: survey.title,
     organizationName: survey.organizationName,
+    respondentName: survey.respondentName,
+    respondentRole: survey.respondentRole,
     frameworkCodes: survey.frameworkCodes,
     surveyMode: mode,
     catalog,
@@ -114,7 +150,8 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
       pillarId: r.pillarId,
       status: r.status,
     })),
-  });
+  })
+  );
 
   return { survey, catalog, report };
 }
@@ -141,6 +178,7 @@ export async function listMaturitySurveysForPage() {
         responseCount: s._count.responses,
         totalQuestions: countSurveyQuestions(catalog),
         createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
         submittedAt: s.submittedAt,
       };
     })

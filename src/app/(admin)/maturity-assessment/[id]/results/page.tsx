@@ -5,6 +5,7 @@ import {
   databaseSetupMessage,
 } from "@/lib/maturity-survey-service";
 import { getDeepDiveContinuationState } from "@/lib/maturity-survey-continue";
+import { getCompletedPillarComparisons } from "@/lib/maturity-pillar-comparison";
 import { MaturitySurveyResults } from "@/components/maturity-survey-results";
 import type { MaturitySurveyReport } from "@/lib/maturity-survey-analysis";
 import { isPillarFocusedDeepDive } from "@/lib/maturity-survey-analysis";
@@ -29,6 +30,7 @@ export default async function MaturitySurveyResultsPage({ params }: PageProps) {
 
     let deepDiveContinuation = null;
     let quickScanReport: MaturitySurveyReport | null = null;
+    let pillarComparisons: Awaited<ReturnType<typeof getCompletedPillarComparisons>> = [];
 
     if (report.surveyMode === "quick") {
       deepDiveContinuation = await getDeepDiveContinuationState(
@@ -36,6 +38,7 @@ export default async function MaturitySurveyResultsPage({ params }: PageProps) {
         report.frameworkCodes,
         report.pillarMaturity
       );
+      pillarComparisons = await getCompletedPillarComparisons(id, report.pillarMaturity);
     } else if (report.scope.parentQuickScanId && isPillarFocusedDeepDive(report)) {
       const parentBundle = await loadMaturitySurveyBundle(report.scope.parentQuickScanId);
       if (parentBundle) {
@@ -43,6 +46,10 @@ export default async function MaturitySurveyResultsPage({ params }: PageProps) {
         deepDiveContinuation = await getDeepDiveContinuationState(
           report.scope.parentQuickScanId,
           quickScanReport.frameworkCodes,
+          quickScanReport.pillarMaturity
+        );
+        pillarComparisons = await getCompletedPillarComparisons(
+          report.scope.parentQuickScanId,
           quickScanReport.pillarMaturity
         );
       }
@@ -54,6 +61,7 @@ export default async function MaturitySurveyResultsPage({ params }: PageProps) {
         report={report}
         deepDiveContinuation={deepDiveContinuation}
         quickScanReport={quickScanReport}
+        pillarComparisons={pillarComparisons}
       />
     );
   } catch (error) {

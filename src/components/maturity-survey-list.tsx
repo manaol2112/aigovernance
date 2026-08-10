@@ -8,7 +8,6 @@ import {
   Clock,
   FileText,
   Gauge,
-  Layers,
   Lock,
   Map,
   Sparkles,
@@ -17,12 +16,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SurveyMode } from "@/lib/maturity-survey-mode";
-import { SURVEY_MODE_META } from "@/lib/maturity-survey-mode";
 import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
 import {
   FilmGrain,
   HeroAmbientOrbs,
-  HoverLift,
   MountReveal,
   ScrollReveal,
   ScrollSection,
@@ -31,6 +28,7 @@ import {
   StickyScrollCTA,
 } from "@/components/maturity-landing-motion";
 import { MaturityReportPreviewShowcase } from "@/components/maturity-report-preview-showcase";
+import { MaturitySurveyResumePanel } from "@/components/maturity-survey-resume-panel";
 
 const CURIOSITY_HOOKS = [
   {
@@ -66,11 +64,19 @@ function FrameworkMarquee() {
   );
 }
 
-/** Public marketing landing — conversion-focused, no internal stats or survey list. */
-export function MaturityAssessmentLanding() {
+/** Public marketing landing — conversion-focused with optional resume list. */
+export function MaturityAssessmentLanding({
+  inProgressSurveys = [],
+}: {
+  inProgressSurveys?: MaturitySurveyListItem[];
+}) {
   return (
     <div className="bg-slate-950">
       <StickyScrollCTA />
+
+      {inProgressSurveys.length > 0 && (
+        <MaturitySurveyResumePanel surveys={inProgressSurveys} />
+      )}
 
       {/* ── HERO ── */}
       <ScrollSection glow="indigo" className="text-white">
@@ -211,49 +217,25 @@ export function MaturityAssessmentLanding() {
             </ScrollReveal>
 
             <ScrollReveal variant="premium" delay={120}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {(["quick", "deep_dive"] as SurveyMode[]).map((mode) => {
-                  const meta = SURVEY_MODE_META[mode];
-                  const Icon = mode === "quick" ? Zap : Layers;
-                  const featured = mode === "quick";
-                  return (
-                    <HoverLift key={mode}>
-                      <Link
-                        href="/maturity-assessment/new"
-                        className={cn(
-                          "group block h-full rounded-2xl border p-5 transition-all",
-                          featured
-                            ? "border-indigo-200 bg-white shadow-lg shadow-indigo-100/60 ring-1 ring-indigo-100"
-                            : "border-slate-200 bg-white shadow-sm hover:border-slate-300"
-                        )}
-                      >
-                        {featured && (
-                          <span className="mb-3 inline-block rounded-full bg-indigo-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                            Start here
-                          </span>
-                        )}
-                        <div
-                          className={cn(
-                            "flex h-10 w-10 items-center justify-center rounded-xl",
-                            featured ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
-                          )}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <p className="mt-4 font-bold text-slate-900">{meta.label}</p>
-                        <p className="mt-1 text-xs font-medium text-indigo-600">
-                          {meta.duration}
-                        </p>
-                        <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                          {meta.description}
-                        </p>
-                        <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 opacity-0 transition-opacity group-hover:opacity-100">
-                          Choose this path <ArrowRight className="h-3 w-3" />
-                        </span>
-                      </Link>
-                    </HoverLift>
-                  );
-                })}
+              <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50/40 p-6 shadow-lg shadow-indigo-100/50">
+                <span className="inline-block rounded-full bg-indigo-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  Start here
+                </span>
+                <div className="mt-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white">
+                  <Zap className="h-5 w-5" />
+                </div>
+                <p className="mt-4 text-lg font-bold text-slate-900">Baseline scan</p>
+                <p className="mt-1 text-sm font-medium text-indigo-600">~10 minutes</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  One focused question per risk pillar. After your results, you can assess any
+                  pillar in detail with control questions and a documentation review.
+                </p>
+                <Button asChild className="mt-5 w-full rounded-xl" size="lg">
+                  <Link href="/maturity-assessment/new">
+                    Start baseline scan
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
             </ScrollReveal>
           </div>
@@ -264,25 +246,29 @@ export function MaturityAssessmentLanding() {
       <ScrollSection glow="none" data-header-theme="light" id="how-it-works" className="border-t border-slate-200 bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <ScrollReveal variant="premium" className="text-center">
-            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">Three steps. Ten minutes.</h2>
+            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+              Your path from baseline to action
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-500">
+              Start with a ten-minute baseline, then go deeper on the pillars that matter most.
+            </p>
           </ScrollReveal>
-          <div className="mt-10 flex flex-col items-center gap-0 md:flex-row md:justify-center md:gap-0">
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {[
-              { n: "1", label: "Answer", sub: "Plain-language questions per pillar" },
-              { n: "2", label: "Score", sub: "Structured maturity profile" },
-              { n: "3", label: "Act", sub: "Gaps + roadmap delivered" },
+              { n: "1", label: "Baseline scan", sub: "One question per pillar (~10 min)" },
+              { n: "2", label: "Your results", sub: "Score, heatmap, and priorities" },
+              { n: "3", label: "Detailed assessment", sub: "Control questions for one pillar" },
+              { n: "4", label: "Documentation", sub: "What you have in place today" },
+              { n: "5", label: "Pillar report", sub: "Roadmap and next steps" },
             ].map((step, i) => (
-              <ScrollReveal key={step.n} variant="premium" delay={i * 80} className="flex items-center">
-                <div className="flex flex-col items-center px-8 py-4 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-lg font-bold text-white">
+              <ScrollReveal key={step.n} variant="premium" delay={i * 60}>
+                <div className="flex flex-col items-center px-2 py-4 text-center">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
                     {step.n}
                   </div>
-                  <p className="mt-3 font-semibold text-slate-900">{step.label}</p>
-                  <p className="mt-1 max-w-[140px] text-xs text-slate-500">{step.sub}</p>
+                  <p className="mt-3 text-sm font-semibold text-slate-900">{step.label}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">{step.sub}</p>
                 </div>
-                {i < 2 && (
-                  <ArrowRight className="hidden h-5 w-5 shrink-0 text-slate-300 md:block" />
-                )}
               </ScrollReveal>
             ))}
           </div>
@@ -337,6 +323,7 @@ export type MaturitySurveyListItem = {
   responseCount: number;
   totalQuestions: number;
   createdAt: Date | string;
+  updatedAt: Date | string;
   submittedAt: Date | string | null;
 };
 

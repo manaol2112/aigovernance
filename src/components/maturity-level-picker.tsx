@@ -17,6 +17,8 @@ type Props = {
   variant?: "compact" | "detailed" | "guided" | "survey";
   /** Open the rating guide on first render (e.g. question 1). */
   guideInitiallyOpen?: boolean;
+  /** Baseline scan: show one-line "what good looks like" hints on each level tile. */
+  showGoodLooksLikeHints?: boolean;
 };
 
 function MaturityScaleLegend() {
@@ -80,7 +82,13 @@ export function RatingGuidePanel({
   );
 }
 
-function SelectedLevelDetail({ level }: { level: MaturityLevel }) {
+function SelectedLevelDetail({
+  level,
+  showGoodLooksLike,
+}: {
+  level: MaturityLevel;
+  showGoodLooksLike?: boolean;
+}) {
   const g = MATURITY_LEVEL_GUIDANCE[level];
   return (
     <div
@@ -98,6 +106,11 @@ function SelectedLevelDetail({ level }: { level: MaturityLevel }) {
           {g.label} — {g.headline}
         </p>
       </div>
+      {showGoodLooksLike && (
+        <p className="mt-2 text-xs font-medium text-indigo-700">
+          What good looks like: {g.goodLooksLike}
+        </p>
+      )}
       <p className="mt-2 text-xs leading-relaxed text-slate-600">{g.description}</p>
     </div>
   );
@@ -169,11 +182,13 @@ function SurveyOptionTile({
   isSelected,
   disabled,
   onSelect,
+  showGoodLooksLike,
 }: {
   level: MaturityLevel;
   isSelected: boolean;
   disabled?: boolean;
   onSelect: () => void;
+  showGoodLooksLike?: boolean;
 }) {
   const g = MATURITY_LEVEL_GUIDANCE[level];
 
@@ -204,7 +219,9 @@ function SurveyOptionTile({
         </span>
         <span className="text-xs font-semibold text-slate-900">{g.label}</span>
       </div>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">{g.headline}</p>
+      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">
+        {showGoodLooksLike ? g.goodLooksLike : g.headline}
+      </p>
     </button>
   );
 }
@@ -215,6 +232,7 @@ export function MaturityLevelPicker({
   disabled,
   variant = "survey",
   guideInitiallyOpen = false,
+  showGoodLooksLikeHints = false,
 }: Props) {
   const [showAllLevels, setShowAllLevels] = useState(false);
   const selected = value ? MATURITY_LEVEL_GUIDANCE[value] : null;
@@ -224,8 +242,17 @@ export function MaturityLevelPicker({
       <div className="space-y-4">
         <RatingGuidePanel defaultOpen={guideInitiallyOpen} />
 
+        {showGoodLooksLikeHints && (
+          <p className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-relaxed text-emerald-900">
+            Each level shows what good looks like in plain language — pick the one closest to your
+            organization today.
+          </p>
+        )}
+
         <div>
-          <p className="mb-3 text-sm font-medium text-slate-900">Your rating</p>
+          <p className="mb-3 text-sm font-medium text-slate-900">
+            {showGoodLooksLikeHints ? "Where are you today?" : "Your rating"}
+          </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {MATURITY_LEVELS.map((level) => (
               <SurveyOptionTile
@@ -233,13 +260,16 @@ export function MaturityLevelPicker({
                 level={level}
                 isSelected={value === level}
                 disabled={disabled}
+                showGoodLooksLike={showGoodLooksLikeHints}
                 onSelect={() => onChange(level)}
               />
             ))}
           </div>
         </div>
 
-        {value && <SelectedLevelDetail level={value} />}
+        {value && (
+          <SelectedLevelDetail level={value} showGoodLooksLike={showGoodLooksLikeHints} />
+        )}
 
         <button
           type="button"
