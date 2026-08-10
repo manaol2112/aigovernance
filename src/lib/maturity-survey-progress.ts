@@ -6,7 +6,6 @@ export type SurveyResponseLike = {
   pillarId: string;
 };
 
-/** A step is complete if its control has been answered (covers shared controls across pillars). */
 export function isStepAnswered(
   step: SurveyStep,
   responsesByControlId: Map<string, SurveyResponseLike>

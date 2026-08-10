@@ -932,12 +932,41 @@ model MaturitySurvey {
   currentStepIndex   Int                  @default(0) @map("current_step_index")
   submittedAt        DateTime?            @map("submitted_at")
   reportCache        Json?                @map("report_cache")
+  parentSurveyId     String?              @map("parent_survey_id")
+  focusPillarIds     String[]             @default([]) @map("focus_pillar_ids")
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")
 
-  responses MaturitySurveyResponse[]
+  parentSurvey MaturitySurvey?  @relation("SurveyContinuation", fields: [parentSurveyId], references: [id], onDelete: SetNull)
+  continuations MaturitySurvey[] @relation("SurveyContinuation")
+  responses         MaturitySurveyResponse[]
+  documentResponses MaturitySurveyDocumentResponse[]
 
+  @@index([parentSurveyId])
   @@map("maturity_surveys")
+}
+
+enum MaturityDocumentStatus {
+  not_established
+  draft
+  documented
+  not_applicable
+}
+
+model MaturitySurveyDocumentResponse {
+  id         String                 @id @default(cuid())
+  surveyId   String                 @map("survey_id")
+  pillarId   String                 @map("pillar_id")
+  documentId String                 @map("document_id")
+  status     MaturityDocumentStatus
+  createdAt  DateTime               @default(now()) @map("created_at")
+  updatedAt  DateTime               @updatedAt @map("updated_at")
+
+  survey MaturitySurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@unique([surveyId, documentId])
+  @@index([surveyId])
+  @@map("maturity_survey_document_responses")
 }
 
 enum ColorTheme {

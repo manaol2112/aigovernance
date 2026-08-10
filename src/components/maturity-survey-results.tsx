@@ -30,6 +30,13 @@ import type { MaturityLevel } from "@prisma/client";
 import type { PillarMaturityRecord, RoadmapStep } from "@/lib/control-review-reports";
 import { MaturityAssessmentUpsellPanel } from "@/components/maturity-assessment-upsell-panel";
 import {
+  MaturityDeepDiveBaselineBanner,
+  MaturityDeepDiveContinuePanel,
+} from "@/components/maturity-deep-dive-continue-panel";
+import { MaturityPillarDeepDiveResults } from "@/components/maturity-pillar-deep-dive-results";
+import type { DeepDiveContinuationState } from "@/lib/maturity-survey-continue";
+import { isPillarFocusedDeepDive } from "@/lib/maturity-survey-analysis";
+import {
   MountReveal,
   ScrollReveal,
   ScrollSection,
@@ -199,10 +206,10 @@ function ActionCard({ step, rank }: { step: RoadmapStep; rank: number }) {
 
 function PillarScoreRow({
   pillar,
-  weakest,
+  priorityFocus,
 }: {
   pillar: PillarMaturityRecord;
-  weakest?: boolean;
+  priorityFocus?: boolean;
 }) {
   const pct = pillar.alignmentPct;
   const barColor =
@@ -212,15 +219,15 @@ function PillarScoreRow({
     <div
       className={cn(
         "rounded-xl border px-4 py-3 transition-colors",
-        weakest ? "border-red-200/80 bg-red-50/40" : "border-slate-100 bg-white"
+        priorityFocus ? "border-indigo-200/80 bg-indigo-50/40" : "border-slate-100 bg-white"
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-slate-900">{pillar.pillarLabel}</p>
-          {weakest && (
-            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-600">
-              Weakest area
+          {priorityFocus && (
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
+              Most room to strengthen
             </p>
           )}
         </div>
@@ -317,7 +324,28 @@ function CollapsibleSection({
   );
 }
 
-export function MaturitySurveyResults({ report }: { report: MaturitySurveyReport }) {
+export function MaturitySurveyResults({
+  surveyId,
+  report,
+  deepDiveContinuation,
+  quickScanReport,
+}: {
+  surveyId: string;
+  report: MaturitySurveyReport;
+  deepDiveContinuation?: DeepDiveContinuationState | null;
+  quickScanReport?: MaturitySurveyReport | null;
+}) {
+  if (isPillarFocusedDeepDive(report) && report.pillarDeepDive) {
+    return (
+      <MaturityPillarDeepDiveResults
+        surveyId={surveyId}
+        report={report}
+        deepDiveContinuation={deepDiveContinuation}
+        quickScanReport={quickScanReport}
+      />
+    );
+  }
+
   const maturityColor = MATURITY_LEVEL_GUIDANCE[report.overallMaturity].color;
 
   const sortedPillars = useMemo(
@@ -343,7 +371,7 @@ export function MaturitySurveyResults({ report }: { report: MaturitySurveyReport
     return [...immediate, ...rest].slice(0, 3);
   }, [report.roadmapByPhase]);
 
-  const weakestPillarId = sortedPillars[0]?.pillarId;
+  const priorityFocusPillarId = sortedPillars[0]?.pillarId;
   const hasStrengths = report.executiveSummary.strengths.length > 0;
 
   return (
@@ -541,7 +569,7 @@ export function MaturitySurveyResults({ report }: { report: MaturitySurveyReport
               <SectionHeading
                 eyebrow="Your profile"
                 title="Where you stand by pillar"
-                description="Sorted weakest to strongest — so you know exactly where to invest."
+                description="Sorted by opportunity to strengthen — so you know where deeper assessment adds the most value."
               />
 
               <div className="grid gap-6 lg:grid-cols-2">
@@ -550,7 +578,7 @@ export function MaturitySurveyResults({ report }: { report: MaturitySurveyReport
                     <PillarScoreRow
                       key={pillar.pillarId}
                       pillar={pillar}
-                      weakest={pillar.pillarId === weakestPillarId}
+                      priorityFocus={pillar.pillarId === priorityFocusPillarId}
                     />
                   ))}
                 </div>
@@ -731,17 +759,39 @@ export function MaturitySurveyResults({ report }: { report: MaturitySurveyReport
             </CollapsibleSection>
           </ScrollReveal>
 
+          {deepDiveContinuation && (
+            <ScrollReveal variant="premium" delay={260}>
+              <MaturityDeepDiveContinuePanel
+                surveyId={surveyId}
+                report={report}
+                continuation={deepDiveContinuation}
+              />
+            </ScrollReveal>
+          )}
+
+          {report.surveyMode === "deep_dive" && (
+            <ScrollReveal variant="premium" delay={280}>
+              <MaturityDeepDiveBaselineBanner report={report} />
+            </ScrollReveal>
+          )}
+
           {/* ── UPSELL (end of journey) ── */}
-          <ScrollReveal variant="premium" delay={240}>
+          <ScrollReveal variant="premium" delay={320}>
             <MaturityAssessmentUpsellPanel report={report} />
           </ScrollReveal>
 
-          <ScrollReveal variant="premium" delay={280}>
+          <ScrollReveal variant="premium" delay={360}>
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/90 bg-white px-6 py-5 shadow-sm">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Need a deeper assessment?</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {report.surveyMode === "quick"
+                    ? "Ready for evidence-backed validation?"
+                    : "Need a full client engagement?"}
+                </p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Workshops, evidence analysis, and board-ready deliverables in a full client assessment.
+                  {report.surveyMode === "quick"
+                    ? "Deep dive extends self-assessment; a full assessment adds workshop evidence and sign-off."
+                    : "Workshops, evidence analysis, and board-ready deliverables in a full client assessment."}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -751,9 +801,11 @@ export function MaturitySurveyResults({ report }: { report: MaturitySurveyReport
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
-                <Button asChild variant="outline" className="rounded-xl">
-                  <Link href="/maturity-assessment/new">Run another survey</Link>
-                </Button>
+                {report.surveyMode === "deep_dive" ? (
+                  <Button asChild variant="outline" className="rounded-xl">
+                    <Link href="/maturity-assessment/new">New maturity survey</Link>
+                  </Button>
+                ) : null}
               </div>
             </div>
           </ScrollReveal>

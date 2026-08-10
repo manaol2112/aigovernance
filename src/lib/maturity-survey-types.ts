@@ -29,6 +29,42 @@ export function flattenSurveyControls(catalog: SurveyPillarGroup[]): SurveyContr
   return catalog.flatMap((g) => g.controls);
 }
 
+export function normalizeFocusPillarIds(pillarIds: string[]): string[] {
+  return [...new Set(pillarIds.filter(Boolean))].sort();
+}
+
+export function focusPillarIdsMatch(a: string[], b: string[]): boolean {
+  const left = normalizeFocusPillarIds(a);
+  const right = normalizeFocusPillarIds(b);
+  if (left.length !== right.length) return false;
+  return left.every((id, index) => id === right[index]);
+}
+
+/** Empty focus list = all pillars in catalog. */
+export function filterCatalogByPillars(
+  catalog: SurveyPillarGroup[],
+  focusPillarIds: string[]
+): SurveyPillarGroup[] {
+  const normalized = normalizeFocusPillarIds(focusPillarIds);
+  if (normalized.length === 0) return catalog;
+  const allowed = new Set(normalized);
+  return catalog.filter((group) => allowed.has(group.pillarId));
+}
+
+export function formatFocusPillarLabels(
+  catalog: SurveyPillarGroup[],
+  focusPillarIds: string[]
+): string[] {
+  const normalized = normalizeFocusPillarIds(focusPillarIds);
+  if (normalized.length === 0) {
+    return catalog.map((group) => group.pillarLabel);
+  }
+  const labelById = new Map(catalog.map((group) => [group.pillarId, group.pillarLabel]));
+  return normalized
+    .map((id) => labelById.get(id))
+    .filter((label): label is string => Boolean(label));
+}
+
 /** Pick the most cross-framework representative control for quick-scan mode. */
 export function pickFlagshipControl(
   controls: SurveyControlItem[],
