@@ -52,9 +52,26 @@ function isMaturitySchemaCurrent(): boolean {
 }
 
 function createPrismaClient(): PrismaClient {
+  const databaseUrl = withConnectionLimit(process.env.DATABASE_URL);
+
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    ...(databaseUrl
+      ? {
+          datasources: {
+            db: { url: databaseUrl },
+          },
+        }
+      : {}),
   });
+}
+
+/** Cap pool size so App Platform workers don't exhaust DO Postgres connection slots. */
+function withConnectionLimit(databaseUrl: string | undefined): string | undefined {
+  if (!databaseUrl || databaseUrl.includes("connection_limit=")) return databaseUrl;
+  const limit = process.env.NODE_ENV === "production" ? "3" : "10";
+  const separator = databaseUrl.includes("?") ? "&" : "?";
+  return `${databaseUrl}${separator}connection_limit=${limit}`;
 }
 
 function getPrismaClient(): PrismaClient {
@@ -91,10 +108,8 @@ function getPrismaClient(): PrismaClient {
     );
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = client;
-    globalForPrisma.maturitySchemaVersion = MATURITY_SCHEMA_VERSION;
-  }
+  globalForPrisma.prisma = client;
+  globalForPrisma.maturitySchemaVersion = MATURITY_SCHEMA_VERSION;
 
   return client;
 }
