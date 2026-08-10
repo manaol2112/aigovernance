@@ -122,7 +122,7 @@ export function applyUseCaseTypeDefaults(
     deploymentStage:
       useCaseType === "research_prototype"
         ? "idea"
-        : draft.deploymentStage === "idea" && useCaseType !== "research_prototype" && !discovery
+        : draft.deploymentStage === "idea" && !discovery
           ? "prod"
           : draft.deploymentStage,
     autonomyLevel:

@@ -591,32 +591,6 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
           </>
         )}
 
-        {tab === "workshop" && (
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-            {([
-              ["pillar", "Pillar", Layers],
-              ["department", "Dept", Users],
-            ] as const).map(([mode, label, Icon]) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => {
-                  setRunbookMode(mode);
-                  setActiveSubPillarId(null);
-                }}
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-all ${
-                  runbookMode === mode
-                    ? "bg-white text-indigo-700 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                <Icon className="h-3 w-3" />
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-
         <div className="flex-1" />
 
         {departmentOptions.length > 0 && (
@@ -662,68 +636,6 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
             <div className="h-full rounded-full bg-indigo-600" style={{ width: `${progressPct}%` }} />
           </div>
         </div>
-
-        {tab === "workshop" && (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              onClick={() =>
-                openWorkshopPresenter(assessmentId, {
-                  mode: runbookMode,
-                  pillarId: activePillarId,
-                  facilitatorDepartment,
-                  department: selectedDepartment,
-                  subPillarId: activeSubPillarId,
-                })
-              }
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-              <span className="ml-1 hidden md:inline">Presenter</span>
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={!!exportLoading}
-              onClick={() => downloadWorkshopExport("current")}
-              className="h-7 px-2 text-xs"
-            >
-              {exportLoading === "current" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              <span className="ml-1 hidden md:inline">Export</span>
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!!exportLoading}
-              onClick={() => downloadWorkshopExport("all")}
-              className="h-7 px-2 text-xs"
-            >
-              Full guide
-            </Button>
-          </>
-        )}
-
-        {!hideWorkspacePhaseTabs && tab === "workshop" && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => void requestTabChange("notes")}
-            className="h-7 px-2 text-xs text-indigo-600"
-          >
-            <span className="hidden sm:inline">Evidence pipeline</span>
-            <span className="sm:hidden">Evidence</span>
-            <ArrowRight className="ml-1 h-3 w-3" />
-          </Button>
-        )}
 
         {tab === "review" && captureChunkCount > 0 && (
           <Button
