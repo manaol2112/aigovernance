@@ -10,8 +10,7 @@ import {
   ChevronDown,
   Compass,
   Layers,
-  Map,
-  Sparkles,
+  Map as MapIcon,
   Target,
   TrendingUp,
 } from "lucide-react";
@@ -25,6 +24,7 @@ import {
 } from "@/components/maturity-charts";
 import {
   MATURITY_LEVEL_GUIDANCE,
+  MATURITY_LEVELS,
 } from "@/lib/maturity-survey-constants";
 import type { MaturityLevel } from "@prisma/client";
 import type { PillarMaturityRecord, RoadmapStep } from "@/lib/control-review-reports";
@@ -38,6 +38,8 @@ import type { DeepDiveContinuationState } from "@/lib/maturity-survey-continue";
 import { isPillarFocusedDeepDive } from "@/lib/maturity-survey-analysis";
 import { formatGapSeverity } from "@/lib/maturity-client-copy";
 import { MaturityFrameworkTags } from "@/components/maturity-framework-tags";
+import { getFrameworkShortLabel } from "@/lib/framework-library";
+import { RISK_PILLARS } from "@/lib/risk-pillars";
 import { MaturityReportExportButton } from "@/components/maturity-report-export-button";
 import { MaturityReportSharePanel } from "@/components/maturity-report-share-panel";
 import { MaturityPillarComparisonPanel } from "@/components/maturity-pillar-comparison-panel";
@@ -81,49 +83,149 @@ const SEVERITY_ORDER: Record<SurveyGapItem["severity"], number> = {
 };
 
 const SECTION_NAV = [
-  { id: "priorities", label: "Priorities" },
-  { id: "pillars", label: "Pillars" },
+  { id: "profile", label: "Profile" },
+  { id: "gaps", label: "Gaps" },
   { id: "roadmap", label: "Roadmap" },
-  { id: "details", label: "Full detail" },
+  { id: "deep-dive", label: "Deep dive" },
 ] as const;
 
-function MaturityScoreRing({
-  scorePct,
+function ExecutiveHeroNarrative({ report }: { report: MaturitySurveyReport }) {
+  if (isPillarFocusedDeepDive(report)) {
+    return (
+      <p className="mt-4 text-base leading-relaxed text-slate-300 print:text-slate-700">
+        {report.executiveSummary.narrative}
+      </p>
+    );
+  }
+
+  const org = report.organizationName ?? "Your organization";
+  const {
+    criticalGapCount,
+    criticalGapPillarLabels,
+    leadingPillarLabels,
+    improvementAreaCount,
+    assessmentFrameworkLabels,
+  } = report.executiveSummary;
+  const frameworkLabels =
+    assessmentFrameworkLabels.length > 0
+      ? assessmentFrameworkLabels
+      : report.frameworkCodes.map(getFrameworkShortLabel);
+  const maturityLabel = report.overallMaturityLabel.toLowerCase();
+
+  return (
+    <div className="mt-4 space-y-3">
+      <p className="text-base leading-relaxed text-slate-300 print:text-slate-700">
+        {org} achieved{" "}
+        <span className="font-semibold text-white print:text-slate-900">{maturityLabel}</span> AI
+        governance maturity across {report.scope.pillarsAssessed} assessed pillar
+        {report.scope.pillarsAssessed === 1 ? "" : "s"}, assessed against{" "}
+        <span className="font-semibold text-indigo-200 print:text-indigo-900">
+          {frameworkLabels.join(", ")}
+        </span>
+        .{" "}
+        {criticalGapCount > 0 ? (
+          <>
+            <span className="font-bold text-rose-200 print:text-rose-800">
+              {criticalGapCount} critical gap{criticalGapCount === 1 ? "" : "s"} within the assessed
+              scope need executive attention.
+            </span>
+            {criticalGapPillarLabels.length > 0 && (
+              <>
+                {" "}
+                Critical gap pillars:{" "}
+                <span className="font-semibold text-rose-100 print:text-rose-900">
+                  {criticalGapPillarLabels.join(", ")}
+                </span>
+                .
+              </>
+            )}{" "}
+          </>
+        ) : improvementAreaCount > 0 ? (
+          <>
+            {improvementAreaCount} improvement area{improvementAreaCount === 1 ? "" : "s"} were
+            identified within assessed controls.{" "}
+          </>
+        ) : (
+          <>No material gaps were identified within the assessed scope. </>
+        )}
+        {leadingPillarLabels.length > 0 && (
+          <>
+            Leading pillars:{" "}
+            <span className="font-semibold text-emerald-200 print:text-emerald-900">
+              {leadingPillarLabels.join(", ")}
+            </span>
+            .{" "}
+          </>
+        )}
+        {report.scope.suggestsDeepDive &&
+          "Continue with a detailed pillar assessment to evaluate the remaining in-scope controls."}
+        {report.scope.parentQuickScanId &&
+          !report.scope.suggestsDeepDive &&
+          "Compare with your baseline scan to see how pillar coverage expanded."}
+      </p>
+      {report.frameworkCodes.length > 0 && (
+        <MaturityFrameworkTags
+          frameworkCodes={report.frameworkCodes}
+          max={report.frameworkCodes.length}
+          className="print:hidden"
+        />
+      )}
+    </div>
+  );
+}
+
+function MaturityLevelHero({
   maturity,
   maturityLabel,
 }: {
-  scorePct: number;
   maturity: MaturityLevel;
   maturityLabel: string;
 }) {
-  const color = MATURITY_LEVEL_GUIDANCE[maturity].color;
-  const r = 54;
-  const circumference = 2 * Math.PI * r;
-  const dash = (Math.min(100, Math.max(0, scorePct)) / 100) * circumference;
+  const guidance = MATURITY_LEVEL_GUIDANCE[maturity];
 
   return (
-    <div className="relative flex h-36 w-36 items-center justify-center">
-      <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
-        <circle cx={64} cy={64} r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={10} />
-        <circle
-          cx={64}
-          cy={64}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={10}
-          strokeLinecap="round"
-          strokeDasharray={`${dash} ${circumference - dash}`}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-bold tabular-nums text-white">{scorePct}%</span>
-        <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Maturity
+    <div className="w-full max-w-[15rem] rounded-2xl border border-white/10 bg-white/[0.06] p-5 text-center shadow-lg shadow-black/20 backdrop-blur-sm print:border-slate-200 print:bg-slate-50 print:shadow-none">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        Overall maturity
+      </p>
+
+      <div className="mt-4 flex flex-col items-center">
+        <span
+          className="flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-md print:shadow-none"
+          style={{ backgroundColor: guidance.color }}
+        >
+          {guidance.step}
         </span>
-        <span className="mt-1 text-xs font-medium" style={{ color }}>
+        <p className="mt-3 text-2xl font-bold tracking-tight text-white print:text-slate-900">
           {maturityLabel}
-        </span>
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-400 print:text-slate-600">
+          {guidance.headline}
+        </p>
+      </div>
+
+      <div className="mt-5">
+        <div className="flex overflow-hidden rounded-full">
+          {MATURITY_LEVELS.map((level) => {
+            const levelGuidance = MATURITY_LEVEL_GUIDANCE[level];
+            const isActive = level === maturity;
+            return (
+              <div
+                key={level}
+                className={cn(
+                  "h-1.5 flex-1 transition-opacity",
+                  isActive ? "opacity-100" : "opacity-35"
+                )}
+                style={{ backgroundColor: levelGuidance.color }}
+                title={levelGuidance.label}
+              />
+            );
+          })}
+        </div>
+        <div className="mt-1.5 flex justify-between text-[9px] font-medium text-slate-500">
+          <span>Early</span>
+          <span>Leading</span>
+        </div>
       </div>
     </div>
   );
@@ -191,26 +293,6 @@ function PriorityGapCard({ gap, rank }: { gap: SurveyGapItem; rank: number }) {
   );
 }
 
-function ActionCard({ step, rank }: { step: RoadmapStep; rank: number }) {
-  return (
-    <article className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-white p-5 shadow-sm">
-      <div className="flex items-start gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white">
-          {rank}
-        </span>
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
-            {step.pillarLabel} · {PHASE_META[step.phase].subtitle}
-          </p>
-          <p className="mt-1 font-semibold text-slate-900">{step.controlTitle}</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{step.action}</p>
-          <p className="mt-2 text-xs text-slate-400">Suggested owner: {step.ownerHint}</p>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function PillarScoreRow({
   pillar,
   priorityFocus,
@@ -221,6 +303,7 @@ function PillarScoreRow({
   const pct = pillar.alignmentPct;
   const barColor =
     pct >= 76 ? "bg-emerald-500" : pct >= 51 ? "bg-amber-500" : pct >= 26 ? "bg-orange-500" : "bg-red-500";
+  const levelColor = MATURITY_LEVEL_GUIDANCE[pillar.maturityLevel].color;
 
   return (
     <div
@@ -232,13 +315,23 @@ function PillarScoreRow({
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-slate-900">{pillar.pillarLabel}</p>
+          {pillar.reviewedControls < pillar.totalControls && (
+            <p className="mt-0.5 text-[10px] text-slate-500">
+              {pillar.reviewedControls} of {pillar.totalControls} in-scope controls rated
+            </p>
+          )}
           {priorityFocus && (
             <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
               Most room to strengthen
             </p>
           )}
         </div>
-        <span className="shrink-0 text-sm font-bold tabular-nums text-slate-900">{pct}%</span>
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-bold text-slate-900" style={{ color: levelColor }}>
+            {pillar.maturityLabel}
+          </p>
+          <p className="text-[10px] tabular-nums text-slate-500">{pct}% alignment</p>
+        </div>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
         <div
@@ -246,6 +339,20 @@ function PillarScoreRow({
           style={{ width: `${pct}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+function UnassessedPillarRow({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-sm font-medium text-slate-500">{label}</p>
+        <span className="shrink-0 text-xs font-semibold text-slate-400">Not assessed</span>
+      </div>
+      <p className="mt-1 text-[11px] text-slate-400">
+        No rating saved — not included in this report&apos;s baseline answers.
+      </p>
     </div>
   );
 }
@@ -275,7 +382,7 @@ function RoadmapPhaseColumn({
       <ol className="mt-4 space-y-3">
         {steps.map((step) => (
           <li
-            key={`roadmap-${step.priority}-${step.controlCode}`}
+            key={`roadmap-${phase}-${step.controlCode}`}
             className="rounded-xl border border-white/60 bg-white/70 p-3.5 backdrop-blur-sm"
           >
             <div className="flex items-center gap-2">
@@ -366,20 +473,38 @@ export function MaturitySurveyResults({
     [report.pillarMaturity]
   );
 
-  const topGaps = useMemo(
+  const profilePillars = useMemo(() => {
+    const byId = new Map(report.pillarMaturity.map((pillar) => [pillar.pillarId, pillar]));
+    const expected =
+      report.surveyMode === "quick" || !(report.scope.focusPillarIds?.length ?? 0)
+        ? RISK_PILLARS.map((pillar) => ({ id: pillar.id, label: pillar.label }))
+        : report.scope.focusPillarIds!.map((id, index) => ({
+            id,
+            label: report.scope.focusPillarLabels?.[index] ?? byId.get(id)?.pillarLabel ?? id,
+          }));
+
+    return expected
+      .map((pillar) => ({
+        ...pillar,
+        record: byId.get(pillar.id) ?? null,
+      }))
+      .sort((a, b) => {
+        if (!a.record && !b.record) return 0;
+        if (!a.record) return 1;
+        if (!b.record) return -1;
+        return a.record.alignmentPct - b.record.alignmentPct;
+      });
+  }, [report]);
+
+  const sortedGaps = useMemo(
     () =>
-      [...report.gaps]
-        .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
-        .slice(0, 3),
+      [...report.gaps].sort(
+        (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
+      ),
     [report.gaps]
   );
 
-  const topActions = useMemo(() => {
-    const immediate = report.roadmapByPhase.immediate;
-    if (immediate.length >= 3) return immediate.slice(0, 3);
-    const rest = [...report.roadmapByPhase.short_term, ...report.roadmapByPhase.medium_term];
-    return [...immediate, ...rest].slice(0, 3);
-  }, [report.roadmapByPhase]);
+  const topGaps = useMemo(() => sortedGaps.slice(0, 3), [sortedGaps]);
 
   const priorityFocusPillarId = sortedPillars[0]?.pillarId;
   const hasStrengths = report.executiveSummary.strengths.length > 0;
@@ -450,9 +575,7 @@ export function MaturitySurveyResults({
               </MountReveal>
 
               <MountReveal delay={180}>
-                <p className="mt-4 text-base leading-relaxed text-slate-300 print:text-slate-700">
-                  {report.executiveSummary.narrative}
-                </p>
+                <ExecutiveHeroNarrative report={report} />
                 {report.respondentName && (
                   <p className="mt-4 text-sm text-slate-400 print:hidden">
                     Prepared by{" "}
@@ -475,7 +598,7 @@ export function MaturitySurveyResults({
                     {report.gaps.length} gap{report.gaps.length === 1 ? "" : "s"} identified
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Map className="h-3.5 w-3.5" />
+                    <MapIcon className="h-3.5 w-3.5" />
                     {report.roadmap.length} recommended actions
                   </span>
                 </div>
@@ -486,8 +609,7 @@ export function MaturitySurveyResults({
             </div>
 
             <MountReveal delay={200} className="flex shrink-0 flex-col items-center gap-4">
-              <MaturityScoreRing
-                scorePct={report.overallScorePct}
+              <MaturityLevelHero
                 maturity={report.overallMaturity}
                 maturityLabel={report.overallMaturityLabel}
               />
@@ -527,108 +649,28 @@ export function MaturitySurveyResults({
 
       <div className="bg-slate-50">
         <div className="mx-auto max-w-7xl space-y-12 px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-          {/* ── 1. PRIORITIES (what users care about most) ── */}
-          <ScrollSection data-header-theme="light" glow="none" id="priorities">
+          {/* ── 1. PROFILE ── */}
+          <ScrollSection data-header-theme="light" glow="none" id="profile">
             <ScrollReveal variant="premium">
-              <SectionHeading
-                eyebrow="Start here"
-                title="What to focus on first"
-                description="Your highest-severity gaps and the first actions to take — based on what you assessed."
-              />
-
-              {topGaps.length === 0 && topActions.length === 0 ? (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-6 text-center">
-                  <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
-                  <p className="mt-3 font-semibold text-slate-900">No critical gaps in assessed areas</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Review your pillar breakdown below and consider a deep-dive for full coverage.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-8 lg:grid-cols-2">
-                  <div>
-                    <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                      Priority gaps
-                    </h3>
-                    {topGaps.length === 0 ? (
-                      <p className="text-sm text-slate-500">No high-priority gaps in assessed scope.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {topGaps.map((gap, i) => (
-                          <PriorityGapCard key={`${gap.controlCode}-${i}`} gap={gap} rank={i + 1} />
-                        ))}
-                        {report.gaps.length > 3 && (
-                          <a
-                            href="#details"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500"
-                          >
-                            View all {report.gaps.length} gaps
-                            <ArrowRight className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
-                      <Sparkles className="h-4 w-4 text-indigo-600" />
-                      Recommended next steps
-                    </h3>
-                    {topActions.length === 0 ? (
-                      <p className="text-sm text-slate-500">No roadmap actions generated yet.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {topActions.map((step, i) => (
-                          <ActionCard key={`${step.controlCode}-${i}`} step={step} rank={i + 1} />
-                        ))}
-                        {report.roadmap.length > 3 && (
-                          <a
-                            href="#roadmap"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500"
-                          >
-                            View full roadmap
-                            <ArrowRight className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {report.executiveSummary.boardActions[0] && (
-                <div className="mt-8 rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50 to-white p-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600">
-                    Leadership takeaway
-                  </p>
-                  <p className="mt-2 text-sm font-medium leading-relaxed text-slate-800">
-                    {report.executiveSummary.boardActions[0]}
-                  </p>
-                </div>
-              )}
-            </ScrollReveal>
-          </ScrollSection>
-
-          {/* ── 2. PILLARS (where you stand) ── */}
-          <ScrollSection data-header-theme="light" glow="none" id="pillars">
-            <ScrollReveal variant="premium" delay={80}>
               <SectionHeading
                 eyebrow="Your profile"
                 title="Where you stand by pillar"
-                description="Sorted by opportunity to strengthen — so you know where deeper assessment adds the most value."
+                description="Each baseline domain you rated shows a maturity level and alignment score. 0% means Not Implemented was selected — not a skipped question."
               />
 
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-2">
-                  {sortedPillars.map((pillar) => (
-                    <PillarScoreRow
-                      key={pillar.pillarId}
-                      pillar={pillar}
-                      priorityFocus={pillar.pillarId === priorityFocusPillarId}
-                    />
-                  ))}
+                  {profilePillars.map((pillar) =>
+                    pillar.record && pillar.record.reviewedControls > 0 ? (
+                      <PillarScoreRow
+                        key={pillar.id}
+                        pillar={pillar.record}
+                        priorityFocus={pillar.id === priorityFocusPillarId}
+                      />
+                    ) : (
+                      <UnassessedPillarRow key={pillar.id} label={pillar.label} />
+                    )
+                  )}
                 </div>
                 <div className="space-y-4">
                   <PillarMaturityRadarChart pillars={report.pillarMaturity} />
@@ -653,50 +695,161 @@ export function MaturitySurveyResults({
             </ScrollReveal>
           </ScrollSection>
 
-          {/* ── 3. ROADMAP (full plan) ── */}
-          {report.roadmap.length > 0 && (
-            <ScrollSection data-header-theme="light" glow="none" id="roadmap">
-              <ScrollReveal variant="premium" delay={120}>
-                <SectionHeading
-                  eyebrow="Your plan"
-                  title="Remediation roadmap"
-                  description="Prioritized actions grouped by timeframe — use this to plan resourcing and board updates."
-                />
+          {/* ── 2. GAPS ── */}
+          <ScrollSection data-header-theme="light" glow="none" id="gaps">
+            <ScrollReveal variant="premium" delay={80}>
+              <SectionHeading
+                eyebrow="Priority findings"
+                title="Gaps to address"
+                description="Highest-severity gaps from your assessment — the areas that need attention first."
+              />
+
+              {topGaps.length === 0 ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-6 text-center">
+                  <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
+                  <p className="mt-3 font-semibold text-slate-900">No material gaps in assessed scope</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Review your pillar profile above and continue with a deep dive for full control coverage.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {topGaps.map((gap, i) => (
+                    <PriorityGapCard key={`${gap.controlCode}-${i}`} gap={gap} rank={i + 1} />
+                  ))}
+                  {report.gaps.length > 3 && (
+                    <a
+                      href="#details"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500"
+                    >
+                      View all {report.gaps.length} gaps
+                      <ArrowRight className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {report.executiveSummary.boardActions[0] && (
+                <div className="mt-8 rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50 to-white p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600">
+                    Leadership takeaway
+                  </p>
+                  <p className="mt-2 text-sm font-medium leading-relaxed text-slate-800">
+                    {report.executiveSummary.boardActions[0]}
+                  </p>
+                </div>
+              )}
+            </ScrollReveal>
+          </ScrollSection>
+
+          {/* ── 3. ROADMAP ── */}
+          <ScrollSection data-header-theme="light" glow="none" id="roadmap">
+            <ScrollReveal variant="premium" delay={120}>
+              <SectionHeading
+                eyebrow="Your plan"
+                title="Remediation roadmap"
+                description="Prioritized actions grouped by timeframe — use this to plan resourcing and board updates."
+              />
+              {report.roadmap.length > 0 ? (
                 <div className="grid gap-4 lg:grid-cols-3">
                   <RoadmapPhaseColumn phase="immediate" steps={report.roadmapByPhase.immediate} />
                   <RoadmapPhaseColumn phase="short_term" steps={report.roadmapByPhase.short_term} />
                   <RoadmapPhaseColumn phase="medium_term" steps={report.roadmapByPhase.medium_term} />
                 </div>
-              </ScrollReveal>
-            </ScrollSection>
-          )}
+              ) : (
+                <p className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
+                  No phased remediation actions were generated for this assessment.
+                </p>
+              )}
 
-          {/* ── 4. LEADERSHIP ACTIONS ── */}
-          {report.executiveSummary.boardActions.length > 1 && (
-            <ScrollReveal variant="premium" delay={160}>
-              <section className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm">
-                <SectionHeading
-                  title="Recommended leadership actions"
-                  description="Executive next steps for your leadership team or board."
-                />
-                <ul className="space-y-3">
-                  {report.executiveSummary.boardActions.map((action, i) => (
-                    <li
-                      key={i}
-                      className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3.5 text-sm text-slate-700"
-                    >
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
-                        {i + 1}
-                      </span>
-                      {action}
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              {report.executiveSummary.boardActions.length > 1 && (
+                  <div className="mt-8 rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm">
+                    <SectionHeading
+                      title="Recommended leadership actions"
+                      description="Executive next steps for your leadership team or board."
+                    />
+                    <ul className="space-y-3">
+                      {report.executiveSummary.boardActions.map((action, i) => (
+                        <li
+                          key={i}
+                          className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3.5 text-sm text-slate-700"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                            {i + 1}
+                          </span>
+                          {action}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
             </ScrollReveal>
-          )}
+          </ScrollSection>
 
-          {/* ── 5. DETAILS (collapsed by default) ── */}
+          {/* ── 4. DEEP DIVE ── */}
+          <ScrollSection data-header-theme="light" glow="none" id="deep-dive" className="print:hidden">
+            <ScrollReveal variant="premium" delay={160}>
+              <SectionHeading
+                eyebrow="Next level"
+                title="Detailed pillar assessment"
+                description="Extend your baseline with full control coverage, evidence review, and pillar-by-pillar comparison."
+              />
+
+              <div className="space-y-8">
+                {report.surveyMode === "deep_dive" && (
+                  <MaturityDeepDiveBaselineBanner report={report} />
+                )}
+
+                {deepDiveContinuation && (
+                  <MaturityDeepDiveContinuePanel
+                    surveyId={surveyId}
+                    report={report}
+                    continuation={deepDiveContinuation}
+                  />
+                )}
+
+                {pillarComparisons.length >= 2 && (
+                  <MaturityPillarComparisonPanel comparisons={pillarComparisons} />
+                )}
+
+                {!deepDiveContinuation && (
+                  <MaturityAssessmentUpsellPanel report={report} />
+                )}
+
+                {!deepDiveContinuation && (
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/90 bg-white px-6 py-5 shadow-sm">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {report.surveyMode === "quick"
+                          ? "Ready for evidence-backed validation?"
+                          : "Need a full client engagement?"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {report.surveyMode === "quick"
+                          ? "Detailed assessment extends self-assessment; a full assessment adds workshop evidence and sign-off."
+                          : "Workshops, evidence analysis, and board-ready deliverables in a full client assessment."}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <Button asChild className="gap-2 rounded-xl">
+                        <Link href="/assessments/new">
+                          Start full assessment
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      {report.surveyMode === "deep_dive" ? (
+                        <Button asChild variant="outline" className="rounded-xl">
+                          <Link href="/maturity-assessment/new">New baseline scan</Link>
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollReveal>
+          </ScrollSection>
+
+          {/* ── APPENDIX: full detail (collapsed) ── */}
           <ScrollReveal variant="premium" delay={200}>
             <CollapsibleSection
               id="details"
@@ -716,9 +869,9 @@ export function MaturitySurveyResults({
                       {report.frameworkCodes.map((fw) => (
                         <span
                           key={fw}
-                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-mono text-[10px] text-slate-600"
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium text-slate-700"
                         >
-                          {fw}
+                          {getFrameworkShortLabel(fw)}
                         </span>
                       ))}
                     </div>
@@ -776,9 +929,9 @@ export function MaturitySurveyResults({
                   <div>
                     <h3 className="mb-4 text-sm font-bold text-slate-900">Complete gap register</h3>
                     <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                      {report.gaps.map((gap, i) => (
+                      {sortedGaps.map((gap, i) => (
                         <div
-                          key={`${gap.pillarId}-${gap.controlCode}-${i}`}
+                          key={`${gap.pillarId}-${gap.controlCode}`}
                           className="flex flex-wrap items-start gap-4 px-5 py-4"
                         >
                           <Badge
@@ -807,65 +960,6 @@ export function MaturitySurveyResults({
               </div>
             </CollapsibleSection>
           </ScrollReveal>
-
-          {pillarComparisons.length >= 2 && (
-            <MaturityPillarComparisonPanel comparisons={pillarComparisons} />
-          )}
-
-          {deepDiveContinuation && (
-            <ScrollReveal variant="premium" delay={260} className="print:hidden">
-              <MaturityDeepDiveContinuePanel
-                surveyId={surveyId}
-                report={report}
-                continuation={deepDiveContinuation}
-              />
-            </ScrollReveal>
-          )}
-
-          {report.surveyMode === "deep_dive" && (
-            <ScrollReveal variant="premium" delay={280}>
-              <MaturityDeepDiveBaselineBanner report={report} />
-            </ScrollReveal>
-          )}
-
-          {/* ── UPSELL (end of journey) — hidden when continue panel is primary next step ── */}
-          {!deepDiveContinuation && (
-            <ScrollReveal variant="premium" delay={320} className="print:hidden">
-              <MaturityAssessmentUpsellPanel report={report} />
-            </ScrollReveal>
-          )}
-
-          {!deepDiveContinuation && (
-          <ScrollReveal variant="premium" delay={360} className="print:hidden">
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/90 bg-white px-6 py-5 shadow-sm">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {report.surveyMode === "quick"
-                    ? "Ready for evidence-backed validation?"
-                    : "Need a full client engagement?"}
-                </p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {report.surveyMode === "quick"
-                    ? "Detailed assessment extends self-assessment; a full assessment adds workshop evidence and sign-off."
-                    : "Workshops, evidence analysis, and board-ready deliverables in a full client assessment."}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button asChild className="gap-2 rounded-xl">
-                  <Link href="/assessments/new">
-                    Start full assessment
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-                {report.surveyMode === "deep_dive" ? (
-                  <Button asChild variant="outline" className="rounded-xl">
-                    <Link href="/maturity-assessment/new">New baseline scan</Link>
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          </ScrollReveal>
-          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma, assertPrismaReady, PrismaNotReadyError } from "@/lib/db";
-import { DEFAULT_SURVEY_FRAMEWORKS } from "@/lib/maturity-survey-constants";
 import { DEFAULT_SURVEY_MODE, type SurveyMode } from "@/lib/maturity-survey-mode";
+import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
 
 function prismaErrorResponse(error: unknown) {
   if (error instanceof PrismaNotReadyError) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       organizationName,
       respondentName,
       respondentRole,
-      frameworkCodes = DEFAULT_SURVEY_FRAMEWORKS,
+      frameworkCodes,
       surveyMode = DEFAULT_SURVEY_MODE,
     } = body as {
       title: string;
@@ -57,10 +57,21 @@ export async function POST(request: Request) {
     };
 
     const mode: SurveyMode = surveyMode === "deep_dive" ? "deep_dive" : "quick";
+    const allowedFrameworkCodes = new Set(FRAMEWORK_COLUMNS.map((f) => f.code));
+    const resolvedFrameworkCodes = Array.isArray(frameworkCodes)
+      ? [...new Set(frameworkCodes.filter((code) => allowedFrameworkCodes.has(code)))]
+      : [];
 
     if (!organizationName?.trim()) {
       return NextResponse.json(
         { error: "Organization name is required." },
+        { status: 400 }
+      );
+    }
+
+    if (resolvedFrameworkCodes.length === 0) {
+      return NextResponse.json(
+        { error: "Select at least one framework." },
         { status: 400 }
       );
     }
@@ -75,7 +86,7 @@ export async function POST(request: Request) {
         organizationName: organizationName.trim(),
         respondentName: respondentName?.trim() || null,
         respondentRole: respondentRole?.trim() || null,
-        frameworkCodes,
+        frameworkCodes: resolvedFrameworkCodes,
         surveyMode: mode,
         status: "in_progress",
       },

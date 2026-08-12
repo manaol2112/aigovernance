@@ -1042,7 +1042,7 @@ model MaturitySurveyResponse {
   survey  MaturitySurvey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   control CanonicalControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
 
-  @@unique([surveyId, controlId])
+  @@unique([surveyId, pillarId, controlId])
   @@index([surveyId])
   @@map("maturity_survey_responses")
 }

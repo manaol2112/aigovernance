@@ -3,6 +3,7 @@ import type { PillarMaturityRecord, RoadmapStep } from "@/lib/control-review-rep
 import type { SurveyPillarGroup } from "@/lib/maturity-survey-types";
 import { flattenSurveyControls } from "@/lib/maturity-survey-types";
 import type { SurveyMode } from "@/lib/maturity-survey-mode";
+import { getFrameworkShortLabel } from "@/lib/framework-library";
 import { SURVEY_MODE_META } from "@/lib/maturity-survey-mode";
 import { getPillarCriticalQuestion } from "@/lib/maturity-survey-quick-questions";
 import {
@@ -26,13 +27,20 @@ export { MATURITY_LABELS, MATURITY_LEVELS, MATURITY_SCORE, MATURITY_LEVEL_GUIDAN
 
 const CRITICALITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2 };
 
+/** Map average control score (0–5) to a maturity level — stays in sync with alignment %. */
+function averageScoreToMaturity(avgScore: number, answeredCount: number): MaturityLevel {
+  if (answeredCount === 0) return "not_implemented";
+  if (avgScore < 0.5) return "not_implemented";
+  if (avgScore < 1.5) return "initial";
+  if (avgScore < 2.5) return "developing";
+  if (avgScore < 3.5) return "defined";
+  if (avgScore < 4.5) return "managed";
+  return "optimized";
+}
+
 function alignmentToMaturity(alignmentPct: number, answeredCount: number): MaturityLevel {
   if (answeredCount === 0) return "not_implemented";
-  if (alignmentPct >= 91) return "optimized";
-  if (alignmentPct >= 76) return "managed";
-  if (alignmentPct >= 51) return "defined";
-  if (alignmentPct >= 26) return "developing";
-  return "initial";
+  return averageScoreToMaturity((alignmentPct / 100) * 5, answeredCount);
 }
 
 function maturityToCompliance(maturity: MaturityLevel): "aligned" | "partial" | "gap" {
@@ -181,6 +189,11 @@ export type MaturitySurveyReport = {
   executiveSummary: {
     headline: string;
     narrative: string;
+    criticalGapCount: number;
+    criticalGapPillarLabels: string[];
+    leadingPillarLabels: string[];
+    assessmentFrameworkLabels: string[];
+    improvementAreaCount: number;
     strengths: string[];
     priorityGaps: string[];
     boardActions: string[];
@@ -378,6 +391,111 @@ function findPillarMeta(
   return catalog.find((g) => g.pillarId === pillarId);
 }
 
+type SurveyResponseInput = {
+  controlId: string;
+  pillarId: string;
+  maturity: MaturityLevel;
+  notes: string | null;
+};
+
+function buildCatalogControlIndex(catalog: SurveyPillarGroup[]) {
+  const controlById = new Map<
+    string,
+    ReturnType<typeof flattenSurveyControls>[number]
+  >();
+  const canonicalPillarByControlId = new Map<string, string>();
+
+  for (const group of catalog) {
+    for (const control of group.controls) {
+      controlById.set(control.id, control);
+      if (!canonicalPillarByControlId.has(control.id)) {
+        canonicalPillarByControlId.set(control.id, group.pillarId);
+      }
+    }
+  }
+
+  return { controlById, canonicalPillarByControlId };
+}
+
+/** One rating per control — legacy rows may share a control across pillars. */
+function dedupeSurveyResponses(
+  responses: SurveyResponseInput[],
+  canonicalPillarByControlId: Map<string, string>
+): SurveyResponseInput[] {
+  const byControlId = new Map<string, SurveyResponseInput>();
+
+  for (const response of responses) {
+    const existing = byControlId.get(response.controlId);
+    if (!existing) {
+      byControlId.set(response.controlId, response);
+      continue;
+    }
+
+    const canonicalPillarId = canonicalPillarByControlId.get(response.controlId);
+    const existingMatchesCatalog = existing.pillarId === canonicalPillarId;
+    const incomingMatchesCatalog = response.pillarId === canonicalPillarId;
+
+    if (incomingMatchesCatalog && !existingMatchesCatalog) {
+      byControlId.set(response.controlId, response);
+      continue;
+    }
+    if (existingMatchesCatalog && !incomingMatchesCatalog) continue;
+
+    if (MATURITY_SCORE[response.maturity] < MATURITY_SCORE[existing.maturity]) {
+      byControlId.set(response.controlId, response);
+    }
+  }
+
+  return [...byControlId.values()].map((response) => ({
+    ...response,
+    pillarId: canonicalPillarByControlId.get(response.controlId) ?? response.pillarId,
+  }));
+}
+
+const GAP_SEVERITY_ORDER: Record<SurveyGapItem["severity"], number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+};
+
+function sortGapsByPriority(gaps: SurveyGapItem[]): SurveyGapItem[] {
+  return [...gaps].sort((a, b) => {
+    if (GAP_SEVERITY_ORDER[a.severity] !== GAP_SEVERITY_ORDER[b.severity]) {
+      return GAP_SEVERITY_ORDER[a.severity] - GAP_SEVERITY_ORDER[b.severity];
+    }
+    if (MATURITY_SCORE[a.maturity] !== MATURITY_SCORE[b.maturity]) {
+      return MATURITY_SCORE[a.maturity] - MATURITY_SCORE[b.maturity];
+    }
+    return a.controlCode.localeCompare(b.controlCode);
+  });
+}
+
+function dedupeGapsByControlCode(gaps: SurveyGapItem[]): SurveyGapItem[] {
+  const byControlCode = new Map<string, SurveyGapItem>();
+
+  for (const gap of gaps) {
+    const existing = byControlCode.get(gap.controlCode);
+    if (!existing) {
+      byControlCode.set(gap.controlCode, gap);
+      continue;
+    }
+
+    if (GAP_SEVERITY_ORDER[gap.severity] < GAP_SEVERITY_ORDER[existing.severity]) {
+      byControlCode.set(gap.controlCode, gap);
+      continue;
+    }
+
+    if (
+      gap.severity === existing.severity &&
+      MATURITY_SCORE[gap.maturity] < MATURITY_SCORE[existing.maturity]
+    ) {
+      byControlCode.set(gap.controlCode, gap);
+    }
+  }
+
+  return [...byControlCode.values()];
+}
+
 export function buildMaturitySurveyReport(input: {
   surveyTitle: string;
   organizationName: string | null;
@@ -406,20 +524,31 @@ export function buildMaturitySurveyReport(input: {
 }): MaturitySurveyReport {
   const mode = input.surveyMode ?? "quick";
   const modeLabel = SURVEY_MODE_META[mode].label;
-  const controlById = new Map(flattenSurveyControls(input.catalog).map((c) => [c.id, c]));
+  const { controlById, canonicalPillarByControlId } = buildCatalogControlIndex(
+    input.catalog
+  );
   const inScopeIds = new Set(controlById.keys());
+  const dedupedResponses = dedupeSurveyResponses(
+    input.responses,
+    canonicalPillarByControlId
+  );
+
+  const catalogControlsByPillar = new Map(
+    input.catalog.map((group) => [group.pillarId, group.controls.length])
+  );
 
   const controlResponses: SurveyControlResponse[] = [];
   const assessmentMatrix: AssessmentMatrixRow[] = [];
-  const gaps: SurveyGapItem[] = [];
 
-  for (const response of input.responses) {
+  for (const response of dedupedResponses) {
     if (!inScopeIds.has(response.controlId)) continue;
 
     const control = controlById.get(response.controlId)!;
-    const pillar =
-      findPillarMeta(input.catalog, response.pillarId) ??
-      input.catalog.find((g) => g.controls.some((c) => c.id === response.controlId));
+    const catalogPillarId =
+      mode === "quick"
+        ? response.pillarId
+        : (canonicalPillarByControlId.get(response.controlId) ?? response.pillarId);
+    const pillar = findPillarMeta(input.catalog, catalogPillarId);
 
     if (!pillar) continue;
 
@@ -453,24 +582,6 @@ export function buildMaturitySurveyReport(input: {
       frameworkCodes: control.frameworkCodes,
     });
 
-    if (maturityToCompliance(maturity) !== "aligned") {
-      gaps.push({
-        controlCode: control.code,
-        controlTitle: control.title,
-        pillarLabel: pillar.pillarLabel,
-        pillarId: pillar.pillarId,
-        maturity,
-        maturityLabel: MATURITY_LABELS[maturity],
-        severity: gapSeverity(maturity, pillar.criticality),
-        summary: buildRecommendation(
-          control.title,
-          control.description,
-          maturity,
-          control.ownerRole
-        ),
-        frameworkCodes: control.frameworkCodes,
-      });
-    }
   }
 
   assessmentMatrix.sort(
@@ -479,7 +590,33 @@ export function buildMaturitySurveyReport(input: {
       (CRITICALITY_ORDER[b.pillarCriticality] ?? 2)
   );
 
-  const pillarIds = [...new Set(controlResponses.map((c) => c.pillarId))];
+  const uniqueGaps = sortGapsByPriority(
+    dedupeGapsByControlCode(
+      controlResponses
+        .filter((control) => maturityToCompliance(control.maturity) !== "aligned")
+        .map((control) => ({
+          controlCode: control.controlCode,
+          controlTitle: control.controlTitle,
+          pillarLabel: control.pillarLabel,
+          pillarId: control.pillarId,
+          maturity: control.maturity,
+          maturityLabel: MATURITY_LABELS[control.maturity],
+          severity: gapSeverity(control.maturity, control.pillarCriticality),
+          summary: buildRecommendation(
+            control.controlTitle,
+            control.controlDescription,
+            control.maturity,
+            control.ownerRole
+          ),
+          frameworkCodes: control.frameworkCodes,
+        }))
+    )
+  );
+
+  const pillarIds =
+    mode === "quick"
+      ? input.catalog.map((group) => group.pillarId)
+      : [...new Set(controlResponses.map((c) => c.pillarId))];
 
   const pillarMaturity: PillarMaturityRecord[] = pillarIds
     .map((pillarId) => {
@@ -497,24 +634,27 @@ export function buildMaturitySurveyReport(input: {
         (c) => maturityToCompliance(c.maturity) === "gap"
       ).length;
       const assessed = pillarControls.length;
+      const libraryTotal = catalogControlsByPillar.get(pillarId) ?? assessed;
       const avgScore =
         assessed > 0
           ? pillarControls.reduce((sum, c) => sum + MATURITY_SCORE[c.maturity], 0) / assessed
           : 0;
       const alignmentPct = Math.round((avgScore / 5) * 100);
-      const maturityLevel = alignmentToMaturity(alignmentPct, assessed);
+      const maturityLevel = averageScoreToMaturity(avgScore, assessed);
+      const reviewProgressPct =
+        libraryTotal > 0 ? Math.round((assessed / libraryTotal) * 100) : 100;
 
       return {
         pillarId: group.pillarId,
         pillarLabel: group.pillarLabel,
         pillarDescription: group.pillarDescription,
         criticality: group.criticality,
-        totalControls: assessed,
+        totalControls: libraryTotal,
         reviewedControls: assessed,
         alignedCount,
         partialCount,
         gapCount,
-        reviewProgressPct: 100,
+        reviewProgressPct,
         alignmentPct,
         maturityLevel,
         maturityLabel: MATURITY_LABELS[maturityLevel],
@@ -543,7 +683,7 @@ export function buildMaturitySurveyReport(input: {
   const overallMaturity = alignmentToMaturity(overallScorePct, answeredCount);
   const nextTarget = nextMaturityTarget(overallMaturity);
 
-  const criticalGaps = gaps.filter((g) => g.severity === "critical").length;
+  const criticalGaps = uniqueGaps.filter((g) => g.severity === "critical").length;
   const strongPillars = pillarMaturity.filter(
     (p) => p.maturityLevel === "managed" || p.maturityLevel === "optimized"
   );
@@ -553,9 +693,14 @@ export function buildMaturitySurveyReport(input: {
 
   type RoadmapSort = RoadmapStep & { criticalityRank: number; maturityRank: number };
 
-  const roadmap: RoadmapStep[] = gaps
-    .map((g): RoadmapSort => {
-      const control = controlResponses.find((c) => c.controlCode === g.controlCode)!;
+  const controlByCode = new Map(
+    controlResponses.map((control) => [control.controlCode, control])
+  );
+
+  const roadmap: RoadmapStep[] = uniqueGaps
+    .map((g): RoadmapSort | null => {
+      const control = controlByCode.get(g.controlCode);
+      if (!control) return null;
       const phase = roadmapPhase(g.maturity, control.pillarCriticality);
       return {
         priority: 0,
@@ -571,6 +716,7 @@ export function buildMaturitySurveyReport(input: {
         maturityRank: MATURITY_SCORE[g.maturity],
       };
     })
+    .filter((step): step is RoadmapSort => step != null)
     .sort((a, b) => {
       if (a.criticalityRank !== b.criticalityRank) return a.criticalityRank - b.criticalityRank;
       if (a.maturityRank !== b.maturityRank) return a.maturityRank - b.maturityRank;
@@ -589,14 +735,36 @@ export function buildMaturitySurveyReport(input: {
     }));
 
   const roadmapByPhase: Record<RoadmapStep["phase"], RoadmapStep[]> = {
-    immediate: roadmap.filter((s) => s.phase === "immediate"),
-    short_term: roadmap.filter((s) => s.phase === "short_term"),
-    medium_term: roadmap.filter((s) => s.phase === "medium_term"),
+    immediate: roadmap
+      .filter((s) => s.phase === "immediate")
+      .map((step, index) => ({ ...step, priority: index + 1 })),
+    short_term: roadmap
+      .filter((s) => s.phase === "short_term")
+      .map((step, index) => ({ ...step, priority: index + 1 })),
+    medium_term: roadmap
+      .filter((s) => s.phase === "medium_term")
+      .map((step, index) => ({ ...step, priority: index + 1 })),
   };
 
   const frameworksReferenced = [
     ...new Set(assessmentMatrix.flatMap((r) => r.frameworkCodes)),
   ].sort();
+
+  const pillarLabelOrder = new Map(
+    pillarMaturity.map((pillar, index) => [pillar.pillarLabel, index])
+  );
+  const criticalGapPillarLabels = [
+    ...new Set(
+      uniqueGaps
+        .filter((gap) => gap.severity === "critical")
+        .map((gap) => gap.pillarLabel)
+    ),
+  ].sort(
+    (a, b) => (pillarLabelOrder.get(a) ?? 999) - (pillarLabelOrder.get(b) ?? 999)
+  );
+  const leadingPillarLabels = strongPillars.map((pillar) => pillar.pillarLabel).slice(0, 3);
+  const assessmentFrameworkLabels = input.frameworkCodes.map(getFrameworkShortLabel);
+  const improvementAreaCount = uniqueGaps.length;
 
   const methodologyNote =
     mode === "quick"
@@ -618,8 +786,12 @@ export function buildMaturitySurveyReport(input: {
     libraryControlCount > 0 ? Math.round((answeredCount / libraryControlCount) * 100) : 100;
 
   const isPillarFocus =
-    mode === "deep_dive" && (input.focusPillarIds?.length ?? 0) === 1 && pillarMaturity.length === 1;
-  const pillarRecord = isPillarFocus ? pillarMaturity[0] : null;
+    mode === "deep_dive" && (input.focusPillarIds?.length ?? 0) === 1;
+  const focusPillarId = input.focusPillarIds?.[0];
+  const pillarRecord =
+    isPillarFocus && focusPillarId
+      ? pillarMaturity.find((pillar) => pillar.pillarId === focusPillarId) ?? null
+      : null;
   const totalControlsInPillar = input.pillarLibraryControlCount ?? pillarRecord?.reviewedControls ?? answeredCount;
 
   const pillarDeepDive =
@@ -628,7 +800,7 @@ export function buildMaturitySurveyReport(input: {
           pillar: pillarRecord,
           criticalQuestion: getPillarCriticalQuestion(pillarRecord.pillarId),
           controlResponses,
-          gaps,
+          gaps: uniqueGaps,
           totalControlsInPillar,
           quickScanBaseline: input.quickScanPillarBaseline,
           documentResponses: input.documentResponses,
@@ -641,15 +813,19 @@ export function buildMaturitySurveyReport(input: {
 
   const executiveNarrative = pillarDeepDive
     ? `${pillarDeepDive.pathForward.narrative}${pillarDeepDive.quickScanBaseline ? (pillarDeepDive.quickScanBaseline.unchanged ? ` Your baseline rating for the flagship control (${pillarDeepDive.quickScanBaseline.controlCode}) remained ${pillarDeepDive.quickScanBaseline.maturityLabel} after assessing additional controls.` : ` The flagship control (${pillarDeepDive.quickScanBaseline.controlCode}) moved from ${pillarDeepDive.quickScanBaseline.maturityLabel} at baseline scan to ${pillarDeepDive.quickScanBaseline.deepDiveMaturityLabel} in context of the full pillar assessment.`) : ""}`
-    : `${org} achieved ${MATURITY_LABELS[overallMaturity].toLowerCase()} AI governance maturity (${overallScorePct}%) across ${pillarMaturity.length} assessed pillar${pillarMaturity.length === 1 ? "" : "s"}, mapped to ${frameworksReferenced.length || input.frameworkCodes.length} framework${(frameworksReferenced.length || input.frameworkCodes.length) === 1 ? "" : "s"}. ${
+    : `${org} achieved ${MATURITY_LABELS[overallMaturity].toLowerCase()} AI governance maturity across ${pillarMaturity.length} assessed pillar${pillarMaturity.length === 1 ? "" : "s"}, assessed against ${assessmentFrameworkLabels.join(", ")}. ${
         criticalGaps > 0
-          ? `${criticalGaps} critical gap${criticalGaps === 1 ? "" : "s"} within the assessed scope need executive attention.`
-          : gaps.length > 0
-            ? `${gaps.length} improvement area${gaps.length === 1 ? "" : "s"} were identified within assessed controls.`
+          ? `${criticalGaps} critical gap${criticalGaps === 1 ? "" : "s"} within the assessed scope need executive attention.${
+              criticalGapPillarLabels.length > 0
+                ? ` Critical gap pillars: ${criticalGapPillarLabels.join(", ")}.`
+                : ""
+            }`
+          : uniqueGaps.length > 0
+            ? `${uniqueGaps.length} improvement area${uniqueGaps.length === 1 ? "" : "s"} were identified within assessed controls.`
             : "No material gaps were identified within the assessed scope."
       } ${
-        strongPillars.length > 0
-          ? `Leading pillars: ${strongPillars.map((p) => p.pillarLabel).slice(0, 3).join(", ")}.`
+        leadingPillarLabels.length > 0
+          ? `Leading pillars: ${leadingPillarLabels.join(", ")}.`
           : partialPillars.length > 0
             ? `Foundational progress in ${partialPillars.map((p) => p.pillarLabel).slice(0, 3).join(", ")} — focus on elevating to managed maturity.`
             : ""
@@ -658,7 +834,7 @@ export function buildMaturitySurveyReport(input: {
   const boardActions = pillarDeepDive
     ? [
         pillarDeepDive.pathForward.leadershipAction,
-        gaps.length > 0
+        uniqueGaps.length > 0
           ? `Sequence remediation using the phased roadmap below — ${roadmapByPhase.immediate.length} immediate, ${roadmapByPhase.short_term.length} near-term, and ${roadmapByPhase.medium_term.length} strategic action${roadmapByPhase.medium_term.length === 1 ? "" : "s"}.`
           : "Publish this pillar as a reference implementation and replicate operating patterns in weaker pillars.",
         input.parentQuickScan
@@ -668,7 +844,7 @@ export function buildMaturitySurveyReport(input: {
     : [
         criticalGaps > 0
           ? "Commission a 90-day remediation sprint for critical assessed gaps with named executive owners."
-          : gaps.length > 0
+          : uniqueGaps.length > 0
             ? "Prioritize the assessed improvement areas below with pillar owners and measurable 90-day targets."
             : "Sustain current governance cadence and advance partial pillars toward managed maturity.",
         mode === "quick"
@@ -713,25 +889,28 @@ export function buildMaturitySurveyReport(input: {
     executiveSummary: {
       headline: executiveHeadline,
       narrative: executiveNarrative,
+      criticalGapCount: criticalGaps,
+      criticalGapPillarLabels,
+      leadingPillarLabels,
+      assessmentFrameworkLabels,
+      improvementAreaCount,
       strengths: pillarDeepDive
         ? pillarRecord!.alignedCount > 0
           ? [
               `${pillarRecord!.alignedCount} control${pillarRecord!.alignedCount === 1 ? "" : "s"} at managed or optimized maturity in ${pillarRecord!.pillarLabel}.`,
             ]
           : []
-        : strongPillars.map(
-            (p) => `${p.pillarLabel}: ${p.maturityLabel} (${p.alignmentPct}% maturity score)`
-          ),
-      priorityGaps: gaps
-        .filter((g) => g.severity === "critical" || g.severity === "high")
+        : strongPillars.map((p) => `${p.pillarLabel}: ${p.maturityLabel}`),
+      priorityGaps: uniqueGaps
+        .filter((gap) => gap.severity === "critical" || gap.severity === "high")
         .slice(0, 6)
-        .map((g) => `${g.controlTitle} (${g.maturityLabel})`),
+        .map((gap) => `${gap.controlTitle} (${gap.maturityLabel})`),
       boardActions,
     },
     pillarMaturity,
     assessmentMatrix,
     controlResponses,
-    gaps,
+    gaps: uniqueGaps,
     roadmap,
     roadmapByPhase,
     pillarDeepDive,

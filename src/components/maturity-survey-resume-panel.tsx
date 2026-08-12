@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDate } from "@/lib/utils";
 import type { MaturitySurveyListItem } from "@/components/maturity-survey-list";
-import { SURVEY_MODE_META } from "@/lib/maturity-survey-mode";
+import { getSurveyModeMeta } from "@/lib/maturity-survey-mode";
+import { formatOfTotal } from "@/lib/format-unit-count";
 import { ScrollReveal, ScrollSection } from "@/components/maturity-landing-motion";
 
 export function MaturitySurveyResumePanel({
@@ -36,10 +37,12 @@ export function MaturitySurveyResumePanel({
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {surveys.map((survey) => {
-              const modeMeta = SURVEY_MODE_META[survey.surveyMode];
+              const modeMeta = getSurveyModeMeta(survey.surveyMode);
+              const totalQuestions = survey.totalQuestions ?? 0;
+              const responseCount = survey.responseCount ?? 0;
               const progressPct =
-                survey.totalQuestions > 0
-                  ? Math.round((survey.responseCount / survey.totalQuestions) * 100)
+                totalQuestions > 0
+                  ? Math.round((responseCount / totalQuestions) * 100)
                   : 0;
               const href =
                 survey.status === "completed"
@@ -67,7 +70,7 @@ export function MaturitySurveyResumePanel({
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-[11px] text-slate-400">
                       <span>
-                        {survey.responseCount} of {survey.totalQuestions} answered
+                        {formatOfTotal(responseCount, totalQuestions, "answered")}
                       </span>
                       <span>{progressPct}%</span>
                     </div>

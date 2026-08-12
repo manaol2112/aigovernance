@@ -168,7 +168,7 @@ function buildMaturityPdf(doc: PDFKit.PDFDocument, report: MaturitySurveyReport)
   y = drawParagraph(
     doc,
     y,
-    `${report.overallMaturityLabel} (${report.overallScorePct}%) · ${report.scope.controlsAssessed} control${report.scope.controlsAssessed === 1 ? "" : "s"} assessed across ${report.scope.pillarsAssessed} pillar${report.scope.pillarsAssessed === 1 ? "" : "s"}.`
+    `${report.overallMaturityLabel} · ${report.scope.controlsAssessed} control${report.scope.controlsAssessed === 1 ? "" : "s"} assessed across ${report.scope.pillarsAssessed} pillar${report.scope.pillarsAssessed === 1 ? "" : "s"}.`
   );
 
   if (report.executiveSummary.boardActions.length > 0) {
@@ -217,7 +217,7 @@ function buildMaturityPdf(doc: PDFKit.PDFDocument, report: MaturitySurveyReport)
         align: "right",
       });
       doc.fillColor(BRAND.slate).font("Helvetica").fontSize(9).text(
-        `${pillar.maturityLabel} · ${pillar.reviewedControls} control${pillar.reviewedControls === 1 ? "" : "s"}`,
+        `${pillar.maturityLabel} · ${pillar.reviewedControls} of ${pillar.totalControls} control${pillar.totalControls === 1 ? "" : "s"}`,
         50,
         y + 14
       );

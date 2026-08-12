@@ -153,7 +153,7 @@ function RoadmapPhaseColumn({
       <ol className="mt-4 space-y-3">
         {steps.map((step) => (
           <li
-            key={`roadmap-${step.priority}-${step.controlCode}`}
+            key={`roadmap-${phase}-${step.controlCode}`}
             className="rounded-xl border border-white/60 bg-white/70 p-3.5 backdrop-blur-sm"
           >
             <p className="font-mono text-[10px] text-indigo-600">{step.controlCode}</p>

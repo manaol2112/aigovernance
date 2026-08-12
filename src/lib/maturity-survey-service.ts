@@ -74,15 +74,24 @@ export async function resolveQuickScanPillarBaseline(
     where: { id: parentSurveyId },
     include: {
       responses: {
-        where: { pillarId },
-        include: { control: { select: { code: true, title: true } } },
+        include: { control: { select: { id: true, code: true, title: true } } },
       },
     },
   });
 
   if (!parent || parent.surveyMode !== "quick") return undefined;
 
-  const response = parent.responses[0];
+  const catalog = await buildMaturitySurveyCatalog(parent.frameworkCodes, "quick");
+  const pillarGroup = catalog.find((group) => group.pillarId === pillarId);
+  const flagship = pillarGroup?.controls[0];
+  if (!flagship) return undefined;
+
+  const response =
+    parent.responses.find(
+      (entry) => entry.controlId === flagship.id && entry.pillarId === pillarId
+    ) ??
+    parent.responses.find((entry) => entry.controlId === flagship.id);
+
   if (!response) return undefined;
 
   return {

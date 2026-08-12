@@ -65,35 +65,89 @@ export function formatFocusPillarLabels(
     .filter((label): label is string => Boolean(label));
 }
 
-/** Pick the most cross-framework representative control for quick-scan mode. */
-export function pickFlagshipControl(
-  controls: SurveyControlItem[],
-  excludeIds?: Set<string>
-): SurveyControlItem | null {
+/** Pick the most cross-framework representative control from the given pool. */
+export function pickFlagshipControl(controls: SurveyControlItem[]): SurveyControlItem | null {
   if (controls.length === 0) return null;
   const sorted = [...controls].sort(
     (a, b) => b.frameworkCodes.length - a.frameworkCodes.length
   );
-  if (excludeIds?.size) {
-    const unique = sorted.find((c) => !excludeIds.has(c.id));
-    if (unique) return unique;
-  }
   return sorted[0];
 }
 
-/** Each control appears in at most one pillar (first match wins). */
+/**
+ * Assign each control to at most one pillar while guaranteeing every pillar at
+ * least one representative control. Scarce pillars are reserved first so shared
+ * controls are not all consumed by larger pillars.
+ */
+export function ensurePillarRepresentativeCoverage(
+  catalog: SurveyPillarGroup[]
+): SurveyPillarGroup[] {
+  const globalAssigned = new Map<string, string>();
+  const controlsByPillar = new Map<string, SurveyControlItem[]>(
+    catalog.map((group) => [group.pillarId, []])
+  );
+
+  const reserveRepresentative = (group: SurveyPillarGroup) => {
+    const bucket = controlsByPillar.get(group.pillarId)!;
+    if (bucket.length > 0) return;
+
+    const pick = pickFlagshipControl(
+      group.controls.filter((control) => !globalAssigned.has(control.id))
+    );
+    if (!pick) return;
+
+    globalAssigned.set(pick.id, group.pillarId);
+    bucket.push(pick);
+  };
+
+  const orderedForReservation = [...catalog].sort(
+    (a, b) => a.controls.length - b.controls.length
+  );
+
+  for (const group of orderedForReservation) {
+    reserveRepresentative(group);
+  }
+
+  const allControls = new Map<string, SurveyControlItem>();
+  for (const group of catalog) {
+    for (const control of group.controls) {
+      allControls.set(control.id, control);
+    }
+  }
+
+  for (const group of catalog) {
+    reserveRepresentative(group);
+    if (controlsByPillar.get(group.pillarId)!.length > 0) continue;
+
+    const fallback = pickFlagshipControl(
+      [...allControls.values()].filter((control) => !globalAssigned.has(control.id))
+    );
+    if (!fallback) continue;
+
+    globalAssigned.set(fallback.id, group.pillarId);
+    controlsByPillar.get(group.pillarId)!.push(fallback);
+  }
+
+  for (const group of catalog) {
+    const bucket = controlsByPillar.get(group.pillarId)!;
+    for (const control of group.controls) {
+      if (globalAssigned.has(control.id)) continue;
+      globalAssigned.set(control.id, group.pillarId);
+      bucket.push(control);
+    }
+  }
+
+  return catalog.map((group) => ({
+    ...group,
+    controls: controlsByPillar.get(group.pillarId) ?? [],
+  }));
+}
+
+/** Each control appears in at most one pillar (first match wins). @deprecated use ensurePillarRepresentativeCoverage */
 export function dedupeControlsAcrossPillars(catalog: SurveyPillarGroup[]): SurveyPillarGroup[] {
-  const usedControlIds = new Set<string>();
-  return catalog
-    .map((group) => ({
-      ...group,
-      controls: group.controls.filter((c) => {
-        if (usedControlIds.has(c.id)) return false;
-        usedControlIds.add(c.id);
-        return true;
-      }),
-    }))
-    .filter((g) => g.controls.length > 0);
+  return ensurePillarRepresentativeCoverage(catalog).filter(
+    (group) => group.controls.length > 0
+  );
 }
 
 /** Reduce catalog to quick-scan (1 unique control per pillar) or deduped deep-dive set. */
@@ -101,19 +155,18 @@ export function applySurveyModeToCatalog(
   catalog: SurveyPillarGroup[],
   mode: SurveyMode
 ): SurveyPillarGroup[] {
+  const withCoverage = ensurePillarRepresentativeCoverage(catalog);
+
   if (mode === "deep_dive") {
-    return dedupeControlsAcrossPillars(catalog);
+    return withCoverage.filter((group) => group.controls.length > 0);
   }
 
-  const usedControlIds = new Set<string>();
-  return catalog
-    .map((group) => {
-      const flagship = pickFlagshipControl(group.controls, usedControlIds);
-      if (!flagship) return null;
-      usedControlIds.add(flagship.id);
-      return { ...group, controls: [flagship] };
-    })
-    .filter((g): g is SurveyPillarGroup => g != null);
+  return withCoverage
+    .map((group) => ({
+      ...group,
+      controls: group.controls.length > 0 ? [group.controls[0]!] : [],
+    }))
+    .filter((group) => group.controls.length > 0);
 }
 
 /** Flat ordered steps for the survey wizard. */

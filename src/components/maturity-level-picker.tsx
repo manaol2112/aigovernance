@@ -82,36 +82,39 @@ export function RatingGuidePanel({
   );
 }
 
-function SelectedLevelDetail({
-  level,
-  showGoodLooksLike,
-}: {
-  level: MaturityLevel;
-  showGoodLooksLike?: boolean;
-}) {
+function SelectedLevelDetail({ level }: { level: MaturityLevel }) {
   const g = MATURITY_LEVEL_GUIDANCE[level];
   return (
     <div
-      className="rounded-xl border px-4 py-3"
+      className="rounded-xl border px-4 py-4"
       style={{ borderColor: `${g.color}55`, backgroundColor: `${g.color}0d` }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span
-          className="flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold"
-          style={{ backgroundColor: `${g.color}22`, color: g.color }}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold text-white"
+          style={{ backgroundColor: g.color }}
         >
           {g.step}
         </span>
-        <p className="text-sm font-semibold text-slate-900">
+        <p className="text-sm font-bold text-slate-900">
           {g.label} — {g.headline}
         </p>
       </div>
-      {showGoodLooksLike && (
-        <p className="mt-2 text-xs font-medium text-indigo-700">
-          What good looks like: {g.goodLooksLike}
-        </p>
-      )}
-      <p className="mt-2 text-xs leading-relaxed text-slate-600">{g.description}</p>
+      <p className="mt-3 text-sm leading-relaxed text-slate-700">{g.description}</p>
+      <p className="mt-2 text-xs font-medium text-indigo-800">
+        What good looks like: {g.goodLooksLike}
+      </p>
+      <ul className="mt-3 space-y-1.5">
+        {g.signals.map((signal) => (
+          <li key={signal} className="flex gap-2 text-xs leading-relaxed text-slate-600">
+            <span
+              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: g.color }}
+            />
+            {signal}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -182,13 +185,11 @@ function SurveyOptionTile({
   isSelected,
   disabled,
   onSelect,
-  showGoodLooksLike,
 }: {
   level: MaturityLevel;
   isSelected: boolean;
   disabled?: boolean;
   onSelect: () => void;
-  showGoodLooksLike?: boolean;
 }) {
   const g = MATURITY_LEVEL_GUIDANCE[level];
 
@@ -198,7 +199,7 @@ function SurveyOptionTile({
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        "rounded-xl border px-3 py-3 text-left transition-all",
+        "h-full rounded-xl border px-3 py-3 text-left transition-all",
         isSelected
           ? "border-indigo-500 bg-indigo-50 shadow-sm ring-2 ring-indigo-200"
           : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
@@ -219,9 +220,10 @@ function SurveyOptionTile({
         </span>
         <span className="text-xs font-semibold text-slate-900">{g.label}</span>
       </div>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">
-        {showGoodLooksLike ? g.goodLooksLike : g.headline}
+      <p className="mt-1.5 text-[11px] font-medium leading-relaxed text-slate-700">
+        {g.headline}
       </p>
+      <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{g.description}</p>
     </button>
   );
 }
@@ -235,41 +237,30 @@ export function MaturityLevelPicker({
   showGoodLooksLikeHints = false,
 }: Props) {
   const [showAllLevels, setShowAllLevels] = useState(false);
-  const selected = value ? MATURITY_LEVEL_GUIDANCE[value] : null;
 
   if (variant === "survey") {
     return (
       <div className="space-y-4">
         <RatingGuidePanel defaultOpen={guideInitiallyOpen} />
 
-        {showGoodLooksLikeHints && (
-          <p className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-relaxed text-emerald-900">
-            Each level shows what good looks like in plain language — pick the one closest to your
-            organization today.
-          </p>
-        )}
-
         <div>
           <p className="mb-3 text-sm font-medium text-slate-900">
             {showGoodLooksLikeHints ? "Where are you today?" : "Your rating"}
           </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 items-stretch gap-2 sm:grid-cols-3">
             {MATURITY_LEVELS.map((level) => (
               <SurveyOptionTile
                 key={level}
                 level={level}
                 isSelected={value === level}
                 disabled={disabled}
-                showGoodLooksLike={showGoodLooksLikeHints}
                 onSelect={() => onChange(level)}
               />
             ))}
           </div>
         </div>
 
-        {value && (
-          <SelectedLevelDetail level={value} showGoodLooksLike={showGoodLooksLikeHints} />
-        )}
+        {value && <SelectedLevelDetail level={value} />}
 
         <button
           type="button"
@@ -320,14 +311,12 @@ export function MaturityLevelPicker({
             ))}
           </div>
         </div>
-        {selected && (
-          <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-4 py-3">
+        {value && (
+          <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
               Your selection
             </p>
-            <p className="mt-1 text-sm font-medium text-slate-900">
-              {selected.label} — {selected.headline}
-            </p>
+            <SelectedLevelDetail level={value} />
           </div>
         )}
       </div>
@@ -373,7 +362,7 @@ export function MaturityLevelPicker({
               {variant === "detailed" && (
                 <>
                   <p className="mt-1 text-[11px] font-medium text-slate-600">{guidance.headline}</p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
                     {guidance.description}
                   </p>
                 </>
@@ -383,14 +372,7 @@ export function MaturityLevelPicker({
         })}
       </div>
 
-      {selected && variant === "compact" && (
-        <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-          <p className="text-xs font-medium text-slate-700">
-            {selected.label}: {selected.headline}
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-slate-600">{selected.description}</p>
-        </div>
-      )}
+      {value && variant === "compact" && <SelectedLevelDetail level={value} />}
     </div>
   );
 }

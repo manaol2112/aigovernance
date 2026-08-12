@@ -28,9 +28,12 @@ type Entry = {
 };
 
 function buildEntries(codes?: string[]): Entry[] {
-  const list = codes?.length
-    ? codes.map((c) => ({ code: c, ...FRAMEWORK_SCOPE[c] })).filter((e) => e.scopeNote)
-    : Object.entries(FRAMEWORK_SCOPE).map(([code, v]) => ({ code, ...v }));
+  const list =
+    codes === undefined
+      ? Object.entries(FRAMEWORK_SCOPE).map(([code, v]) => ({ code, ...v }))
+      : codes
+          .map((c) => ({ code: c, ...FRAMEWORK_SCOPE[c] }))
+          .filter((e) => e.scopeNote);
 
   return list.map((e) => ({
     code: e.code,

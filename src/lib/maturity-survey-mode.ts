@@ -23,3 +23,7 @@ export const SURVEY_MODE_META: Record<
 };
 
 export const DEFAULT_SURVEY_MODE: SurveyMode = "quick";
+
+export function getSurveyModeMeta(mode: SurveyMode | string | null | undefined) {
+  return SURVEY_MODE_META[mode === "deep_dive" ? "deep_dive" : "quick"];
+}

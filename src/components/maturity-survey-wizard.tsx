@@ -14,10 +14,9 @@ import {
 } from "@/components/maturity-documentation-checklist";
 import { MATURITY_LEVEL_GUIDANCE } from "@/lib/maturity-survey-constants";
 import { cn } from "@/lib/utils";
-import type { SurveyMode } from "@/lib/maturity-survey-mode";
-import { SURVEY_MODE_META } from "@/lib/maturity-survey-mode";
+import { getSurveyModeMeta, type SurveyMode } from "@/lib/maturity-survey-mode";
 import { getPillarCriticalQuestion } from "@/lib/maturity-survey-quick-questions";
-import { computeSurveyProgress, isStepAnswered } from "@/lib/maturity-survey-progress";
+import { computeSurveyProgress, isStepAnswered, buildSurveyResponsesByStepKey, surveyStepResponseKeyFromStep } from "@/lib/maturity-survey-progress";
 import type { SurveyPillarGroup } from "@/lib/maturity-survey-types";
 import {
   buildDocumentationChecklistGroups,
@@ -26,6 +25,12 @@ import {
 } from "@/lib/maturity-survey-documents";
 import { toast } from "@/components/ui/toast";
 import { CLIENT_TERMS } from "@/lib/maturity-client-copy";
+import {
+  formatOfTotal,
+  formatProgressOf,
+  formatRemainingUnit,
+  formatUnitCount,
+} from "@/lib/format-unit-count";
 
 type SurveyResponse = {
   controlId: string;
@@ -101,7 +106,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   const router = useRouter();
   const survey = initial.survey;
   const mode = (survey.surveyMode ?? "quick") as SurveyMode;
-  const modeMeta = SURVEY_MODE_META[mode];
+  const modeMeta = getSurveyModeMeta(mode);
   const questionAnchorRef = useRef<HTMLDivElement>(null);
   const seededControlIds = useMemo(
     () => new Set(initial.seededControlIds),
@@ -165,13 +170,15 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   const current = steps[stepIndex];
   const isLastStep = stepIndex >= totalSteps - 1;
 
-  const responsesByControl = useMemo(
-    () => new Map(responseList.map((r) => [r.controlId, r])),
+  const responsesByStepKey = useMemo(
+    () => buildSurveyResponsesByStepKey(responseList),
     [responseList]
   );
 
-  const currentAnswered = current ? isStepAnswered(current, responsesByControl) : false;
-  const existing = current ? responsesByControl.get(current.control.id) : undefined;
+  const currentAnswered = current ? isStepAnswered(current, responsesByStepKey) : false;
+  const existing = current
+    ? responsesByStepKey.get(surveyStepResponseKeyFromStep(current))
+    : undefined;
   const criticalQ = current ? getPillarCriticalQuestion(current.pillarId) : null;
   const selectedGuidance = existing ? MATURITY_LEVEL_GUIDANCE[existing.maturity] : null;
 
@@ -216,7 +223,13 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
       const saved = await res.json();
 
       setResponseList((prev) => {
-        const next = prev.filter((r) => r.controlId !== saved.controlId);
+        const next = prev.filter(
+          (response) =>
+            !(
+              response.controlId === saved.controlId &&
+              response.pillarId === saved.pillarId
+            )
+        );
         next.push({
           controlId: saved.controlId,
           pillarId: saved.pillarId,
@@ -254,7 +267,13 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
       if (!res.ok) throw new Error("Save failed");
       const saved = await res.json();
       setResponseList((prev) => {
-        const next = prev.filter((r) => r.controlId !== saved.controlId);
+        const next = prev.filter(
+          (response) =>
+            !(
+              response.controlId === saved.controlId &&
+              response.pillarId === saved.pillarId
+            )
+        );
         next.push({
           controlId: saved.controlId,
           pillarId: saved.pillarId,
@@ -407,7 +426,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
 
           <div className="mt-4 flex items-center justify-between gap-4">
             <p className="text-sm font-medium text-slate-600">
-              {documentationAnsweredCount} of {totalDocumentationItems} documents reviewed
+              {formatOfTotal(documentationAnsweredCount, totalDocumentationItems, "documents reviewed")}
             </p>
             <p className="text-sm tabular-nums text-indigo-600">{documentationProgressPct}%</p>
           </div>
@@ -495,7 +514,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
                 : "Building on your baseline scan"}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-slate-600">
-              {seededControlIds.size} baseline answer{seededControlIds.size === 1 ? "" : "s"}{" "}
+              {formatUnitCount(seededControlIds.size, "baseline answer", "baseline answers")}{" "}
               carried forward. After the control questions, you&apos;ll review a documentation
               checklist for what you have in place.
             </p>
@@ -506,12 +525,14 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{modeMeta.label}</Badge>
-          <span className="text-sm text-slate-400">{survey.organizationName}</span>
+          <span className="text-sm text-slate-400">
+            {survey.organizationName?.trim() || "Your organization"}
+          </span>
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-4">
           <p className="text-sm font-medium text-slate-600">
-            Question {stepIndex + 1} of {totalSteps}
+            {formatProgressOf(stepIndex + 1, totalSteps, "Question")}
           </p>
           <p className="text-sm tabular-nums text-indigo-600">{progressPct}% complete</p>
         </div>
@@ -524,7 +545,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
 
         <div className="mt-4 flex flex-wrap justify-center gap-1.5">
           {steps.map((s, i) => {
-            const done = isStepAnswered(s, responsesByControl);
+            const done = isStepAnswered(s, responsesByStepKey);
             return (
               <button
                 key={`${s.pillarId}-${s.stepIndex}`}
@@ -667,7 +688,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
           <div className="flex flex-col items-end gap-1">
             {!allComplete && isLastStep && currentAnswered && (
               <p className="text-[11px] text-amber-600">
-                {unansweredSteps.length} question{unansweredSteps.length === 1 ? "" : "s"} remaining
+                {formatRemainingUnit(unansweredSteps.length, "question")}
               </p>
             )}
             {readyForDocumentation ? (

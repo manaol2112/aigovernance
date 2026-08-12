@@ -28,7 +28,9 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const response = await prisma.maturitySurveyResponse.upsert({
-    where: { surveyId_controlId: { surveyId: id, controlId } },
+    where: {
+      surveyId_pillarId_controlId: { surveyId: id, pillarId, controlId },
+    },
     create: {
       surveyId: id,
       controlId,
