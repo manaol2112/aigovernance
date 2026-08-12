@@ -1,9 +1,12 @@
+import type { MaturityLevel } from "@prisma/client";
 import type { SurveyPillarGroup, SurveyStep } from "@/lib/maturity-survey-types";
 import { buildSurveySteps } from "@/lib/maturity-survey-types";
 
 export type SurveyResponseLike = {
   controlId: string;
   pillarId: string;
+  maturity?: MaturityLevel;
+  notes?: string | null;
 };
 
 /** One saved response per survey step — pillars can share a control without cross-answering. */

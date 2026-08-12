@@ -12,7 +12,9 @@ export async function POST(request: Request) {
       surveyMode?: SurveyMode;
     };
 
-    const allowedFrameworkCodes = new Set(FRAMEWORK_COLUMNS.map((f) => f.code));
+    const allowedFrameworkCodes = new Set<string>(
+      FRAMEWORK_COLUMNS.map((f) => f.code)
+    );
     const resolvedFrameworkCodes = Array.isArray(frameworkCodes)
       ? [...new Set(frameworkCodes.filter((code) => allowedFrameworkCodes.has(code)))]
       : [];

@@ -180,7 +180,8 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     ? responsesByStepKey.get(surveyStepResponseKeyFromStep(current))
     : undefined;
   const criticalQ = current ? getPillarCriticalQuestion(current.pillarId) : null;
-  const selectedGuidance = existing ? MATURITY_LEVEL_GUIDANCE[existing.maturity] : null;
+  const selectedGuidance =
+    existing?.maturity != null ? MATURITY_LEVEL_GUIDANCE[existing.maturity] : null;
 
   useEffect(() => {
     setNotesDraft(existing?.notes ?? "");

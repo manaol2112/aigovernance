@@ -57,7 +57,9 @@ export async function POST(request: Request) {
     };
 
     const mode: SurveyMode = surveyMode === "deep_dive" ? "deep_dive" : "quick";
-    const allowedFrameworkCodes = new Set(FRAMEWORK_COLUMNS.map((f) => f.code));
+    const allowedFrameworkCodes = new Set<string>(
+      FRAMEWORK_COLUMNS.map((f) => f.code)
+    );
     const resolvedFrameworkCodes = Array.isArray(frameworkCodes)
       ? [...new Set(frameworkCodes.filter((code) => allowedFrameworkCodes.has(code)))]
       : [];
