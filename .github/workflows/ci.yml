@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  production-build:
+    name: Production build (DigitalOcean)
+    runs-on: ubuntu-latest
+    # Mirrors App Platform: install prod deps only, then `npm run build`.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm run build
+        env:
+          # Next.js collects telemetry during build; keep CI output clean.
+          NEXT_TELEMETRY_DISABLED: "1"

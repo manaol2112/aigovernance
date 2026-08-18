@@ -18,6 +18,8 @@
     "setup": "bash scripts/setup-local.sh",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify": "npm test && npm run build",
+    "verify:deploy": "bash scripts/verify-production-build.sh",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -29,9 +29,16 @@ When changing logic in `src/lib/**`, add or extend colocated `*.test.ts` files f
 
 ## Related checks
 
-For larger changes, also run:
+Before pushing to `main`:
 
 ```bash
-npx tsc --noEmit
-npm run build
+npm run verify:deploy
 ```
+
+For day-to-day changes after features/fixes:
+
+```bash
+npm run verify
+```
+
+(`verify` = `npm test` + `npm run build`. `verify:deploy` = isolated prod-only install + build, matches DigitalOcean.)

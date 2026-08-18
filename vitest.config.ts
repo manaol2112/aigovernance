@@ -6,6 +6,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     passWithNoTests: false,
+    typecheck: {
+      tsconfig: "./tsconfig.vitest.json",
+    },
   },
   resolve: {
     alias: {

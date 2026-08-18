@@ -1,0 +1,41 @@
+---
+description: Run deploy verification before pushing to main or finishing ship work
+alwaysApply: true
+---
+
+# Pre-deploy verification
+
+DigitalOcean runs `npm ci --omit=dev` then `npm run build`. Dev-only packages (Vitest, ESLint) are **not** installed in production.
+
+## Before push to main
+
+Run the production simulation locally:
+
+```bash
+npm run verify:deploy
+```
+
+This copies the project to a temp dir, installs prod-only dependencies, and runs `next build` — the same path that failed when `vitest.config.ts` was type-checked without Vitest installed.
+
+## Quick check (full devDependencies still present)
+
+```bash
+npm run verify
+```
+
+Runs unit tests + production build. Use after most code changes.
+
+## TypeScript scope
+
+- `tsconfig.json` — app + Next.js build only. **Never** include `vitest.config.ts` or `**/*.test.ts`.
+- `tsconfig.vitest.json` — Vitest and unit tests only.
+
+## CI
+
+GitHub Actions workflow `.github/workflows/ci.yml` runs the production build job on every push/PR to `main`. Do not push if CI is red.
+
+## If production build fails
+
+1. Ensure test/vitest files are excluded from root `tsconfig.json`.
+2. Do not import `vitest` or `vitest/config` from app code under `src/` (except `*.test.ts`).
+3. Re-run `npm run verify:deploy` until green.
