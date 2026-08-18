@@ -16,6 +16,7 @@ import {
   MATURITY_SCORE,
 } from "@/lib/maturity-survey-constants";
 import { summarizeDocumentResponses } from "@/lib/maturity-survey-documents";
+import { resolvePillarId } from "@/lib/risk-pillars";
 
 export type FindingEngagementGuide = {
   headline: string;
@@ -388,7 +389,8 @@ function findPillarMeta(
   catalog: SurveyPillarGroup[],
   pillarId: string
 ): SurveyPillarGroup | undefined {
-  return catalog.find((g) => g.pillarId === pillarId);
+  const resolvedId = resolvePillarId(pillarId);
+  return catalog.find((g) => g.pillarId === resolvedId);
 }
 
 type SurveyResponseInput = {
@@ -448,7 +450,9 @@ function dedupeSurveyResponses(
 
   return [...byControlId.values()].map((response) => ({
     ...response,
-    pillarId: canonicalPillarByControlId.get(response.controlId) ?? response.pillarId,
+    pillarId: resolvePillarId(
+      canonicalPillarByControlId.get(response.controlId) ?? response.pillarId
+    ),
   }));
 }
 

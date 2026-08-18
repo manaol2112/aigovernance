@@ -16,6 +16,8 @@
     "db:audit": "tsx scripts/audit-frameworks.ts",
     "db:report": "tsx scripts/crosswalk-report.ts",
     "setup": "bash scripts/setup-local.sh",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -52,6 +54,7 @@
   },
   "devDependencies": {
     "eslint": "^9",
-    "eslint-config-next": "16.2.9"
+    "eslint-config-next": "16.2.9",
+    "vitest": "^3.2.7"
   }
 }

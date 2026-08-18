@@ -1,5 +1,5 @@
 import type { RiskPillarDef } from "@/lib/risk-pillars";
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import { RISK_PILLARS, resolvePillarId } from "@/lib/risk-pillars";
 
 export type RiskSubPillarDef = {
   id: string;
@@ -93,20 +93,20 @@ export const RISK_SUB_PILLARS: RiskSubPillarDef[] = [
     workshopOrder: 2,
   },
   {
-    id: "sec-ai-threats",
-    pillarId: "security",
+    id: "safe-security-threats",
+    pillarId: "safety-reliability",
     label: "AI-Specific Security Threats",
     description: "Adversarial attacks, data poisoning, model theft, and integrity of AI components.",
     themes: ["security", "adversarial", "poison", "integrity", "manage-2.4", "cyber"],
-    workshopOrder: 1,
+    workshopOrder: 3,
   },
   {
-    id: "sec-controls-access",
-    pillarId: "security",
+    id: "safe-security-access",
+    pillarId: "safety-reliability",
     label: "Access, Infrastructure & Tooling Security",
     description: "Secure tooling, compute, access controls, and protection of model/data assets.",
     themes: ["access", "tooling", "compute", "infrastructure", "a.4.4", "a.4.5"],
-    workshopOrder: 2,
+    workshopOrder: 4,
   },
   {
     id: "trans-user-disclosure",
@@ -165,6 +165,46 @@ export const RISK_SUB_PILLARS: RiskSubPillarDef[] = [
     workshopOrder: 1,
   },
   {
+    id: "supply-ecosystem",
+    pillarId: "supply-chain",
+    label: "Ecosystem & Partner Dependencies",
+    description: "Ecosystem partners, integrators, and downstream dependencies beyond direct vendors.",
+    themes: ["ecosystem", "partner", "integrator", "downstream", "value chain"],
+    workshopOrder: 2,
+  },
+  {
+    id: "work-competency",
+    pillarId: "workforce",
+    label: "Competency, Training & Role Readiness",
+    description: "AI workforce skills, training programs, certification, and role-based competency requirements.",
+    themes: ["training", "competenc", "workforce", "7.2", "a.4.6", "govern-5.1", "map-1.2"],
+    workshopOrder: 1,
+  },
+  {
+    id: "work-capacity",
+    pillarId: "workforce",
+    label: "Human Capital & Team Composition",
+    description: "Interdisciplinary teams, staffing, succession, and organizational capacity for AI.",
+    themes: ["human capital", "interdisciplin", "team", "capacity", "7.1", "map-3.4"],
+    workshopOrder: 2,
+  },
+  {
+    id: "fin-bc-resilience",
+    pillarId: "financial-resilience",
+    label: "Business Continuity & Operational Resilience",
+    description: "Continuity planning, failover, recovery, and resilience testing for AI-dependent operations.",
+    themes: ["continuity", "resilience", "failover", "recovery", "decommission", "a.6.2.5"],
+    workshopOrder: 1,
+  },
+  {
+    id: "fin-impact-sustainability",
+    pillarId: "financial-resilience",
+    label: "Financial Impact & Sustainability",
+    description: "Financial exposure from AI failures, environmental impact, and long-term operational sustainability.",
+    themes: ["financial", "sustainab", "environment", "carbon", "energy", "measure-2.12", "a.5.5"],
+    workshopOrder: 2,
+  },
+  {
     id: "sys-gpai-systemic",
     pillarId: "systemic",
     label: "GPAI & Systemic Risk",
@@ -175,13 +215,14 @@ export const RISK_SUB_PILLARS: RiskSubPillarDef[] = [
 ];
 
 export function getSubPillarsForPillar(pillarId: string): RiskSubPillarDef[] {
-  return RISK_SUB_PILLARS.filter((s) => s.pillarId === pillarId).sort(
+  const resolvedId = resolvePillarId(pillarId);
+  return RISK_SUB_PILLARS.filter((s) => s.pillarId === resolvedId).sort(
     (a, b) => a.workshopOrder - b.workshopOrder
   );
 }
 
 export function getPillarDef(pillarId: string): RiskPillarDef | undefined {
-  return RISK_PILLARS.find((p) => p.id === pillarId);
+  return RISK_PILLARS.find((p) => p.id === resolvePillarId(pillarId));
 }
 
 type RequirementLike = {
@@ -195,7 +236,7 @@ export function assignRequirementToSubPillar(
   req: RequirementLike,
   pillarId: string
 ): RiskSubPillarDef {
-  const candidates = getSubPillarsForPillar(pillarId);
+  const candidates = getSubPillarsForPillar(resolvePillarId(pillarId));
   const text = `${req.title} ${req.theme ?? ""} ${req.clauseId} ${req.framework.code}`.toLowerCase();
 
   let best: RiskSubPillarDef | null = null;

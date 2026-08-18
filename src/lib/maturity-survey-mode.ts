@@ -1,6 +1,10 @@
 /** Client-safe survey mode metadata and types. */
 
+import { RISK_PILLARS } from "@/lib/risk-pillars";
+
 export type SurveyMode = "quick" | "deep_dive";
+
+const BASELINE_QUESTION_COUNT = RISK_PILLARS.length;
 
 export const SURVEY_MODE_META: Record<
   SurveyMode,
@@ -8,8 +12,8 @@ export const SURVEY_MODE_META: Record<
 > = {
   quick: {
     label: "Baseline scan",
-    duration: "~10 minutes",
-    questionHint: "10 questions",
+    duration: `~${BASELINE_QUESTION_COUNT} minutes`,
+    questionHint: `${BASELINE_QUESTION_COUNT} questions`,
     description:
       "One focused question per risk pillar — the recommended starting point for leadership teams.",
   },

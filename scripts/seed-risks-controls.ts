@@ -40,6 +40,10 @@ const risks = [
   { code: "RISK-GPAI-001", statement: "General-purpose AI models with systemic risk capabilities may cause widespread harm if not properly evaluated and mitigated.", category: "systemic", relatedHarm: "Large-scale societal impact, systemic failures" },
   { code: "RISK-ACCT-001", statement: "Unclear accountability and lack of redress mechanisms may leave affected parties without remedy for AI-related harms.", category: "accountability", relatedHarm: "Unaddressed grievances, loss of stakeholder trust" },
   { code: "RISK-QMS-001", statement: "Absence of a quality management system may result in inconsistent AI development practices and compliance failures.", category: "compliance", relatedHarm: "Product defects, regulatory rejection, market withdrawal" },
+  { code: "RISK-WORK-001", statement: "Insufficient AI workforce competency and human capital planning may lead to unsafe deployment, compliance failures, and inability to sustain responsible AI operations.", category: "workforce", relatedHarm: "Skill gaps, negligent operations, turnover risk, audit findings" },
+  { code: "RISK-FIN-001", statement: "AI failures or disruptions may cause material financial loss, business interruption, or inability to meet operational resilience obligations.", category: "financial", relatedHarm: "Revenue loss, regulatory penalties, customer churn, market confidence" },
+  { code: "RISK-RES-001", statement: "Inadequate operational resilience and business continuity planning for AI systems may prolong outages and amplify harm during incidents.", category: "operational_resilience", relatedHarm: "Extended downtime, cascading failures, regulatory scrutiny" },
+  { code: "RISK-ECO-001", statement: "Ecosystem dependencies and partner integrations may introduce unmanaged AI risk across the value chain beyond direct vendors.", category: "ecosystem", relatedHarm: "Partner failures, reputational contagion, regulatory exposure" },
 ];
 
 type ControlDef = {
@@ -421,7 +425,7 @@ const controls: ControlDef[] = [
     ownerRole: "Vendor Risk Manager",
     cosoIcfComponent: "Control Activities",
     cosoIcfPrinciple: "Principle 11 - Selects and develops control activities",
-    riskCodes: ["RISK-3RD-001", "RISK-SEC-001"],
+    riskCodes: ["RISK-3RD-001", "RISK-SEC-001", "RISK-ECO-001"],
     requirementLinks: [
       { framework: "NIST-AI-RMF", clauseId: "GOVERN-6.1", coverage: "full" },
       { framework: "NIST-AI-RMF", clauseId: "GOVERN-3.1", coverage: "partial" },
@@ -585,7 +589,7 @@ const controls: ControlDef[] = [
     controlType: "corrective",
     frequency: "ad_hoc",
     ownerRole: "AI System Owner",
-    riskCodes: ["RISK-GOV-001", "RISK-DATA-001"],
+    riskCodes: ["RISK-GOV-001", "RISK-DATA-001", "RISK-RES-001"],
     requirementLinks: [
       { framework: "NIST-AI-RMF", clauseId: "GOVERN-1.7", coverage: "full" },
       { framework: "EU-AIA", clauseId: "Art-20", coverage: "partial" },
@@ -609,7 +613,7 @@ const controls: ControlDef[] = [
     ownerRole: "Chief Learning Officer",
     cosoIcfComponent: "Control Environment",
     cosoIcfPrinciple: "Principle 5 - Attracts, develops, and retains capable individuals",
-    riskCodes: ["RISK-GOV-001", "RISK-OVER-001"],
+    riskCodes: ["RISK-WORK-001", "RISK-GOV-001", "RISK-OVER-001"],
     requirementLinks: [
       { framework: "NIST-AI-RMF", clauseId: "MAP-1.2", coverage: "full" },
       { framework: "NIST-AI-RMF", clauseId: "GOVERN-5.1", coverage: "partial" },
@@ -700,7 +704,7 @@ const controls: ControlDef[] = [
     controlType: "detective",
     frequency: "annual",
     ownerRole: "Sustainability Lead",
-    riskCodes: ["RISK-ENV-001", "RISK-IMPACT-001"],
+    riskCodes: ["RISK-ENV-001", "RISK-IMPACT-001", "RISK-FIN-001", "RISK-RES-001"],
     requirementLinks: [
       { framework: "NIST-AI-RMF", clauseId: "MEASURE-2.12", coverage: "full" },
       { framework: "OECD-AI", clauseId: "Principle-1.2", coverage: "full" },

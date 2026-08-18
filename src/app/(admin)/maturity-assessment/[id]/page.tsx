@@ -9,6 +9,7 @@ import { DatabaseSetupNotice } from "@/components/database-setup-notice";
 import { getParentQuickScanControlIds } from "@/lib/maturity-survey-continue";
 import { buildMaturitySurveyCatalog } from "@/lib/maturity-survey-catalog-server";
 import { formatFocusPillarLabels } from "@/lib/maturity-survey-types";
+import { prepareWizardCatalog } from "@/lib/maturity-survey-wizard-state";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,12 @@ export default async function MaturitySurveyPage({ params }: PageProps) {
       bundle.survey.focusPillarIds ?? []
     );
 
+    const wizardCatalog = prepareWizardCatalog(
+      bundle.catalog,
+      (bundle.survey.surveyMode ?? "quick") as import("@/lib/maturity-survey-mode").SurveyMode,
+      seededControlIds
+    );
+
     return (
       <MaturitySurveyWizard
         initial={{
@@ -53,7 +60,7 @@ export default async function MaturitySurveyPage({ params }: PageProps) {
               status: response.status,
             })),
           },
-          catalog: bundle.catalog,
+          catalog: wizardCatalog,
           seededControlIds,
           focusPillarLabels,
         }}

@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDate } from "@/lib/utils";
-import type { MaturitySurveyReport, SurveyGapItem } from "@/lib/maturity-survey-analysis";
+import type { MaturitySurveyReport, SurveyGapItem, AssessmentMatrixRow } from "@/lib/maturity-survey-analysis";
 import {
   PillarComplianceStackedChart,
   PillarMaturityRadarChart,
@@ -39,7 +39,9 @@ import { isPillarFocusedDeepDive } from "@/lib/maturity-survey-analysis";
 import { formatGapSeverity } from "@/lib/maturity-client-copy";
 import { MaturityFrameworkTags } from "@/components/maturity-framework-tags";
 import { getFrameworkShortLabel } from "@/lib/framework-library";
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import { getPillarCriticalQuestion } from "@/lib/maturity-survey-quick-questions";
+import type { SurveyMode } from "@/lib/maturity-survey-mode";
+import { RISK_PILLARS, resolvePillarId } from "@/lib/risk-pillars";
 import { MaturityReportExportButton } from "@/components/maturity-report-export-button";
 import { MaturityReportSharePanel } from "@/components/maturity-report-share-panel";
 import { MaturityPillarComparisonPanel } from "@/components/maturity-pillar-comparison-panel";
@@ -119,7 +121,7 @@ function ExecutiveHeroNarrative({ report }: { report: MaturitySurveyReport }) {
         <span className="font-semibold text-white print:text-slate-900">{maturityLabel}</span> AI
         governance maturity across {report.scope.pillarsAssessed} assessed pillar
         {report.scope.pillarsAssessed === 1 ? "" : "s"}, assessed against{" "}
-        <span className="font-semibold text-indigo-200 print:text-indigo-900">
+        <span className="font-semibold text-white print:text-indigo-900">
           {frameworkLabels.join(", ")}
         </span>
         .{" "}
@@ -167,6 +169,7 @@ function ExecutiveHeroNarrative({ report }: { report: MaturitySurveyReport }) {
         <MaturityFrameworkTags
           frameworkCodes={report.frameworkCodes}
           max={report.frameworkCodes.length}
+          tone="dark"
           className="print:hidden"
         />
       )}
@@ -293,66 +296,243 @@ function PriorityGapCard({ gap, rank }: { gap: SurveyGapItem; rank: number }) {
   );
 }
 
-function PillarScoreRow({
-  pillar,
-  priorityFocus,
-}: {
-  pillar: PillarMaturityRecord;
-  priorityFocus?: boolean;
-}) {
-  const pct = pillar.alignmentPct;
-  const barColor =
-    pct >= 76 ? "bg-emerald-500" : pct >= 51 ? "bg-amber-500" : pct >= 26 ? "bg-orange-500" : "bg-red-500";
-  const levelColor = MATURITY_LEVEL_GUIDANCE[pillar.maturityLevel].color;
+function nextMaturityLabel(level: MaturityLevel): string | null {
+  const idx = MATURITY_LEVELS.indexOf(level);
+  if (idx < 0 || idx >= MATURITY_LEVELS.length - 1) return null;
+  return MATURITY_LEVEL_GUIDANCE[MATURITY_LEVELS[idx + 1]!].label;
+}
 
+function PillarControlBreakdown({ pillar }: { pillar: PillarMaturityRecord }) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border px-4 py-3 transition-colors",
-        priorityFocus ? "border-indigo-200/80 bg-indigo-50/40" : "border-slate-100 bg-white"
+    <div className="flex flex-wrap gap-2">
+      {pillar.alignedCount > 0 && (
+        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+          {pillar.alignedCount} aligned
+        </span>
       )}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-900">{pillar.pillarLabel}</p>
-          {pillar.reviewedControls < pillar.totalControls && (
-            <p className="mt-0.5 text-[10px] text-slate-500">
-              {pillar.reviewedControls} of {pillar.totalControls} in-scope controls rated
-            </p>
-          )}
-          {priorityFocus && (
-            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
-              Most room to strengthen
-            </p>
-          )}
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-sm font-bold text-slate-900" style={{ color: levelColor }}>
-            {pillar.maturityLabel}
-          </p>
-          <p className="text-[10px] tabular-nums text-slate-500">{pct}% alignment</p>
-        </div>
-      </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className={cn("h-full rounded-full transition-all duration-700", barColor)}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      {pillar.partialCount > 0 && (
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+          {pillar.partialCount} partial
+        </span>
+      )}
+      {pillar.gapCount > 0 && (
+        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-800">
+          {pillar.gapCount} gap{pillar.gapCount === 1 ? "" : "s"}
+        </span>
+      )}
     </div>
   );
 }
 
-function UnassessedPillarRow({ label }: { label: string }) {
+function PillarScoreRow({
+  pillarId,
+  pillar,
+  priorityFocus,
+  assessmentRows,
+  pillarGaps,
+  surveyMode,
+}: {
+  pillarId: string;
+  pillar: PillarMaturityRecord;
+  priorityFocus?: boolean;
+  assessmentRows: AssessmentMatrixRow[];
+  pillarGaps: SurveyGapItem[];
+  surveyMode: SurveyMode;
+}) {
+  const [open, setOpen] = useState(false);
+  const pct = pillar.alignmentPct;
+  const barColor =
+    pct >= 76 ? "bg-emerald-500" : pct >= 51 ? "bg-amber-500" : pct >= 26 ? "bg-orange-500" : "bg-red-500";
+  const levelColor = MATURITY_LEVEL_GUIDANCE[pillar.maturityLevel].color;
+  const guidance = MATURITY_LEVEL_GUIDANCE[pillar.maturityLevel];
+  const criticalQ = getPillarCriticalQuestion(pillarId);
+  const nextLabel = nextMaturityLabel(pillar.maturityLevel);
+  const topGap = pillarGaps[0];
+  const primaryRow = assessmentRows[0];
+
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="truncate text-sm font-medium text-slate-500">{label}</p>
-        <span className="shrink-0 text-xs font-semibold text-slate-400">Not assessed</span>
-      </div>
-      <p className="mt-1 text-[11px] text-slate-400">
-        No rating saved — not included in this report&apos;s baseline answers.
-      </p>
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border transition-colors",
+        priorityFocus ? "border-indigo-200/80 bg-indigo-50/40" : "border-slate-100 bg-white",
+        open && "ring-2 ring-indigo-200/60"
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="w-full px-4 py-3 text-left transition-colors hover:bg-slate-50/80"
+        aria-expanded={open}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-medium text-slate-900">{pillar.pillarLabel}</p>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 shrink-0 text-slate-400 transition-transform",
+                  open && "rotate-180"
+                )}
+              />
+            </div>
+            {pillar.reviewedControls < pillar.totalControls && (
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                {pillar.reviewedControls} of {pillar.totalControls} in-scope controls rated
+              </p>
+            )}
+            {priorityFocus && (
+              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
+                Most room to strengthen
+              </p>
+            )}
+            {!open && (
+              <p className="mt-1 text-[10px] text-indigo-600">Tap for pillar detail</p>
+            )}
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-sm font-bold text-slate-900" style={{ color: levelColor }}>
+              {pillar.maturityLabel}
+            </p>
+            <p className="text-[10px] tabular-nums text-slate-500">{pct}% alignment</p>
+          </div>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className={cn("h-full rounded-full transition-all duration-700", barColor)}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-slate-100 bg-slate-50/60 px-4 py-4">
+          <p className="text-xs leading-relaxed text-slate-600">{pillar.pillarDescription}</p>
+
+          <div className="rounded-lg border border-slate-200/80 bg-white p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Baseline question
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-900">{criticalQ.prompt}</p>
+            <p className="mt-1 text-xs text-slate-500">{criticalQ.subtitle}</p>
+          </div>
+
+          {primaryRow && (
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
+                Your rating
+              </p>
+              <p className="mt-1 font-mono text-[10px] text-indigo-700">{primaryRow.controlCode}</p>
+              <p className="text-sm font-medium text-slate-900">{primaryRow.controlTitle}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{primaryRow.maturityLabel}</Badge>
+                <MaturityFrameworkTags frameworkCodes={primaryRow.frameworkCodes} max={5} />
+              </div>
+              {primaryRow.notes && (
+                <p className="mt-2 text-xs italic text-slate-600">&ldquo;{primaryRow.notes}&rdquo;</p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Control mix
+            </p>
+            <div className="mt-2">
+              <PillarControlBreakdown pillar={pillar} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200/80 bg-white p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              What this level means
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-900">{guidance.headline}</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">{guidance.description}</p>
+            {nextLabel && (
+              <p className="mt-2 text-xs text-indigo-700">
+                <span className="font-semibold">Next step:</span> work toward {nextLabel} —{" "}
+                {MATURITY_LEVEL_GUIDANCE[
+                  MATURITY_LEVELS[MATURITY_LEVELS.indexOf(pillar.maturityLevel) + 1]!
+                ].goodLooksLike}
+              </p>
+            )}
+          </div>
+
+          {topGap && (
+            <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                Priority improvement
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-900">{topGap.controlTitle}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600">{topGap.summary}</p>
+              <a
+                href="#gaps"
+                className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500"
+              >
+                View in gap register
+                <ArrowRight className="h-3 w-3" />
+              </a>
+            </div>
+          )}
+
+          {surveyMode === "quick" && (
+            <p className="text-[11px] text-slate-500">
+              This baseline uses one representative control per pillar. A detailed pillar assessment
+              evaluates the full control set for evidence-backed findings.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UnassessedPillarRow({ pillarId, label }: { pillarId: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const meta = RISK_PILLARS.find((pillar) => pillar.id === pillarId);
+  const criticalQ = getPillarCriticalQuestion(pillarId);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-dashed border-slate-200 bg-slate-50/80">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="w-full px-4 py-3 text-left transition-colors hover:bg-slate-100/80"
+        aria-expanded={open}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <p className="truncate text-sm font-medium text-slate-500">{label}</p>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 text-slate-400 transition-transform",
+                open && "rotate-180"
+              )}
+            />
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-slate-400">Not assessed</span>
+        </div>
+        {!open && (
+          <p className="mt-1 text-[10px] text-slate-400">Tap to see what this pillar covers</p>
+        )}
+      </button>
+
+      {open && meta && (
+        <div className="space-y-3 border-t border-dashed border-slate-200 px-4 py-4">
+          <p className="text-xs leading-relaxed text-slate-600">{meta.description}</p>
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Would be assessed as
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-800">{criticalQ.prompt}</p>
+            <p className="mt-1 text-xs text-slate-500">{criticalQ.subtitle}</p>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            No rating was saved for this pillar in this report. Complete a baseline scan or deep
+            dive to include it in your profile.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -474,7 +654,14 @@ export function MaturitySurveyResults({
   );
 
   const profilePillars = useMemo(() => {
-    const byId = new Map(report.pillarMaturity.map((pillar) => [pillar.pillarId, pillar]));
+    const byId = new Map<string, (typeof report.pillarMaturity)[number]>();
+    for (const pillar of report.pillarMaturity) {
+      const resolvedId = resolvePillarId(pillar.pillarId);
+      const existing = byId.get(resolvedId);
+      if (!existing || pillar.reviewedControls > existing.reviewedControls) {
+        byId.set(resolvedId, { ...pillar, pillarId: resolvedId });
+      }
+    }
     const expected =
       report.surveyMode === "quick" || !(report.scope.focusPillarIds?.length ?? 0)
         ? RISK_PILLARS.map((pillar) => ({ id: pillar.id, label: pillar.label }))
@@ -505,6 +692,22 @@ export function MaturitySurveyResults({
   );
 
   const topGaps = useMemo(() => sortedGaps.slice(0, 3), [sortedGaps]);
+
+  const pillarDetailById = useMemo(() => {
+    const gapsByPillar = new Map<string, SurveyGapItem[]>();
+    for (const gap of sortedGaps) {
+      const list = gapsByPillar.get(gap.pillarId) ?? [];
+      list.push(gap);
+      gapsByPillar.set(gap.pillarId, list);
+    }
+    const rowsByPillar = new Map<string, AssessmentMatrixRow[]>();
+    for (const row of report.assessmentMatrix) {
+      const list = rowsByPillar.get(row.pillarId) ?? [];
+      list.push(row);
+      rowsByPillar.set(row.pillarId, list);
+    }
+    return { gapsByPillar, rowsByPillar };
+  }, [report.assessmentMatrix, sortedGaps]);
 
   const priorityFocusPillarId = sortedPillars[0]?.pillarId;
   const hasStrengths = report.executiveSummary.strengths.length > 0;
@@ -655,7 +858,7 @@ export function MaturitySurveyResults({
               <SectionHeading
                 eyebrow="Your profile"
                 title="Where you stand by pillar"
-                description="Each baseline domain you rated shows a maturity level and alignment score. 0% means Not Implemented was selected — not a skipped question."
+                description="Tap any pillar for the baseline question, your rating, control mix, and priority improvements."
               />
 
               <div className="grid gap-6 lg:grid-cols-2">
@@ -664,11 +867,15 @@ export function MaturitySurveyResults({
                     pillar.record && pillar.record.reviewedControls > 0 ? (
                       <PillarScoreRow
                         key={pillar.id}
+                        pillarId={pillar.id}
                         pillar={pillar.record}
                         priorityFocus={pillar.id === priorityFocusPillarId}
+                        assessmentRows={pillarDetailById.rowsByPillar.get(pillar.id) ?? []}
+                        pillarGaps={pillarDetailById.gapsByPillar.get(pillar.id) ?? []}
+                        surveyMode={report.surveyMode}
                       />
                     ) : (
-                      <UnassessedPillarRow key={pillar.id} label={pillar.label} />
+                      <UnassessedPillarRow key={pillar.id} pillarId={pillar.id} label={pillar.label} />
                     )
                   )}
                 </div>

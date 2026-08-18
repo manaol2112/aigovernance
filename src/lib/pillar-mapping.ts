@@ -12,54 +12,84 @@ type RequirementLike = {
 export function assignRequirementToPillar(req: RequirementLike): RiskPillarDef {
   const text = `${req.title} ${req.theme ?? ""} ${req.clauseId}`.toLowerCase();
 
+  /** Longer / compound phrases first — longest match wins to avoid generic keyword collisions. */
   const themeMap: Record<string, string> = {
+    "operational resilience": "financial-resilience",
+    "business continuity": "financial-resilience",
+    "human oversight": "oversight",
+    "supply chain": "supply-chain",
+    "third party": "supply-chain",
+    "third-party": "supply-chain",
     govern: "governance",
     governance: "governance",
     legal: "governance",
     accountability: "governance",
-    risk: "governance",
+    document: "compliance",
+    record: "compliance",
+    log: "compliance",
+    quality: "compliance",
+    compliance: "compliance",
+    audit: "compliance",
+    trace: "compliance",
+    safety: "safety-reliability",
+    reliable: "safety-reliability",
+    robust: "safety-reliability",
+    accuracy: "safety-reliability",
+    security: "safety-reliability",
+    cyber: "safety-reliability",
+    adversarial: "safety-reliability",
+    oversight: "oversight",
+    incident: "oversight",
+    monitor: "oversight",
+    gpai: "systemic",
+    systemic: "systemic",
+    general: "systemic",
+    ecosystem: "supply-chain",
+    vendor: "supply-chain",
+    supplier: "supply-chain",
+    partner: "supply-chain",
+    transparent: "transparency",
+    explain: "transparency",
+    disclosure: "transparency",
     bias: "fairness",
     fair: "fairness",
     discrimination: "fairness",
     fundamental: "fairness",
     rights: "fairness",
     privacy: "privacy-data",
-    data: "privacy-data",
-    safety: "safety-reliability",
-    reliable: "safety-reliability",
-    robust: "safety-reliability",
-    accuracy: "safety-reliability",
-    security: "security",
-    cyber: "security",
-    adversarial: "security",
-    transparent: "transparency",
-    explain: "transparency",
-    disclosure: "transparency",
-    human: "oversight",
-    oversight: "oversight",
+    workforce: "workforce",
+    training: "workforce",
+    competency: "workforce",
+    talent: "workforce",
+    people: "workforce",
+    financial: "financial-resilience",
+    resilience: "financial-resilience",
+    continuity: "financial-resilience",
+    sustainability: "financial-resilience",
+    environmental: "financial-resilience",
+    decommission: "financial-resilience",
     operational: "oversight",
-    incident: "oversight",
-    monitor: "oversight",
-    document: "compliance",
-    record: "compliance",
-    log: "compliance",
-    quality: "compliance",
-    compliance: "compliance",
+    human: "oversight",
     third: "supply-chain",
-    vendor: "supply-chain",
-    supplier: "supply-chain",
     supply: "supply-chain",
-    gpai: "systemic",
-    systemic: "systemic",
-    general: "systemic",
+    data: "privacy-data",
+    risk: "governance",
   };
 
+  let bestPillar: RiskPillarDef | undefined;
+  let bestKeywordLength = 0;
+
   for (const [keyword, pillarId] of Object.entries(themeMap)) {
-    if (text.includes(keyword)) {
-      const pillar = RISK_PILLARS.find((p) => p.id === pillarId);
-      if (pillar) return pillar;
+    if (!text.includes(keyword)) continue;
+    if (keyword.length <= bestKeywordLength) continue;
+    const pillar = RISK_PILLARS.find((p) => p.id === pillarId);
+    if (pillar) {
+      bestPillar = pillar;
+      bestKeywordLength = keyword.length;
     }
   }
+
+  if (bestPillar) return bestPillar;
 
   if (req.framework.code === "EU-AIA") return RISK_PILLARS.find((p) => p.id === "compliance")!;
   if (req.framework.code === "COSO-ERM") return RISK_PILLARS.find((p) => p.id === "governance")!;

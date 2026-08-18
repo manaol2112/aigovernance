@@ -20,7 +20,19 @@ import type {
   PillarDeepDiveOption,
 } from "@/lib/maturity-survey-continue";
 import type { MaturitySurveyReport } from "@/lib/maturity-survey-analysis";
+import { formatUnitCount } from "@/lib/format-unit-count";
 import { toast } from "@/components/ui/toast";
+
+function formatFollowUpQuestions(count: number): string {
+  return formatUnitCount(count, "follow-up question", "follow-up questions");
+}
+
+function estimateMinutes(additionalQuestions: number) {
+  if (additionalQuestions <= 0) return "~5 min";
+  if (additionalQuestions <= 5) return "~10–15 min";
+  if (additionalQuestions <= 12) return "~20–30 min";
+  return "~30–45 min";
+}
 
 const MATURITY_BADGE: Record<string, "danger" | "warning" | "secondary" | "success"> = {
   not_implemented: "danger",
@@ -30,13 +42,6 @@ const MATURITY_BADGE: Record<string, "danger" | "warning" | "secondary" | "succe
   managed: "success",
   optimized: "success",
 };
-
-function estimateMinutes(additionalControls: number) {
-  if (additionalControls <= 0) return "~5 min";
-  if (additionalControls <= 5) return "~10–15 min";
-  if (additionalControls <= 12) return "~20–30 min";
-  return "~30–45 min";
-}
 
 function PillarDeepDiveCard({
   pillar,
@@ -81,14 +86,14 @@ function PillarDeepDiveCard({
         </Badge>
       </div>
 
-      <div className="mt-4 flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold text-white">{pillar.additionalControls}</span>
-        <span className="text-xs text-slate-400">
-          additional control{pillar.additionalControls === 1 ? "" : "s"}
-        </span>
+      <div className="mt-4">
+        <p className="text-lg font-bold leading-tight text-white">
+          {formatFollowUpQuestions(pillar.additionalControls)}
+        </p>
       </div>
       <p className="mt-1 text-[11px] text-slate-500">
-        1 baseline from scan · {pillar.libraryControlCount} total in pillar
+        {formatUnitCount(pillar.libraryControlCount, "framework-mapped control")} in scope · baseline
+        already answered
       </p>
 
       <div className="mt-5 flex flex-col gap-2">
@@ -135,7 +140,9 @@ function PillarDeepDiveCard({
             )}
           </Button>
         ) : (
-          <p className="text-center text-xs text-slate-500">Fully assessed in baseline scope</p>
+          <p className="text-center text-xs text-slate-500">
+            No additional framework-mapped controls for this pillar
+          </p>
         )}
         <p className="text-center text-[10px] text-slate-600">
           {estimateMinutes(pillar.additionalControls)}
@@ -164,7 +171,11 @@ export function MaturityDeepDiveContinuePanel({
     [continuation.pillars, continuation.priorityFocusPillarId]
   );
 
-  const completedCount = continuation.pillars.filter((p) => p.childStatus === "completed").length;
+  const displayPillars = continuation.actionablePillars.length > 0
+    ? continuation.actionablePillars
+    : continuation.pillars.filter((p) => p.childStatus != null);
+
+  const completedCount = displayPillars.filter((p) => p.childStatus === "completed").length;
 
   if (report.surveyMode !== "quick" || !report.scope.suggestsDeepDive) {
     return null;
@@ -235,8 +246,16 @@ export function MaturityDeepDiveContinuePanel({
           <p className="mt-4 text-sm leading-relaxed text-slate-300 sm:text-base">
             Your baseline scan surfaced a maturity snapshot across every pillar. Choose where to go
             deeper next — we recommend starting with the pillar that has the most room to strengthen.
-            Each detailed assessment adds that pillar&apos;s remaining in-scope controls.
+            Follow-up counts reflect framework-mapped controls beyond your baseline answer for each
+            pillar.
           </p>
+          {continuation.pillarsFullyCoveredInBaseline > 0 && (
+            <p className="mt-2 text-xs text-slate-500">
+              {continuation.pillarsFullyCoveredInBaseline} pillar
+              {continuation.pillarsFullyCoveredInBaseline === 1 ? "" : "s"} already fully covered by
+              your baseline for the selected frameworks — omitted below.
+            </p>
+          )}
         </div>
 
         {priorityPillar && priorityPillar.additionalControls > 0 && (
@@ -255,8 +274,7 @@ export function MaturityDeepDiveContinuePanel({
                   </p>
                   <p className="mt-1 text-sm text-slate-300">
                     Current maturity: {priorityPillar.maturityLabel} ·{" "}
-                    {priorityPillar.additionalControls} additional control
-                    {priorityPillar.additionalControls === 1 ? "" : "s"} ·{" "}
+                    {formatFollowUpQuestions(priorityPillar.additionalControls)} ·{" "}
                     {estimateMinutes(priorityPillar.additionalControls)}
                   </p>
                 </div>
@@ -305,9 +323,11 @@ export function MaturityDeepDiveContinuePanel({
             <div>
               <p className="text-sm font-semibold text-white">Choose a pillar</p>
               <p className="mt-0.5 text-xs text-slate-400">
-                {completedCount > 0
-                  ? `${completedCount} detailed assessment${completedCount === 1 ? "" : "s"} completed`
-                  : "Pick one pillar per session — return anytime for another"}
+                {displayPillars.length > 0
+                  ? completedCount > 0
+                    ? `${completedCount} detailed assessment${completedCount === 1 ? "" : "s"} completed · ${displayPillars.length - completedCount} with follow-up questions available`
+                    : `${displayPillars.length} pillar${displayPillars.length === 1 ? "" : "s"} with framework-mapped follow-up questions`
+                  : "No pillars with additional follow-up questions for your selected frameworks"}
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -317,7 +337,7 @@ export function MaturityDeepDiveContinuePanel({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {continuation.pillars.map((pillar) => (
+            {displayPillars.map((pillar) => (
               <PillarDeepDiveCard
                 key={pillar.pillarId}
                 pillar={pillar}
@@ -327,6 +347,13 @@ export function MaturityDeepDiveContinuePanel({
               />
             ))}
           </div>
+          {displayPillars.length === 0 && (
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-6 text-center text-sm text-slate-400">
+              Every pillar in your baseline already maps to the full control set available for your
+              selected frameworks. Run a new baseline after expanding frameworks or updating the
+              control library to unlock deeper assessments.
+            </p>
+          )}
         </div>
 
         <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03]">
@@ -338,7 +365,7 @@ export function MaturityDeepDiveContinuePanel({
             <div>
               <p className="text-sm font-semibold text-slate-200">Full assessment (all pillars)</p>
               <p className="mt-0.5 text-xs text-slate-500">
-                All pillars at once · {fullDeepDive.additionalControls} additional controls · ~
+                All pillars at once · {formatFollowUpQuestions(fullDeepDive.additionalControls)} · ~
                 30–45 min
               </p>
             </div>
@@ -354,7 +381,7 @@ export function MaturityDeepDiveContinuePanel({
             <div className="border-t border-white/10 px-5 py-4">
               <ul className="space-y-2 text-sm text-slate-400">
                 {[
-                  "Assesses every remaining in-scope control across all pillars",
+                  "Answers every remaining follow-up question across all pillars",
                   "Best when leadership wants comprehensive coverage in one sitting",
                   "Baseline answers still carry forward per pillar",
                 ].map((item) => (
@@ -381,7 +408,7 @@ export function MaturityDeepDiveContinuePanel({
                   <Button
                     type="button"
                     size="sm"
-                    disabled={loading}
+                    disabled={loading || fullDeepDive.additionalControls === 0}
                     onClick={handleFullLibraryStart}
                     className="rounded-xl bg-white/10 hover:bg-white/15"
                   >

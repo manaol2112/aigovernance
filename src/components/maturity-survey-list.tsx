@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SurveyMode } from "@/lib/maturity-survey-mode";
-import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
+import { FRAMEWORK_COLUMNS, RISK_PILLARS } from "@/lib/risk-pillars";
 import {
   FilmGrain,
   HeroAmbientOrbs,
@@ -29,6 +29,8 @@ import {
 } from "@/components/maturity-landing-motion";
 import { MaturityReportPreviewShowcase } from "@/components/maturity-report-preview-showcase";
 import { MaturitySurveyResumePanel } from "@/components/maturity-survey-resume-panel";
+
+const BASELINE_PILLAR_COUNT = RISK_PILLARS.length;
 
 const CURIOSITY_HOOKS = [
   {
@@ -104,7 +106,7 @@ export function MaturityAssessmentLanding({
 
               <MountReveal delay={140}>
                 <p className="mt-6 max-w-lg text-lg leading-relaxed text-slate-400">
-                  A structured maturity diagnostic across ten risk pillars — aligned to NIST AI RMF,
+                  A structured maturity diagnostic across {BASELINE_PILLAR_COUNT} risk pillars — aligned to NIST AI RMF,
                   ISO 42001, and the EU AI Act — so leadership can prioritize investment with
                   evidence, not assumptions.
                 </p>
@@ -125,7 +127,7 @@ export function MaturityAssessmentLanding({
                 </div>
                 <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />~10 minutes
+                    <Clock className="h-3.5 w-3.5" />~{BASELINE_PILLAR_COUNT} minutes
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Lock className="h-3.5 w-3.5" />
@@ -201,7 +203,7 @@ export function MaturityAssessmentLanding({
               </p>
               <ul className="mt-8 space-y-4">
                 {[
-                  { icon: Gauge, text: "Weighted maturity score across 10 governance pillars" },
+                  { icon: Gauge, text: `Weighted maturity score across ${BASELINE_PILLAR_COUNT} governance pillars` },
                   { icon: BarChart3, text: "Visual heatmap — see strengths and blind spots clearly" },
                   { icon: Map, text: "90-day, 6-month, and 12-month remediation roadmap" },
                   { icon: FileText, text: "Executive narrative ready for board or audit committee" },
@@ -225,7 +227,7 @@ export function MaturityAssessmentLanding({
                   <Zap className="h-5 w-5" />
                 </div>
                 <p className="mt-4 text-lg font-bold text-slate-900">Baseline scan</p>
-                <p className="mt-1 text-sm font-medium text-indigo-600">~10 minutes</p>
+                <p className="mt-1 text-sm font-medium text-indigo-600">~{BASELINE_PILLAR_COUNT} minutes</p>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
                   One focused question per risk pillar. After your results, you can assess any
                   pillar in detail with control questions and a documentation review.
@@ -250,12 +252,12 @@ export function MaturityAssessmentLanding({
               Your path from baseline to action
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-500">
-              Start with a ten-minute baseline, then go deeper on the pillars that matter most.
+              Start with a {BASELINE_PILLAR_COUNT}-minute baseline, then go deeper on the pillars that matter most.
             </p>
           </ScrollReveal>
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {[
-              { n: "1", label: "Baseline scan", sub: "One question per pillar (~10 min)" },
+              { n: "1", label: "Baseline scan", sub: `One question per pillar (~${BASELINE_PILLAR_COUNT} min)` },
               { n: "2", label: "Your results", sub: "Score, heatmap, and priorities" },
               { n: "3", label: "Detailed assessment", sub: "Control questions for one pillar" },
               { n: "4", label: "Documentation", sub: "What you have in place today" },

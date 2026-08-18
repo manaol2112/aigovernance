@@ -350,7 +350,7 @@ export const SUB_PILLAR_QUESTION_BANK: Record<string, WorkshopQuestionTemplate[]
         "Which in-scope systems lack documented runbooks, on-call ownership, rollback procedures, or defined SLAs for AI-specific failures?",
     },
   ],
-  "sec-ai-threats": [
+  "safe-security-threats": [
     {
       phase: "context",
       intent: "Identify AI-specific threat landscape for in-scope systems.",
@@ -382,7 +382,7 @@ export const SUB_PILLAR_QUESTION_BANK: Record<string, WorkshopQuestionTemplate[]
         "Which in-scope systems have not undergone AI-specific threat assessment, expose models publicly without guardrails, or use third-party components without security review?",
     },
   ],
-  "sec-controls-access": [
+  "safe-security-access": [
     {
       phase: "context",
       intent: "Inventory AI assets requiring protection.",

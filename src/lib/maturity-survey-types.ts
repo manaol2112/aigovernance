@@ -25,6 +25,70 @@ export function countSurveyQuestions(catalog: SurveyPillarGroup[]): number {
   return catalog.reduce((sum, g) => sum + g.controls.length, 0);
 }
 
+export function filterSurveyControlsByFrameworks(
+  controls: SurveyControlItem[],
+  frameworkCodes: string[]
+): SurveyControlItem[] {
+  if (frameworkCodes.length === 0) return controls;
+  const selected = new Set(frameworkCodes);
+  return controls.filter((control) =>
+    control.frameworkCodes.some((code) => selected.has(code))
+  );
+}
+
+/** Deep-dive follow-ups = framework-scoped controls beyond the baseline quick-scan control. */
+export function countPillarFollowUpQuestions(input: {
+  quickCatalog: SurveyPillarGroup[];
+  deepCatalog: SurveyPillarGroup[];
+  pillarId: string;
+  frameworkCodes: string[];
+  baselineControlId?: string | null;
+}): {
+  libraryControlCount: number;
+  followUpCount: number;
+  hasBaseline: boolean;
+} {
+  const deepGroup = input.deepCatalog.find((group) => group.pillarId === input.pillarId);
+  const quickGroup = input.quickCatalog.find((group) => group.pillarId === input.pillarId);
+
+  const scopedDeepControls = filterSurveyControlsByFrameworks(
+    deepGroup?.controls ?? [],
+    input.frameworkCodes
+  );
+
+  const baselineControlId =
+    input.baselineControlId ?? quickGroup?.controls[0]?.id ?? scopedDeepControls[0]?.id ?? null;
+
+  const followUpControls = baselineControlId
+    ? scopedDeepControls.filter((control) => control.id !== baselineControlId)
+    : scopedDeepControls.slice(1);
+
+  return {
+    libraryControlCount: scopedDeepControls.length,
+    followUpCount: followUpControls.length,
+    hasBaseline: baselineControlId != null && scopedDeepControls.some((c) => c.id === baselineControlId),
+  };
+}
+
+export function sumFollowUpQuestionsAcrossPillars(input: {
+  quickCatalog: SurveyPillarGroup[];
+  deepCatalog: SurveyPillarGroup[];
+  pillarIds: string[];
+  frameworkCodes: string[];
+  baselineControlIdByPillar?: Map<string, string>;
+}): number {
+  return input.pillarIds.reduce((sum, pillarId) => {
+    const counts = countPillarFollowUpQuestions({
+      quickCatalog: input.quickCatalog,
+      deepCatalog: input.deepCatalog,
+      pillarId,
+      frameworkCodes: input.frameworkCodes,
+      baselineControlId: input.baselineControlIdByPillar?.get(pillarId) ?? null,
+    });
+    return sum + counts.followUpCount;
+  }, 0);
+}
+
 export function flattenSurveyControls(catalog: SurveyPillarGroup[]): SurveyControlItem[] {
   return catalog.flatMap((g) => g.controls);
 }
@@ -49,6 +113,20 @@ export function filterCatalogByPillars(
   if (normalized.length === 0) return catalog;
   const allowed = new Set(normalized);
   return catalog.filter((group) => allowed.has(group.pillarId));
+}
+
+/** Remove baseline / already-covered controls from a deep-dive wizard catalog. */
+export function filterCatalogExcludingControls(
+  catalog: SurveyPillarGroup[],
+  excludeControlIds: ReadonlySet<string>
+): SurveyPillarGroup[] {
+  if (excludeControlIds.size === 0) return catalog;
+  return catalog
+    .map((group) => ({
+      ...group,
+      controls: group.controls.filter((control) => !excludeControlIds.has(control.id)),
+    }))
+    .filter((group) => group.controls.length > 0);
 }
 
 export function formatFocusPillarLabels(

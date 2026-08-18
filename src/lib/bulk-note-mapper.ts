@@ -18,15 +18,16 @@ function controlKeywords(code: string, title: string): string[] {
 function pillarKeywords(pillarId: string, pillarLabel: string): string[] {
   const map: Record<string, string[]> = {
     governance: ["governance", "policy", "board", "accountability", "oversight", "roles"],
+    compliance: ["compliance", "documentation", "audit", "logging", "records", "traceability"],
+    "safety-reliability": ["safety", "reliability", "robustness", "accuracy", "harm", "security", "adversarial"],
+    oversight: ["human oversight", "monitoring", "incident", "override", "operations"],
+    systemic: ["gpai", "systemic", "foundation model", "general purpose"],
+    "supply-chain": ["vendor", "third party", "supplier", "supply chain", "ecosystem", "partner"],
+    transparency: ["transparency", "explainability", "disclosure", "interpretability"],
     fairness: ["fairness", "bias", "discrimination", "equity", "fundamental rights"],
     "privacy-data": ["privacy", "data", "personal", "pii", "provenance", "gdpr"],
-    "safety-reliability": ["safety", "reliability", "robustness", "accuracy", "harm"],
-    security: ["security", "cyber", "adversarial", "attack", "integrity"],
-    transparency: ["transparency", "explainability", "disclosure", "interpretability"],
-    oversight: ["human oversight", "monitoring", "incident", "override", "operations"],
-    compliance: ["compliance", "documentation", "audit", "logging", "records"],
-    "supply-chain": ["vendor", "third party", "supplier", "supply chain"],
-    systemic: ["gpai", "systemic", "foundation model", "general purpose"],
+    workforce: ["workforce", "training", "competency", "human capital", "skills", "talent"],
+    "financial-resilience": ["financial", "resilience", "continuity", "sustainability", "decommission"],
   };
   return map[pillarId] ?? pillarLabel.toLowerCase().split(/\s+/);
 }

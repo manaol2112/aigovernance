@@ -3,13 +3,16 @@ import { prisma } from "@/lib/db";
 import { buildMaturitySurveyCatalog } from "@/lib/maturity-survey-catalog-server";
 import type { PillarMaturityRecord } from "@/lib/control-review-reports";
 import { MATURITY_SCORE } from "@/lib/maturity-survey-constants";
+import { resolvePillarId } from "@/lib/risk-pillars";
 import {
-  countSurveyQuestions,
+  countPillarFollowUpQuestions,
   filterCatalogByPillars,
   focusPillarIdsMatch,
   formatFocusPillarLabels,
   normalizeFocusPillarIds,
+  sumFollowUpQuestionsAcrossPillars,
 } from "@/lib/maturity-survey-types";
+import { countWizardFollowUpQuestions } from "@/lib/maturity-survey-wizard-state";
 
 const CRITICALITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2 };
 
@@ -29,9 +32,12 @@ export type PillarDeepDiveOption = {
 
 export type DeepDiveContinuationState = {
   pillars: PillarDeepDiveOption[];
+  /** Pillars with at least one framework-mapped follow-up question after baseline. */
+  actionablePillars: PillarDeepDiveOption[];
   priorityFocusPillarId: string | null;
   totalLibraryControls: number;
   canStartAny: boolean;
+  pillarsFullyCoveredInBaseline: number;
   fullDeepDive: {
     libraryControlCount: number;
     additionalControls: number;
@@ -82,10 +88,13 @@ function findChildForFocus(
   );
 }
 
-function pickPriorityFocusPillarId(pillars: PillarMaturityRecord[]): string | null {
-  if (pillars.length === 0) return null;
+function pickPriorityFocusPillarId(
+  pillars: PillarDeepDiveOption[]
+): string | null {
+  const actionable = pillars.filter((pillar) => pillar.additionalControls > 0);
+  if (actionable.length === 0) return null;
 
-  const sorted = [...pillars].sort((a, b) => {
+  const sorted = [...actionable].sort((a, b) => {
     const scoreDiff = MATURITY_SCORE[a.maturityLevel] - MATURITY_SCORE[b.maturityLevel];
     if (scoreDiff !== 0) return scoreDiff;
     return (CRITICALITY_ORDER[a.criticality] ?? 2) - (CRITICALITY_ORDER[b.criticality] ?? 2);
@@ -94,49 +103,101 @@ function pickPriorityFocusPillarId(pillars: PillarMaturityRecord[]): string | nu
   return sorted[0]?.pillarId ?? null;
 }
 
+function buildBaselineControlIdByPillar(
+  responses: Array<{ controlId: string; pillarId: string }>
+): Map<string, string> {
+  const byPillar = new Map<string, string>();
+  for (const response of responses) {
+    const pillarId = resolvePillarId(response.pillarId);
+    if (!byPillar.has(pillarId)) {
+      byPillar.set(pillarId, response.controlId);
+    }
+  }
+  return byPillar;
+}
+
 export async function getDeepDiveContinuationState(
   quickScanSurveyId: string,
   frameworkCodes: string[],
   pillarMaturity: PillarMaturityRecord[]
 ): Promise<DeepDiveContinuationState> {
-  const fullLibraryCatalog = await buildMaturitySurveyCatalog(frameworkCodes, "deep_dive");
-  const totalLibraryControls = countSurveyQuestions(fullLibraryCatalog);
-  const children = await listDeepDiveChildren(quickScanSurveyId);
-  const priorityFocusPillarId = pickPriorityFocusPillarId(pillarMaturity);
+  const [quickCatalog, deepCatalog, parent, children] = await Promise.all([
+    buildMaturitySurveyCatalog(frameworkCodes, "quick"),
+    buildMaturitySurveyCatalog(frameworkCodes, "deep_dive"),
+    prisma.maturitySurvey.findUnique({
+      where: { id: quickScanSurveyId },
+      select: {
+        responses: { select: { controlId: true, pillarId: true } },
+      },
+    }),
+    listDeepDiveChildren(quickScanSurveyId),
+  ]);
+
+  const baselineControlIdByPillar = buildBaselineControlIdByPillar(parent?.responses ?? []);
+  const pillarIds = pillarMaturity.map((pillar) => resolvePillarId(pillar.pillarId));
 
   const pillars: PillarDeepDiveOption[] = pillarMaturity.map((pillar) => {
-    const pillarCatalog = filterCatalogByPillars(fullLibraryCatalog, [pillar.pillarId]);
-    const libraryControlCount = countSurveyQuestions(pillarCatalog);
-    const additionalControls = Math.max(0, libraryControlCount - 1);
-    const child = findChildForFocus(children, [pillar.pillarId]);
+    const pillarId = resolvePillarId(pillar.pillarId);
+    const { libraryControlCount, followUpCount } = countPillarFollowUpQuestions({
+      quickCatalog,
+      deepCatalog,
+      pillarId,
+      frameworkCodes,
+      baselineControlId: baselineControlIdByPillar.get(pillarId) ?? null,
+    });
+    const child = findChildForFocus(children, [pillarId]);
 
     return {
-      pillarId: pillar.pillarId,
+      pillarId,
       pillarLabel: pillar.pillarLabel,
       criticality: pillar.criticality,
       maturityLevel: pillar.maturityLevel,
       maturityLabel: pillar.maturityLabel,
       alignmentPct: pillar.alignmentPct,
       libraryControlCount,
-      additionalControls,
+      additionalControls: followUpCount,
       childSurveyId: child?.id ?? null,
       childStatus: child
         ? child.status === "completed"
           ? "completed"
           : "in_progress"
         : null,
-      isPriorityFocus: pillar.pillarId === priorityFocusPillarId,
+      isPriorityFocus: false,
     };
   });
 
+  const actionablePillars = pillars.filter((pillar) => pillar.additionalControls > 0);
+  const priorityFocusPillarId = pickPriorityFocusPillarId(pillars);
+  const pillarsWithPriority = pillars.map((pillar) => ({
+    ...pillar,
+    isPriorityFocus: pillar.pillarId === priorityFocusPillarId,
+  }));
+  const actionablePillarsWithPriority = pillarsWithPriority.filter(
+    (pillar) => pillar.additionalControls > 0
+  );
+
+  const fullAdditionalControls = sumFollowUpQuestionsAcrossPillars({
+    quickCatalog,
+    deepCatalog,
+    pillarIds,
+    frameworkCodes,
+    baselineControlIdByPillar,
+  });
+
+  const totalLibraryControls = actionablePillarsWithPriority.reduce(
+    (sum, pillar) => sum + pillar.libraryControlCount,
+    0
+  );
+
   const fullChild = findChildForFocus(children, []);
-  const fullAdditionalControls = Math.max(0, totalLibraryControls - pillarMaturity.length);
 
   return {
-    pillars,
+    pillars: pillarsWithPriority,
+    actionablePillars: actionablePillarsWithPriority,
     priorityFocusPillarId,
     totalLibraryControls,
-    canStartAny: pillars.some((pillar) => pillar.additionalControls > 0),
+    canStartAny: actionablePillarsWithPriority.some((pillar) => pillar.childStatus !== "completed"),
+    pillarsFullyCoveredInBaseline: pillars.length - actionablePillarsWithPriority.length,
     fullDeepDive: {
       libraryControlCount: totalLibraryControls,
       additionalControls: fullAdditionalControls,
@@ -196,9 +257,29 @@ export async function createDeepDiveFromQuickScan(
   }
 
   const scopedPillarIds = new Set(scopedCatalog.map((group) => group.pillarId));
-  const seededResponses = parent.responses.filter((response) =>
-    scopedPillarIds.has(response.pillarId)
-  );
+  const catalogPillarByControlId = new Map<string, string>();
+  for (const group of scopedCatalog) {
+    for (const control of group.controls) {
+      catalogPillarByControlId.set(control.id, group.pillarId);
+    }
+  }
+
+  const seededResponses = parent.responses
+    .filter((response) => scopedPillarIds.has(resolvePillarId(response.pillarId)))
+    .map((response) => ({
+      controlId: response.controlId,
+      pillarId: catalogPillarByControlId.get(response.controlId) ?? resolvePillarId(response.pillarId),
+      maturity: response.maturity,
+      notes: response.notes,
+    }));
+
+  const seededControlIds = seededResponses.map((response) => response.controlId);
+  const followUpCount = countWizardFollowUpQuestions(scopedCatalog, seededControlIds);
+  if (followUpCount === 0) {
+    throw new Error(
+      "No framework-mapped follow-up questions remain for the selected pillar(s). Your baseline already covers them for the chosen frameworks."
+    );
+  }
 
   const children = await listDeepDiveChildren(parentSurveyId);
   const existing = findChildForFocus(

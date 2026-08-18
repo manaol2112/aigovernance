@@ -8,6 +8,12 @@ import type { MaturityLevel, MaturityDocumentStatus, MaturitySurvey } from "@pri
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MaturityLevelPicker } from "@/components/maturity-level-picker";
+import { MaturitySurveyReviewPanel } from "@/components/maturity-survey-review-panel";
+import { MaturitySurveyReviewEditPanel } from "@/components/maturity-survey-review-edit-panel";
+import {
+  MaturitySurveyQuestionChrome,
+  SURVEY_QUESTION_CARD,
+} from "@/components/maturity-survey-question-chrome";
 import {
   MaturityDocumentationChecklist,
   type DocumentResponseState,
@@ -16,8 +22,14 @@ import { MATURITY_LEVEL_GUIDANCE } from "@/lib/maturity-survey-constants";
 import { cn } from "@/lib/utils";
 import { getSurveyModeMeta, type SurveyMode } from "@/lib/maturity-survey-mode";
 import { getPillarCriticalQuestion } from "@/lib/maturity-survey-quick-questions";
-import { computeSurveyProgress, isStepAnswered, buildSurveyResponsesByStepKey, surveyStepResponseKeyFromStep } from "@/lib/maturity-survey-progress";
+import { computeSurveyProgress, isStepAnswered, buildSurveyResponsesByStepKey, surveyStepResponseKeyFromStep, findStepCatalogIndex } from "@/lib/maturity-survey-progress";
+import {
+  buildWizardProgress,
+  isDeepDiveQuestionsComplete,
+  resolveInitialWizardStepIndex,
+} from "@/lib/maturity-survey-wizard-state";
 import type { SurveyPillarGroup } from "@/lib/maturity-survey-types";
+import type { SurveyStep } from "@/lib/maturity-survey-types";
 import {
   buildDocumentationChecklistGroups,
   countDocumentationChecklistItems,
@@ -27,7 +39,6 @@ import { toast } from "@/components/ui/toast";
 import { CLIENT_TERMS } from "@/lib/maturity-client-copy";
 import {
   formatOfTotal,
-  formatProgressOf,
   formatRemainingUnit,
   formatUnitCount,
 } from "@/lib/format-unit-count";
@@ -39,27 +50,32 @@ type SurveyResponse = {
   notes: string | null;
 };
 
-type WizardPhase = "questions" | "documentation";
+type WizardPhase = "questions" | "review" | "documentation";
 
 function WizardPhaseStepper({
   phase,
   showDocumentation,
+  showReview,
 }: {
   phase: WizardPhase;
   showDocumentation: boolean;
+  showReview: boolean;
 }) {
-  if (!showDocumentation) return null;
+  if (!showDocumentation && !showReview) return null;
 
   const steps = [
     { id: "questions" as const, label: "Questions" },
-    { id: "documentation" as const, label: "Documentation" },
+    ...(showReview ? [{ id: "review" as const, label: "Review" }] : []),
+    ...(showDocumentation ? [{ id: "documentation" as const, label: "Documentation" }] : []),
   ];
 
   return (
     <div className="mb-4 flex items-center justify-center gap-2">
       {steps.map((step, i) => {
         const active = phase === step.id;
-        const done = step.id === "questions" && phase === "documentation";
+        const stepOrder = steps.map((s) => s.id);
+        const phaseIndex = stepOrder.indexOf(phase);
+        const done = phaseIndex > i;
         return (
           <div key={step.id} className="flex items-center">
             <div
@@ -114,6 +130,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   );
   const focusPillarLabels = initial.focusPillarLabels;
   const showDocumentationPhase = mode === "deep_dive";
+  const showReviewPhase = mode === "quick";
 
   const checklistPillarIds = useMemo(() => {
     if (survey.focusPillarIds.length > 0) return survey.focusPillarIds;
@@ -132,6 +149,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     initial.survey.documentResponses
   );
   const [phase, setPhase] = useState<WizardPhase>("questions");
+  const [reviewEditStepIndex, setReviewEditStepIndex] = useState<number | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [savingDocumentId, setSavingDocumentId] = useState<string | null>(null);
@@ -140,13 +158,23 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   const [showSavedHint, setShowSavedHint] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const didInitStepRef = useRef(false);
 
   const progress = useMemo(
-    () => computeSurveyProgress(initial.catalog, responseList),
+    () => buildWizardProgress(initial.catalog, responseList),
     [initial.catalog, responseList]
   );
 
-  const { steps, totalSteps, allComplete, unansweredSteps, progressPct } = progress;
+  const { steps, totalSteps, allComplete, unansweredSteps, navigationSteps, progressPct, answeredStepCount } =
+    progress;
+
+  /** INVARIANT: stable catalog steps only — never navigationSteps (see maturity-survey-wizard-state.ts). */
+  const wizardSteps = steps;
+  const deepDiveQuestionsComplete = isDeepDiveQuestionsComplete(
+    mode,
+    progress,
+    seededControlIds.size
+  );
 
   const documentationComplete = useMemo(
     () => isDocumentationChecklistComplete(documentationGroups, documentList),
@@ -160,15 +188,35 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
       : 0;
 
   useEffect(() => {
-    if (phase !== "questions") return;
-    const saved = survey.currentStepIndex ?? 0;
-    const clamped = Math.min(saved, Math.max(0, totalSteps - 1));
-    setStepIndex(clamped);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [survey.id, totalSteps, phase]);
+    didInitStepRef.current = false;
+    setReviewEditStepIndex(null);
+  }, [survey.id]);
 
-  const current = steps[stepIndex];
-  const isLastStep = stepIndex >= totalSteps - 1;
+  useEffect(() => {
+    if (phase !== "questions") return;
+    if (wizardSteps.length === 0) return;
+    if (didInitStepRef.current) return;
+
+    const savedCatalogIndex = survey.currentStepIndex ?? 0;
+    const initialIndex = resolveInitialWizardStepIndex(
+      steps,
+      navigationSteps,
+      savedCatalogIndex
+    );
+
+    setStepIndex(initialIndex);
+    didInitStepRef.current = true;
+  }, [survey.id, phase, wizardSteps.length, navigationSteps, steps, survey.currentStepIndex]);
+
+  useEffect(() => {
+    if (wizardSteps.length === 0) return;
+    if (stepIndex >= wizardSteps.length) {
+      setStepIndex(Math.max(0, wizardSteps.length - 1));
+    }
+  }, [wizardSteps.length, stepIndex]);
+
+  const current = wizardSteps[stepIndex] ?? null;
+  const isLastStep = wizardSteps.length > 0 && stepIndex >= wizardSteps.length - 1;
 
   const responsesByStepKey = useMemo(
     () => buildSurveyResponsesByStepKey(responseList),
@@ -184,8 +232,22 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     existing?.maturity != null ? MATURITY_LEVEL_GUIDANCE[existing.maturity] : null;
 
   useEffect(() => {
+    if (reviewEditStepIndex != null) {
+      const editStep = wizardSteps[reviewEditStepIndex];
+      if (!editStep) return;
+      const editResponse = responsesByStepKey.get(surveyStepResponseKeyFromStep(editStep));
+      setNotesDraft(editResponse?.notes ?? "");
+      return;
+    }
     setNotesDraft(existing?.notes ?? "");
-  }, [current?.control.id, existing?.notes]);
+  }, [
+    reviewEditStepIndex,
+    wizardSteps,
+    responsesByStepKey,
+    current?.control.id,
+    current?.pillarId,
+    existing?.notes,
+  ]);
 
   const scrollToQuestion = useCallback(() => {
     questionAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -202,9 +264,15 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     [survey.id]
   );
 
-  async function saveResponse(patch: Partial<Pick<SurveyResponse, "maturity" | "notes">>) {
-    if (!current) return;
-    const maturity = patch.maturity ?? existing?.maturity;
+  async function saveResponse(
+    patch: Partial<Pick<SurveyResponse, "maturity" | "notes">>,
+    stepOverride?: SurveyStep
+  ) {
+    const step = stepOverride ?? current;
+    if (!step) return;
+    const stepKey = surveyStepResponseKeyFromStep(step);
+    const stepExisting = responsesByStepKey.get(stepKey);
+    const maturity = patch.maturity ?? stepExisting?.maturity;
     if (!maturity) return;
 
     setSaving(true);
@@ -214,8 +282,8 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          controlId: current.control.id,
-          pillarId: current.pillarId,
+          controlId: step.control.id,
+          pillarId: step.pillarId,
           maturity,
           ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
         }),
@@ -248,10 +316,14 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     }
   }
 
-  async function saveNotes(notes: string) {
-    if (!current || !existing?.maturity) return;
+  async function saveNotes(notes: string, stepOverride?: SurveyStep) {
+    const step = stepOverride ?? current;
+    if (!step) return;
+    const stepKey = surveyStepResponseKeyFromStep(step);
+    const stepExisting = responsesByStepKey.get(stepKey);
+    if (!stepExisting?.maturity) return;
     const trimmed = notes.trim();
-    if ((existing.notes ?? "") === trimmed) return;
+    if ((stepExisting.notes ?? "") === trimmed) return;
 
     setSavingNotes(true);
     try {
@@ -259,9 +331,9 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          controlId: current.control.id,
-          pillarId: current.pillarId,
-          maturity: existing.maturity,
+          controlId: step.control.id,
+          pillarId: step.pillarId,
+          maturity: stepExisting.maturity,
           notes: trimmed,
         }),
       });
@@ -322,7 +394,8 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   }
 
   async function goToStep(index: number) {
-    const clamped = Math.max(0, Math.min(index, totalSteps - 1));
+    if (wizardSteps.length === 0) return;
+    const clamped = Math.max(0, Math.min(index, wizardSteps.length - 1));
     if (clamped === stepIndex) return;
 
     if (existing?.maturity && notesDraft !== (existing.notes ?? "")) {
@@ -333,7 +406,8 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     setShowSavedHint(false);
     await new Promise((r) => setTimeout(r, 120));
     setStepIndex(clamped);
-    await persistStepIndex(clamped);
+    const catalogIndex = findStepCatalogIndex(steps, wizardSteps[clamped]!);
+    await persistStepIndex(catalogIndex >= 0 ? catalogIndex : clamped);
     setStepTransition(false);
     requestAnimationFrame(() => scrollToQuestion());
   }
@@ -344,8 +418,36 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     await goToStep(stepIndex + 1);
   }
 
+  function handleGoToReview() {
+    if (!deepDiveQuestionsComplete) return;
+    setReviewEditStepIndex(null);
+    setPhase("review");
+    requestAnimationFrame(() => scrollToQuestion());
+  }
+
+  function handleEditFromReview(index: number) {
+    setReviewEditStepIndex(index);
+    setStepIndex(index);
+    setShowSavedHint(false);
+    requestAnimationFrame(() => scrollToQuestion());
+  }
+
+  async function handleBackToReviewList() {
+    if (reviewEditStepIndex == null) return;
+    const editStep = wizardSteps[reviewEditStepIndex];
+    if (editStep) {
+      const editResponse = responsesByStepKey.get(surveyStepResponseKeyFromStep(editStep));
+      if (editResponse?.maturity && notesDraft !== (editResponse.notes ?? "")) {
+        await saveNotes(notesDraft, editStep);
+      }
+    }
+    setReviewEditStepIndex(null);
+    setShowSavedHint(false);
+    requestAnimationFrame(() => scrollToQuestion());
+  }
+
   function handleGoToDocumentation() {
-    if (!allComplete) return;
+    if (!deepDiveQuestionsComplete) return;
     setPhase("documentation");
     requestAnimationFrame(() => scrollToQuestion());
   }
@@ -356,7 +458,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
       return;
     }
 
-    if (!showDocumentationPhase && !allComplete) {
+    if (!showDocumentationPhase && !deepDiveQuestionsComplete) {
       const labels = unansweredSteps.map((s) => s.pillarLabel).slice(0, 3);
       toast(
         labels.length > 0
@@ -365,10 +467,10 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         { variant: "error" }
       );
       if (unansweredSteps[0]) {
-        const idx = steps.findIndex(
-          (s) =>
-            s.pillarId === unansweredSteps[0].pillarId &&
-            s.control.id === unansweredSteps[0].control.id
+        const idx = wizardSteps.findIndex(
+          (step) =>
+            step.pillarId === unansweredSteps[0]!.pillarId &&
+            step.control.id === unansweredSteps[0]!.control.id
         );
         if (idx >= 0) void goToStep(idx);
       }
@@ -396,6 +498,62 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     }
   }
 
+  if (phase === "review") {
+    const reviewEditStep =
+      reviewEditStepIndex != null ? wizardSteps[reviewEditStepIndex] ?? null : null;
+    const reviewEditKey = reviewEditStep
+      ? surveyStepResponseKeyFromStep(reviewEditStep)
+      : null;
+    const reviewEditResponse = reviewEditKey
+      ? responsesByStepKey.get(reviewEditKey)
+      : undefined;
+
+    return (
+      <div className="mx-auto max-w-2xl">
+        <div ref={questionAnchorRef} className="scroll-mt-6" />
+
+        <div className="mb-6">
+          <Button asChild variant="ghost" size="sm" className="-ml-2 mb-4 text-slate-500">
+            <Link href="/maturity-assessment">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Exit
+            </Link>
+          </Button>
+
+          <WizardPhaseStepper
+            phase="review"
+            showDocumentation={showDocumentationPhase}
+            showReview={showReviewPhase}
+          />
+        </div>
+
+        {reviewEditStep ? (
+          <MaturitySurveyReviewEditPanel
+            step={reviewEditStep}
+            mode={mode}
+            maturity={reviewEditResponse?.maturity ?? null}
+            notes={notesDraft}
+            saving={saving}
+            savingNotes={savingNotes}
+            showSavedHint={showSavedHint}
+            onMaturityChange={(level) => void saveResponse({ maturity: level }, reviewEditStep)}
+            onNotesChange={setNotesDraft}
+            onNotesBlur={() => void saveNotes(notesDraft, reviewEditStep)}
+            onBackToReview={() => void handleBackToReviewList()}
+          />
+        ) : (
+          <MaturitySurveyReviewPanel
+            steps={wizardSteps}
+            responsesByStepKey={responsesByStepKey}
+            organizationName={survey.organizationName}
+            submitting={submitting}
+            onEditStep={handleEditFromReview}
+            onSubmit={handleSubmit}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (phase === "documentation") {
     return (
       <div className="mx-auto max-w-2xl pb-28">
@@ -408,7 +566,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
             </Link>
           </Button>
 
-          <WizardPhaseStepper phase="documentation" showDocumentation={showDocumentationPhase} />
+          <WizardPhaseStepper phase="documentation" showDocumentation={showDocumentationPhase} showReview={showReviewPhase} />
 
           <div className="rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50 to-white px-4 py-4 shadow-sm">
             <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-700">
@@ -482,7 +640,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     );
   }
 
-  if (!current || totalSteps === 0) {
+  if (totalSteps === 0) {
     return (
       <div className="mx-auto max-w-lg py-16 text-center text-slate-500">
         No survey questions in scope for the selected frameworks.
@@ -490,8 +648,71 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
     );
   }
 
-  const nextStep = !isLastStep ? steps[stepIndex + 1] : null;
-  const readyForDocumentation = allComplete && showDocumentationPhase;
+  const readyForDocumentation = deepDiveQuestionsComplete && showDocumentationPhase;
+
+  if (readyForDocumentation && mode === "deep_dive" && totalSteps === 0) {
+    return (
+      <div className="mx-auto max-w-2xl pb-28">
+        <div ref={questionAnchorRef} className="scroll-mt-6" />
+
+        <div className="mb-6">
+          <Button asChild variant="ghost" size="sm" className="-ml-2 mb-4 text-slate-500">
+            <Link href="/maturity-assessment">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Exit
+            </Link>
+          </Button>
+
+          <WizardPhaseStepper phase="questions" showDocumentation={showDocumentationPhase} showReview={showReviewPhase} />
+
+          {mode === "deep_dive" && survey.parentSurveyId && (
+            <div className="mb-4 rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-white px-4 py-4 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                {CLIENT_TERMS.detailedPillarAssessment}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {focusPillarLabels.length > 0
+                  ? `Focused on ${focusPillarLabels.join(", ")}`
+                  : "Building on your baseline scan"}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                {formatUnitCount(seededControlIds.size, "baseline answer", "baseline answers")}{" "}
+                carried forward — only new follow-up questions remain.
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center shadow-sm">
+            <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+            <h1 className="mt-4 text-xl font-semibold text-slate-900">Control questions complete</h1>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              {mode === "deep_dive"
+                ? "Your baseline answers were carried forward. Continue to the documentation checklist to finish this deep dive."
+                : "All control questions are answered. You can view your results or continue to documentation."}
+            </p>
+          </div>
+        </div>
+
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-2xl justify-end">
+            <Button type="button" onClick={handleGoToDocumentation} className="gap-1.5" size="lg">
+              Continue to documentation
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!current) {
+    return (
+      <div className="mx-auto max-w-lg py-16 text-center text-slate-500">
+        No survey questions in scope for the selected frameworks.
+      </div>
+    );
+  }
+
+  const nextStep = !isLastStep ? wizardSteps[stepIndex + 1] : null;
 
   return (
     <div className="mx-auto max-w-2xl pb-28">
@@ -522,46 +743,19 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
           </div>
         )}
 
-        <WizardPhaseStepper phase="questions" showDocumentation={showDocumentationPhase} />
+        <WizardPhaseStepper phase="questions" showDocumentation={showDocumentationPhase} showReview={showReviewPhase} />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{modeMeta.label}</Badge>
-          <span className="text-sm text-slate-400">
-            {survey.organizationName?.trim() || "Your organization"}
-          </span>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between gap-4">
-          <p className="text-sm font-medium text-slate-600">
-            {formatProgressOf(stepIndex + 1, totalSteps, "Question")}
-          </p>
-          <p className="text-sm tabular-nums text-indigo-600">{progressPct}% complete</p>
-        </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-indigo-500 transition-all duration-500"
-            style={{ width: `${progressPct}%` }}
+        <div className="mt-4">
+          <MaturitySurveyQuestionChrome
+            steps={wizardSteps}
+            stepIndex={stepIndex}
+            progressPct={progressPct}
+            answeredStepCount={answeredStepCount}
+            responsesByStepKey={responsesByStepKey}
+            organizationName={survey.organizationName}
+            modeLabel={modeMeta.label}
+            onGoToStep={(index) => void goToStep(index)}
           />
-        </div>
-
-        <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-          {steps.map((s, i) => {
-            const done = isStepAnswered(s, responsesByStepKey);
-            return (
-              <button
-                key={`${s.pillarId}-${s.stepIndex}`}
-                type="button"
-                title={s.pillarLabel}
-                onClick={() => goToStep(i)}
-                className={cn(
-                  "h-2 rounded-full transition-all",
-                  i === stepIndex ? "w-6 bg-indigo-600" : "w-2",
-                  i !== stepIndex && done && "bg-emerald-400",
-                  i !== stepIndex && !done && "bg-slate-200 hover:bg-slate-300"
-                )}
-              />
-            );
-          })}
         </div>
       </div>
 
@@ -572,7 +766,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         </div>
       )}
 
-      {allComplete && !showDocumentationPhase && (
+      {allComplete && !showDocumentationPhase && !showReviewPhase && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           All questions answered — you can view your results.
@@ -582,39 +776,36 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
       <div
         key={stepIndex}
         className={cn(
-          "rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm transition-all duration-300 sm:p-8",
+          SURVEY_QUESTION_CARD,
+          "mt-5 transition-all duration-300",
           stepTransition ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
         )}
       >
-        <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-          {current.pillarLabel}
-        </p>
-
         {mode === "quick" ? (
           <>
-            <h1 className="mt-3 text-xl font-semibold leading-snug text-slate-900 sm:text-2xl">
+            <h1 className="text-xl font-semibold leading-snug tracking-tight text-slate-900 sm:text-2xl">
               {criticalQ?.prompt}
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-slate-500">{criticalQ?.subtitle}</p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-500">{criticalQ?.subtitle}</p>
           </>
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-mono text-[10px] text-indigo-600">{current.control.code}</p>
+              <p className="font-mono text-[10px] font-medium text-indigo-600">{current.control.code}</p>
               {seededControlIds.has(current.control.id) && (
                 <Badge variant="success" className="text-[10px]">
                   {CLIENT_TERMS.fromBaseline}
                 </Badge>
               )}
             </div>
-            <h1 className="mt-3 text-xl font-semibold leading-snug text-slate-900">
+            <h1 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-slate-900">
               {current.control.title}
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">{current.control.description}</p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">{current.control.description}</p>
           </>
         )}
 
-        <div className="mt-6 border-t border-slate-100 pt-6">
+        <div className="mt-8 border-t border-slate-100 pt-8">
           <MaturityLevelPicker
             value={existing?.maturity ?? null}
             disabled={saving}
@@ -628,7 +819,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
         </div>
 
         {currentAnswered && (
-          <div className="mt-6 border-t border-slate-100 pt-6">
+          <div className="mt-8 border-t border-slate-100 pt-8">
             <label htmlFor="question-notes" className="text-sm font-medium text-slate-700">
               Optional context{" "}
               <span className="font-normal text-slate-400">(visible in your report)</span>
@@ -657,7 +848,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
           </p>
         )}
 
-        {showSavedHint && currentAnswered && selectedGuidance && !isLastStep && (
+        {showSavedHint && currentAnswered && selectedGuidance && (
           <div className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 animate-in fade-in slide-in-from-bottom-2">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
             <div className="min-w-0 flex-1">
@@ -665,29 +856,36 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
               <p className="mt-0.5 text-xs text-emerald-800">
                 {selectedGuidance.label} — {selectedGuidance.headline}
               </p>
-              {nextStep && (
+              {isLastStep && showReviewPhase ? (
                 <p className="mt-2 text-xs text-emerald-700/80">
-                  Up next: <span className="font-medium">{nextStep.pillarLabel}</span>
+                  Final pillar complete — review all answers before submitting your baseline report.
                 </p>
+              ) : (
+                nextStep && (
+                  <p className="mt-2 text-xs text-emerald-700/80">
+                    Up next: <span className="font-medium">{nextStep.pillarLabel}</span>
+                  </p>
+                )
               )}
             </div>
           </div>
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm">
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/90 px-4 py-4 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <Button
             type="button"
             variant="ghost"
             disabled={stepIndex === 0}
             onClick={() => goToStep(stepIndex - 1)}
+            className="text-slate-600"
           >
-            Back
+            Previous pillar
           </Button>
 
           <div className="flex flex-col items-end gap-1">
-            {!allComplete && isLastStep && currentAnswered && (
+            {!deepDiveQuestionsComplete && isLastStep && currentAnswered && (
               <p className="text-[11px] text-amber-600">
                 {formatRemainingUnit(unansweredSteps.length, "question")}
               </p>
@@ -702,10 +900,20 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
                 Continue to documentation
                 <ArrowRight className="h-4 w-4" />
               </Button>
-            ) : isLastStep || allComplete ? (
+            ) : showReviewPhase && isLastStep && currentAnswered && deepDiveQuestionsComplete ? (
               <Button
                 type="button"
-                disabled={submitting || !allComplete}
+                onClick={handleGoToReview}
+                className="gap-1.5 shadow-lg shadow-indigo-500/15"
+                size="lg"
+              >
+                Review your answers
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : !showReviewPhase && deepDiveQuestionsComplete ? (
+              <Button
+                type="button"
+                disabled={submitting || !deepDiveQuestionsComplete}
                 onClick={handleSubmit}
                 className="gap-1.5"
                 size="lg"
@@ -732,7 +940,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
                 )}
                 size="lg"
               >
-                {currentAnswered ? "Next question" : "Select an answer"}
+                {currentAnswered ? "Next pillar" : "Select a maturity level"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}

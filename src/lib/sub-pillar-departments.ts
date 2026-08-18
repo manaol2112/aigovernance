@@ -52,11 +52,11 @@ export const SUB_PILLAR_DEPARTMENT_MAP: Record<
     primary: ["mlops-platform", "it-operations"],
     secondary: ["engineering-rd", "quality-validation"],
   },
-  "sec-ai-threats": {
+  "safe-security-threats": {
     primary: ["information-security", "data-science-ml"],
     secondary: ["mlops-platform", "engineering-rd"],
   },
-  "sec-controls-access": {
+  "safe-security-access": {
     primary: ["information-security", "it-operations"],
     secondary: ["engineering-rd", "mlops-platform"],
   },
@@ -87,6 +87,26 @@ export const SUB_PILLAR_DEPARTMENT_MAP: Record<
   "supply-vendor": {
     primary: ["procurement-vendor", "legal-regulatory"],
     secondary: ["information-security", "ai-governance-office"],
+  },
+  "supply-ecosystem": {
+    primary: ["procurement-vendor", "business-operations"],
+    secondary: ["enterprise-risk", "ai-governance-office"],
+  },
+  "work-competency": {
+    primary: ["hr-workforce", "ai-governance-office"],
+    secondary: ["responsible-ai", "business-operations"],
+  },
+  "work-capacity": {
+    primary: ["hr-workforce", "executive-board"],
+    secondary: ["ai-governance-office", "business-operations"],
+  },
+  "fin-bc-resilience": {
+    primary: ["it-operations", "enterprise-risk"],
+    secondary: ["mlops-platform", "business-operations"],
+  },
+  "fin-impact-sustainability": {
+    primary: ["enterprise-risk", "executive-board"],
+    secondary: ["it-operations", "ai-governance-office"],
   },
   "sys-gpai-systemic": {
     primary: ["ai-governance-office", "legal-regulatory"],

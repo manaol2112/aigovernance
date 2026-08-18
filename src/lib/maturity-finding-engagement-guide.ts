@@ -10,15 +10,16 @@ export type FindingEngagementAction = FindingEngagementGuide["actions"][number];
 /** One-line pillar context — used once per guide, not repeated across steps. */
 const PILLAR_CONTEXT: Record<string, string> = {
   governance: "AI accountability, board oversight, and policy scope",
+  compliance: "technical documentation, traceability, and quality management",
+  "safety-reliability": "safety cases, validation, security, and operational limits",
+  oversight: "human-in-the-loop design, monitoring, and incident response",
+  systemic: "GPAI obligations, downstream use, and systemic-risk controls",
+  "supply-chain": "vendor due diligence, ecosystem partners, and model provenance",
+  transparency: "disclosures, explainability, and user-facing transparency",
   fairness: "bias testing, fundamental rights, and impact mitigation",
   "privacy-data": "data stewardship, lawful use, and lifecycle quality for AI",
-  "safety-reliability": "safety cases, validation, and operational limits",
-  security: "AI-specific threat modeling, access controls, and hardening",
-  transparency: "disclosures, explainability, and user-facing transparency",
-  oversight: "human-in-the-loop design, monitoring, and incident response",
-  compliance: "technical documentation, traceability, and quality management",
-  "supply-chain": "vendor due diligence, contracts, and model provenance",
-  systemic: "GPAI obligations, downstream use, and systemic-risk controls",
+  workforce: "competency, training, and human capital readiness for AI",
+  "financial-resilience": "business continuity, financial impact, and operational resilience",
 };
 
 type GapTrack = "build" | "formalize" | "strengthen";

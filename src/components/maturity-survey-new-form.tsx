@@ -34,7 +34,7 @@ import {
   resolveClientIndustry,
 } from "@/lib/client-industries";
 import { FRAMEWORK_SCOPE } from "@/lib/framework-scope";
-import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
+import { FRAMEWORK_COLUMNS, RISK_PILLARS } from "@/lib/risk-pillars";
 import { getSurveyModeMeta, SURVEY_MODE_META, type SurveyMode } from "@/lib/maturity-survey-mode";
 import { MaturitySurveyBriefingPanel } from "@/components/maturity-survey-briefing";
 import {
@@ -402,7 +402,7 @@ export function NewMaturitySurveyForm() {
             <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-indigo-400" />
-                ~10 minutes for baseline scan
+                {getSurveyModeMeta("quick").duration} for baseline scan
               </span>
               <span className="flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 text-indigo-400" />
@@ -518,7 +518,7 @@ export function NewMaturitySurveyForm() {
                       ? "Loading overview…"
                       : briefing
                     ? formatBriefingOverviewMeta(
-                        briefingQuestionCount ?? 10,
+                        briefingQuestionCount ?? RISK_PILLARS.length,
                         briefing.frameworkLabels.length
                       )
                     : "Review coverage & rating guide"

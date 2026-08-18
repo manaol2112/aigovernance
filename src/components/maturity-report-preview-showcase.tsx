@@ -16,6 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { MountReveal, Parallax, usePrefersReducedMotion } from "@/components/maturity-landing-motion";
 
+import { RISK_PILLARS } from "@/lib/risk-pillars";
+
+const BASELINE_PILLAR_COUNT = RISK_PILLARS.length;
 const CYCLE_MS = 4800;
 
 type SlideId = "score" | "heatmap" | "gaps" | "roadmap" | "frameworks" | "executive";
@@ -42,29 +45,30 @@ const HEATMAP_PILLARS: {
   weakest?: boolean;
 }[] = [
   { short: "Gov", pct: 72, tone: "emerald" },
-  { short: "Fair", pct: 41, tone: "amber" },
-  { short: "Priv", pct: 58, tone: "amber" },
-  { short: "Safe", pct: 63, tone: "emerald" },
-  { short: "Sec", pct: 38, tone: "red", weakest: true },
-  { short: "Trans", pct: 55, tone: "amber" },
-  { short: "Hum", pct: 67, tone: "emerald" },
   { short: "Comp", pct: 61, tone: "emerald" },
-  { short: "3rd", pct: 44, tone: "amber" },
+  { short: "Safe", pct: 63, tone: "emerald" },
+  { short: "Hum", pct: 67, tone: "emerald" },
   { short: "Sys", pct: 49, tone: "amber" },
+  { short: "3rd", pct: 44, tone: "amber" },
+  { short: "Trans", pct: 55, tone: "amber" },
+  { short: "Fair", pct: 41, tone: "amber", weakest: true },
+  { short: "Priv", pct: 58, tone: "amber" },
+  { short: "Work", pct: 52, tone: "amber" },
+  { short: "Fin", pct: 46, tone: "amber" },
 ];
 
 const GAP_ITEMS = [
   {
     severity: "critical" as const,
-    pillar: "Security",
-    code: "SEC-004",
-    title: "No adversarial testing or red-team program",
-  },
-  {
-    severity: "critical" as const,
     pillar: "Fairness",
     code: "FAI-002",
     title: "Bias monitoring not operational in production",
+  },
+  {
+    severity: "critical" as const,
+    pillar: "Workforce",
+    code: "WRK-001",
+    title: "No role-based AI competency requirements or training program",
   },
   {
     severity: "high" as const,
@@ -186,7 +190,7 @@ function ScoreSlide({ active }: { active: boolean }) {
         ))}
       </div>
       <p className="mt-3 text-center text-[10px] text-slate-500">
-        Weighted across 10 governance pillars
+        Weighted across {BASELINE_PILLAR_COUNT} governance pillars
       </p>
     </div>
   );
@@ -196,7 +200,7 @@ function HeatmapSlide({ active }: { active: boolean }) {
   return (
     <div>
       <p className="mb-3 text-center text-[10px] font-medium uppercase tracking-widest text-slate-500">
-        10-pillar maturity heatmap
+        {BASELINE_PILLAR_COUNT}-pillar maturity heatmap
       </p>
       <div className="grid grid-cols-5 gap-1.5">
         {HEATMAP_PILLARS.map((p, i) => (

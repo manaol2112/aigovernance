@@ -1,0 +1,45 @@
+---
+description: Maturity survey wizard invariants — prevent navigation/workflow regressions
+globs:
+  - src/components/maturity-survey-wizard.tsx
+  - src/lib/maturity-survey-progress.ts
+  - src/lib/maturity-survey-wizard-state.ts
+  - src/lib/maturity-survey-continue.ts
+  - src/app/(admin)/maturity-assessment/**/*.tsx
+alwaysApply: false
+---
+
+# Maturity survey wizard — do not break these invariants
+
+## Stable step list (critical)
+
+The wizard **must render `progress.steps`**, not `navigationSteps`.
+
+- `steps` = full catalog order; length is fixed for the session
+- `navigationSteps` = unanswered-only; **shrinks when the user answers**
+- Using `navigationSteps` for cards, dots, or `stepIndex` causes questions to jump, skip, or repeat
+
+Shared helpers live in `src/lib/maturity-survey-wizard-state.ts`. Use them instead of duplicating logic in the component.
+
+## Deep dive baseline
+
+Baseline (quick-scan) controls are removed **in the catalog** via `prepareWizardCatalog()` before the wizard mounts — not hidden at render time.
+
+When creating a deep dive, call `countWizardFollowUpQuestions()` and reject starts with zero follow-ups.
+
+## Step index
+
+- Advance only on explicit **Next** / dot / Back — not when a response is saved
+- Resume via `resolveInitialWizardStepIndex()` (first unanswered step)
+- Persist `currentStepIndex` as a **catalog index** into `steps`, not `navigationSteps`
+
+## Tests required
+
+After changes to wizard/progress/continue logic:
+
+```bash
+npm test -- src/lib/maturity-survey-wizard-state.test.ts src/lib/maturity-survey-progress.test.ts
+npm test
+```
+
+Add regression tests if you introduce new modes, catalog filtering, or step navigation.

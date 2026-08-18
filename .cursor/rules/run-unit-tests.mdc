@@ -1,0 +1,37 @@
+---
+description: Run unit tests after code changes and before finishing tasks
+alwaysApply: true
+---
+
+# Unit tests required
+
+This project uses **Vitest**. Tests live in `src/**/*.test.ts`.
+
+## When to run
+
+After **any** code change (features, fixes, refactors), before marking work complete:
+
+```bash
+npm test
+```
+
+Also run when the user asks a question that involves verifying behavior, reviewing for bugs, or shipping changes.
+
+## If tests fail
+
+1. Fix the code or update tests if behavior intentionally changed.
+2. Re-run `npm test` until green.
+3. Do not tell the user the task is done while tests are failing.
+
+## Adding tests
+
+When changing logic in `src/lib/**`, add or extend colocated `*.test.ts` files for non-trivial behavior (survey progress, pillar mapping, catalog coverage, reporting).
+
+## Related checks
+
+For larger changes, also run:
+
+```bash
+npx tsc --noEmit
+npm run build
+```
