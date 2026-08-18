@@ -35,7 +35,7 @@ export function isStepComplete(
 }
 
 export function buildSurveyResponsesByStepKey(
-  responses: SurveyResponseLike[]
+  responses: readonly SurveyResponseLike[]
 ): Map<string, SurveyResponseLike> {
   return new Map(
     responses.map((response) => [
@@ -74,7 +74,7 @@ export function resolveNavigationStepIndex(
 
 export function computeSurveyProgress(
   catalog: SurveyPillarGroup[],
-  responses: SurveyResponseLike[],
+  responses: readonly SurveyResponseLike[],
   options?: { carriedForwardControlIds?: ReadonlySet<string> }
 ): {
   steps: SurveyStep[];

@@ -43,7 +43,7 @@ const WIZARD_STEPS = [
 type WizardStepId = (typeof WIZARD_STEPS)[number]["id"];
 
 const INPUT_CLASS =
-  "mt-2 w-full rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-500/10";
+  "mt-2 w-full rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-[var(--theme-brand)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--theme-brand)_10%,transparent)]";
 
 const SECTION_CARD =
   "overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]";
@@ -127,7 +127,7 @@ export function NewGuidedWorkshopForm() {
   const stepIndex = WIZARD_STEPS.findIndex((s) => s.id === step);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-violet-50/30">
+    <div className="bg-gradient-to-b from-slate-50 via-white to-[var(--theme-brand-muted)]/30 pb-16">
       <div className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-4 sm:px-6">
           <Link
@@ -138,7 +138,7 @@ export function NewGuidedWorkshopForm() {
             Back
           </Link>
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-violet-600" />
+            <Users className="h-4 w-4 text-theme-brand" />
             <span className="text-sm font-semibold text-slate-900">New guided workshop</span>
           </div>
         </div>
@@ -146,7 +146,7 @@ export function NewGuidedWorkshopForm() {
 
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <div className="mb-8 text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-600">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-theme-brand">
             Facilitator setup
           </p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
@@ -180,8 +180,8 @@ export function NewGuidedWorkshopForm() {
         >
           {step === "client" && (
             <div className={SECTION_CARD}>
-              <div className="flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r from-violet-50/80 to-white px-6 py-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+              <div className="flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r from-[var(--theme-brand-muted)]/80 to-white px-6 py-5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-theme-brand-muted text-theme-brand">
                   <Building2 className="h-5 w-5" />
                 </div>
                 <div>
@@ -222,8 +222,8 @@ export function NewGuidedWorkshopForm() {
 
           {step === "client" && (
             <div className={cn(SECTION_CARD, "mt-6")}>
-              <div className="flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/80 to-white px-6 py-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <div className="flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r from-[var(--theme-brand-muted)]/80 to-white px-6 py-5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-theme-brand-muted text-theme-brand">
                   <UserCircle2 className="h-5 w-5" />
                 </div>
                 <div>
@@ -298,7 +298,7 @@ export function NewGuidedWorkshopForm() {
                         "group relative flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition-all",
                         selected
                           ? "border-slate-900 bg-slate-900 text-white shadow-lg"
-                          : "border-slate-200 bg-white hover:border-violet-200 hover:shadow-md"
+                          : "border-slate-200 bg-white hover:border-[var(--theme-brand-ring)] hover:shadow-md"
                       )}
                     >
                       <span className={cn("absolute left-0 top-4 bottom-4 w-1 rounded-full", color)} />
@@ -322,7 +322,7 @@ export function NewGuidedWorkshopForm() {
                         )}
                       </div>
                       {!selected && (
-                        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 group-hover:text-violet-400" />
+                        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 group-hover:text-theme-brand" />
                       )}
                     </button>
                   );
@@ -333,7 +333,7 @@ export function NewGuidedWorkshopForm() {
 
           {step === "confirm" && (
             <div className={SECTION_CARD}>
-              <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/80 to-white px-6 py-5">
+              <div className="border-b border-slate-100 bg-gradient-to-r from-[var(--theme-brand-muted)]/80 to-white px-6 py-5">
                 <h2 className="text-base font-bold text-slate-900">Ready to facilitate</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Deep-dive control questions across all 11 pillars · weighted maturity scoring
@@ -359,7 +359,7 @@ export function NewGuidedWorkshopForm() {
                     {frameworkCodes.map((code) => (
                       <span
                         key={code}
-                        className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-800"
+                        className="rounded-full bg-theme-brand-muted px-3 py-1 text-xs font-semibold text-[var(--theme-brand-hover)]"
                       >
                         {ALL_FRAMEWORKS.find((f) => f.code === code)?.name ?? code}
                       </span>
@@ -382,11 +382,7 @@ export function NewGuidedWorkshopForm() {
             ) : (
               <div />
             )}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-violet-600 hover:bg-violet-700"
-            >
+            <Button type="submit" disabled={loading}>
               {loading ? (
                 "Creating…"
               ) : step === "confirm" ? (

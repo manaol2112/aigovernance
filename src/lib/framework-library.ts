@@ -53,3 +53,24 @@ export function getFrameworkScope(code: string) {
 export function getFrameworkShortLabel(code: string): string {
   return FRAMEWORK_COLUMNS.find((item) => item.code === code)?.short ?? code;
 }
+
+const FRAMEWORK_ORDER = new Map<string, number>(
+  FRAMEWORK_COLUMNS.map((fw, index) => [fw.code, index])
+);
+
+/** Canonical display order so tags do not shuffle between controls. */
+export function sortFrameworkCodes(codes: string[]): string[] {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const code of codes) {
+    if (seen.has(code)) continue;
+    seen.add(code);
+    unique.push(code);
+  }
+  return unique.sort((a, b) => {
+    const aRank = FRAMEWORK_ORDER.get(a) ?? Number.MAX_SAFE_INTEGER;
+    const bRank = FRAMEWORK_ORDER.get(b) ?? Number.MAX_SAFE_INTEGER;
+    if (aRank !== bRank) return aRank - bRank;
+    return a.localeCompare(b);
+  });
+}

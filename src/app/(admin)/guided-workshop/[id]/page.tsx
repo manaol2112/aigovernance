@@ -24,6 +24,7 @@ export default async function GuidedWorkshopSessionPage({ params }: PageProps) {
 
     return (
       <GuidedWorkshopWizard
+        key={bundle.workshop.id}
         initial={{
           workshop: {
             ...bundle.workshop,

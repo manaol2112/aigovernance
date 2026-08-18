@@ -24,10 +24,7 @@ export default async function GuidedWorkshopResultsPage({ params }: PageProps) {
     }
 
     return (
-      <GuidedWorkshopResults
-        workshopId={id}
-        report={bundle.report as GuidedWorkshopReport}
-      />
+      <GuidedWorkshopResults report={bundle.report as GuidedWorkshopReport} />
     );
   } catch (error) {
     if (isGuidedWorkshopDbError(error)) {

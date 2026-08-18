@@ -2,7 +2,7 @@ import type { MaturityLevel } from "@prisma/client";
 import type { PillarMaturityRecord } from "@/lib/control-review-reports";
 import { getFrameworkShortLabel } from "@/lib/framework-library";
 import {
-  MATURITY_LABELS,
+  MATURITY_LEVEL_GUIDANCE,
   MATURITY_SCORE,
 } from "@/lib/maturity-survey-constants";
 import {
@@ -18,7 +18,150 @@ import {
   weightPctToMaturityBand,
   type WorkshopAnswerOption,
 } from "@/lib/guided-workshop-scoring";
-import { getPillarCriticalQuestion } from "@/lib/maturity-survey-quick-questions";
+function buildPillarInsight(pillar: PillarMaturityRecord): string {
+  const segments: string[] = [];
+  if (pillar.alignedCount > 0) {
+    segments.push(`${pillar.alignedCount} at Managed or Optimized`);
+  }
+  if (pillar.partialCount > 0) {
+    segments.push(`${pillar.partialCount} at Developing or Defined`);
+  }
+  if (pillar.gapCount > 0) {
+    segments.push(`${pillar.gapCount} at Initial or Not Implemented`);
+  }
+  const mix = segments.length > 0 ? segments.join(" · ") : "see rated controls below";
+  return `${pillar.reviewedControls} control${pillar.reviewedControls === 1 ? "" : "s"} rated in this pillar — ${mix}.`;
+}
+
+const LEADERSHIP_BRIEF_LIMIT = 3;
+
+export type LeadershipPriority = {
+  controlCode: string;
+  controlTitle: string;
+  pillarLabel: string;
+  maturityLabel: string;
+  severity: MaturitySurveyReport["gaps"][number]["severity"];
+  summary: string;
+};
+
+export type LeadershipAsk = {
+  controlCode: string;
+  controlTitle: string;
+  pillarLabel: string;
+  action: string;
+  ownerHint: string;
+  phase: "immediate" | "short_term" | "medium_term";
+  phaseLabel: string;
+};
+
+/** Strengths only when rated controls exist at Managed or Optimized — no filler copy. */
+export function buildFactualStrengths(
+  pillarScorecard: Array<PillarMaturityRecord & { band: ReturnType<typeof weightPctToMaturityBand> }>
+): string[] {
+  return pillarScorecard
+    .filter((p) => p.alignedCount > 0)
+    .sort((a, b) => b.alignmentPct - a.alignmentPct)
+    .slice(0, 3)
+    .map(
+      (p) =>
+        `${p.pillarLabel}: ${p.alignedCount} of ${p.reviewedControls} rated control${p.reviewedControls === 1 ? "" : "s"} at Managed or Optimized`
+    );
+}
+
+export function selectLeadershipPriorities(
+  gaps: MaturitySurveyReport["gaps"]
+): LeadershipPriority[] {
+  return gaps.slice(0, LEADERSHIP_BRIEF_LIMIT).map((gap) => ({
+    controlCode: gap.controlCode,
+    controlTitle: gap.controlTitle,
+    pillarLabel: gap.pillarLabel,
+    maturityLabel: gap.maturityLabel,
+    severity: gap.severity,
+    summary: gap.summary,
+  }));
+}
+
+export function selectLeadershipAsks(
+  roadmap: MaturitySurveyReport["roadmap"]
+): LeadershipAsk[] {
+  const immediate = roadmap.filter((step) => step.phase === "immediate");
+  const source = immediate.length > 0 ? immediate : roadmap;
+  return source.slice(0, LEADERSHIP_BRIEF_LIMIT).map((step) => ({
+    controlCode: step.controlCode,
+    controlTitle: step.controlTitle,
+    pillarLabel: step.pillarLabel,
+    action: step.action,
+    ownerHint: step.ownerHint,
+    phase: step.phase,
+    phaseLabel: step.phaseLabel,
+  }));
+}
+
+export function buildFactualVerdictHeadline(input: {
+  overallMaturity: MaturityLevel;
+  criticalGapCount: number;
+  gapCount: number;
+  weakestPillar?: { pillarLabel: string; gapCount: number };
+}): string {
+  if (input.criticalGapCount > 0 && input.weakestPillar) {
+    return `${input.weakestPillar.pillarLabel} needs executive ownership this quarter`;
+  }
+  if (input.gapCount > 0) {
+    return MATURITY_LEVEL_GUIDANCE[input.overallMaturity].headline;
+  }
+  return "Rated controls already operate at Managed maturity or above";
+}
+
+/** Translates the rated maturity band into what it means operationally — no invented risk language. */
+export function buildExecutiveImplication(input: {
+  org: string;
+  overallMaturity: MaturityLevel;
+  weakestPillar?: { pillarLabel: string; gapCount: number; maturityLabel: string };
+  gapCount: number;
+  immediateAskCount: number;
+}): string {
+  const guidance = MATURITY_LEVEL_GUIDANCE[input.overallMaturity];
+  const parts = [
+    `${input.org} is at ${guidance.label} maturity: ${guidance.description}`,
+  ];
+
+  if (input.weakestPillar && input.weakestPillar.gapCount > 0) {
+    parts.push(
+      `Risk concentrates in ${input.weakestPillar.pillarLabel} (${input.weakestPillar.maturityLabel} pillar average), where ${input.weakestPillar.gapCount} rated control${input.weakestPillar.gapCount === 1 ? "" : "s"} sit at Initial or Not Implemented.`
+    );
+  } else if (input.gapCount > 0) {
+    parts.push(
+      `${input.gapCount} rated control${input.gapCount === 1 ? "" : "s"} sit below Managed maturity.`
+    );
+  } else {
+    parts.push("No rated control currently sits below Managed.");
+  }
+
+  if (input.immediateAskCount > 0) {
+    parts.push(
+      `The ${input.immediateAskCount} action${input.immediateAskCount === 1 ? "" : "s"} below are the 90-day asks tied to those ratings.`
+    );
+  }
+
+  return parts.join(" ");
+}
+
+function buildWorkshopNarrative(
+  org: string,
+  maturityReport: MaturitySurveyReport,
+  frameworkLabels: string[],
+  weakestPillar?: { pillarLabel: string }
+): string {
+  const guidance = MATURITY_LEVEL_GUIDANCE[maturityReport.overallMaturity];
+  const frameworkPhrase =
+    frameworkLabels.length > 0 ? frameworkLabels.join(", ") : "leading AI governance frameworks";
+  const focus =
+    weakestPillar && maturityReport.gaps.length > 0
+      ? ` The concentration of rated-control gaps is ${weakestPillar.pillarLabel}.`
+      : "";
+
+  return `${org} is at ${guidance.label} AI governance maturity — ${guidance.headline.toLowerCase()}.${focus} Scores and gaps are computed from workshop selections and mapped to ${frameworkPhrase}.`;
+}
 
 export type GuidedWorkshopReport = {
   generatedAt: string;
@@ -47,15 +190,33 @@ export type GuidedWorkshopReport = {
   executiveSummary: {
     headline: string;
     narrative: string;
+    verdictHeadline: string;
+    /** What the rated maturity band means operationally. */
+    implication: string;
+    /** Top rated-control gaps leadership should know by name. */
+    leadershipPriorities: LeadershipPriority[];
+    /** Immediate (or next-available) actions tied to those ratings. */
+    leadershipAsks: LeadershipAsk[];
+    asksHorizon: "90 days" | "3–6 months" | "6–12 months" | null;
+    /** Non-empty only when rated controls exist at Managed or Optimized. */
     strengths: string[];
-    priorityAreas: string[];
-    clientTalkingPoints: string[];
+    nextMilestone: {
+      label: string | null;
+      headline: string | null;
+      pathForward: string | null;
+    };
+  };
+  scope: {
+    controlsRated: number;
+    pillarsRated: number;
+    methodologyNote: string;
   };
   pillarScorecard: Array<
     PillarMaturityRecord & {
       band: ReturnType<typeof weightPctToMaturityBand>;
-      criticalQuestion: string;
       controlCount: number;
+      /** Client-facing one-line interpretation of this pillar's posture. */
+      insight: string;
     }
   >;
   controlFindings: Array<
@@ -78,6 +239,7 @@ export function buildGuidedWorkshopReport(input: {
   clientContactRole?: string | null;
   frameworkCodes: string[];
   catalog: SurveyPillarGroup[];
+  generatedAt?: string;
   responses: Array<{
     controlId: string;
     pillarId: string;
@@ -115,46 +277,66 @@ export function buildGuidedWorkshopReport(input: {
     band: weightPctToMaturityBand(maturityToWeightPct(control.maturity)),
   }));
 
-  const pillarScorecard = maturityReport.pillarMaturity.map((pillar) => {
-    const criticalQuestion = getPillarCriticalQuestion(pillar.pillarId);
-    const controlCount = input.catalog.find((g) => g.pillarId === pillar.pillarId)?.controls.length ?? 0;
-    return {
-      ...pillar,
-      band: weightPctToMaturityBand(pillar.alignmentPct),
-      criticalQuestion: criticalQuestion.prompt,
-      controlCount,
-    };
+  const pillarScorecard = maturityReport.pillarMaturity
+    .filter((pillar) => pillar.reviewedControls > 0)
+    .map((pillar) => {
+      const band = weightPctToMaturityBand(pillar.alignmentPct);
+      const controlCount =
+        input.catalog.find((g) => g.pillarId === pillar.pillarId)?.controls.length ?? 0;
+      return {
+        ...pillar,
+        band,
+        controlCount,
+        insight: buildPillarInsight(pillar),
+      };
+    });
+
+  const strengths = buildFactualStrengths(pillarScorecard);
+  const pillarsAssessed = pillarScorecard.length;
+  const criticalGapCount = maturityReport.gaps.filter((g) => g.severity === "critical").length;
+  const weakestPillar = [...pillarScorecard].sort((a, b) => a.alignmentPct - b.alignmentPct)[0];
+  const leadershipPriorities = selectLeadershipPriorities(maturityReport.gaps);
+  const leadershipAsks = selectLeadershipAsks(maturityReport.roadmap);
+  const asksHorizon =
+    leadershipAsks[0]?.phase === "immediate"
+      ? "90 days"
+      : leadershipAsks[0]?.phase === "short_term"
+        ? "3–6 months"
+        : leadershipAsks[0]?.phase === "medium_term"
+          ? "6–12 months"
+          : null;
+
+  const weakestForBrief =
+    weakestPillar && weakestPillar.gapCount > 0
+      ? {
+          pillarLabel: weakestPillar.pillarLabel,
+          gapCount: weakestPillar.gapCount,
+          maturityLabel: weakestPillar.maturityLabel,
+        }
+      : undefined;
+
+  const verdictHeadline = buildFactualVerdictHeadline({
+    overallMaturity: maturityReport.overallMaturity,
+    criticalGapCount,
+    gapCount: maturityReport.gaps.length,
+    weakestPillar: weakestForBrief,
   });
 
-  const strongPillars = pillarScorecard.filter((p) => p.band === "strong");
-  const criticalPillars = pillarScorecard.filter((p) => p.band === "critical");
+  const implication = buildExecutiveImplication({
+    org,
+    overallMaturity: maturityReport.overallMaturity,
+    weakestPillar: weakestForBrief,
+    gapCount: maturityReport.gaps.length,
+    immediateAskCount: maturityReport.roadmapByPhase.immediate.length,
+  });
 
-  const strengths =
-    strongPillars.length > 0
-      ? strongPillars.slice(0, 3).map((p) => `${p.pillarLabel} (${p.alignmentPct}% weighted score)`)
-      : ["Workshop established a baseline across all eleven governance pillars."];
+  const scopeNote = `This report covers ${maturityReport.answeredCount} control${maturityReport.answeredCount === 1 ? "" : "s"} rated in your workshop across ${pillarsAssessed} pillar${pillarsAssessed === 1 ? "" : "s"}. Unrated pillars and controls are excluded.`;
 
-  const priorityAreas =
-    criticalPillars.length > 0
-      ? criticalPillars.slice(0, 4).map((p) => `${p.pillarLabel} — ${p.gapCount} control gap${p.gapCount === 1 ? "" : "s"}`)
-      : pillarScorecard
-          .filter((p) => p.band !== "strong")
-          .slice(0, 4)
-          .map((p) => `${p.pillarLabel} (${p.alignmentPct}% — room to advance toward managed practice)`);
-
-  const clientTalkingPoints = [
-    `Each control was rated on a six-level maturity scale mapped to a 0–100% weight. Your organization's overall weighted score is ${maturityReport.overallScorePct}%.`,
-    `Scores reflect ${maturityReport.answeredCount} framework-mapped controls discussed during the facilitated session — not AI-generated estimates.`,
-    strongPillars.length > 0
-      ? `Leading areas: ${strongPillars.map((p) => p.pillarLabel).join(", ")}.`
-      : "No pillar yet reaches the 'strong' band (67%+ weighted average) — investment in foundational controls will yield the highest return.",
-    criticalPillars.length > 0
-      ? `Immediate attention: ${criticalPillars.map((p) => p.pillarLabel).join(", ")}.`
-      : "Focus next on elevating partial-maturity controls toward documented, managed practice.",
-  ];
+  const nextTarget = maturityReport.nextMaturityTarget;
+  const nextTargetGuidance = nextTarget ? MATURITY_LEVEL_GUIDANCE[nextTarget] : null;
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: input.generatedAt ?? new Date().toISOString(),
     workshopTitle: input.workshopTitle,
     organizationName: input.organizationName,
     clientIndustry: input.clientIndustry ?? null,
@@ -172,25 +354,40 @@ export function buildGuidedWorkshopReport(input: {
     totalQuestions: maturityReport.totalQuestions,
     completionPct: maturityReport.completionPct,
     weightMethodology: {
-      title: "How we scored your workshop",
-      summary: `${org} rated each in-scope control by selecting one weighted statement that best describes current capability. Every selection carries a defined weight so results are transparent and defensible in board or regulator discussions.`,
+      title: "How your maturity was measured",
+      summary: `Each control was rated against a six-level maturity scale during your workshop. Every rating maps to a transparent weight (0–100%) so results are defensible in board, audit, and regulatory discussions — reflecting your organization's consensus, not automated scoring.`,
       formula:
-        "Pillar score = average weight of all rated controls in that pillar. Overall score = criticality-weighted average across pillars (same weighting as the maturity assessment engine).",
+        "Pillar score = average weight of all rated controls in that pillar. Overall score = criticality-weighted average across pillars, reflecting each domain's importance to enterprise AI risk.",
       answerOptions: getWorkshopAnswerOptions(),
     },
     executiveSummary: {
-      headline: `${org} — Guided workshop results (${maturityReport.overallScorePct}% overall)`,
-      narrative: maturityReport.executiveSummary.narrative.replace(
-        /You assessed/g,
-        "During the facilitated workshop, your team assessed"
+      headline: `${org} — AI governance assessment`,
+      narrative: buildWorkshopNarrative(
+        org,
+        maturityReport,
+        frameworkLabels,
+        weakestForBrief
       ),
+      verdictHeadline,
+      implication,
+      leadershipPriorities,
+      leadershipAsks,
+      asksHorizon,
       strengths,
-      priorityAreas,
-      clientTalkingPoints,
+      nextMilestone: {
+        label: maturityReport.nextMaturityTargetLabel,
+        headline: nextTargetGuidance?.headline ?? null,
+        pathForward: nextTargetGuidance?.goodLooksLike ?? null,
+      },
     },
     pillarScorecard,
     controlFindings,
     maturityReport,
+    scope: {
+      controlsRated: maturityReport.answeredCount,
+      pillarsRated: pillarsAssessed,
+      methodologyNote: scopeNote,
+    },
   };
 }
 

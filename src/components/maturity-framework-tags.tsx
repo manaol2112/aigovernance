@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { sortFrameworkCodes } from "@/lib/framework-library";
 import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +25,9 @@ export function MaturityFrameworkTags({
 }) {
   if (frameworkCodes.length === 0) return null;
 
-  const visible = frameworkCodes.slice(0, max);
-  const overflow = frameworkCodes.length - visible.length;
+  const ordered = sortFrameworkCodes(frameworkCodes);
+  const visible = ordered.slice(0, max);
+  const overflow = ordered.length - visible.length;
 
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>

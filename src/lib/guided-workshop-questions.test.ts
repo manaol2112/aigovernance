@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildGuidedWorkshopQuestion,
   controlCapabilityPhrase,
+  getWorkshopPrompt,
+  getWorkshopSelectedStatement,
 } from "@/lib/guided-workshop-questions";
 import type { SurveyControlItem } from "@/lib/maturity-survey-types";
 
@@ -34,9 +36,18 @@ describe("guided-workshop-questions", () => {
     expect(q.frameworkLabels).toEqual(["ISO 42001", "NIST"]);
   });
 
-  it("does not use open-ended facilitation prompts", () => {
+  it("uses client-facing discussion guide copy", () => {
     const q = buildGuidedWorkshopQuestion(sampleControl, "Governance");
-    expect(q.facilitationTip).toMatch(/selects the single statement/i);
-    expect(q.facilitationTip).not.toMatch(/describe current state/i);
+    expect(q.facilitationTip).toMatch(/Review the statements below together/i);
+    expect(q.facilitationTip).not.toMatch(/do not accept narrative/i);
+  });
+
+  it("rebuilds the workshop prompt and selected statement for results", () => {
+    expect(getWorkshopPrompt(sampleControl.title)).toMatch(
+      /Which statement best describes your organisation's current capability for an ai risk register\?/
+    );
+    expect(getWorkshopSelectedStatement(sampleControl.title, "initial")).toMatch(
+      /informally or reactively/i
+    );
   });
 });

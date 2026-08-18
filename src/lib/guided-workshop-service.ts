@@ -2,7 +2,6 @@ import { prisma, assertGuidedWorkshopPrismaReady, PrismaNotReadyError } from "@/
 import { buildMaturitySurveyCatalog } from "@/lib/maturity-survey-catalog-server";
 import {
   buildGuidedWorkshopReport,
-  type GuidedWorkshopReport,
 } from "@/lib/guided-workshop-analysis";
 import { countSurveyQuestions } from "@/lib/maturity-survey-types";
 
@@ -18,26 +17,24 @@ export async function loadGuidedWorkshopBundle(workshopId: string) {
   if (!workshop) return null;
 
   const catalog = await buildMaturitySurveyCatalog(workshop.frameworkCodes, "deep_dive");
-  const report =
-    workshop.status === "completed" && workshop.reportCache
-      ? (workshop.reportCache as GuidedWorkshopReport)
-      : buildGuidedWorkshopReport({
-          workshopTitle: workshop.title,
-          organizationName: workshop.organizationName ?? "",
-          clientIndustry: workshop.clientIndustry,
-          facilitatorName: workshop.facilitatorName,
-          facilitatorRole: workshop.facilitatorRole,
-          clientContactName: workshop.clientContactName,
-          clientContactRole: workshop.clientContactRole,
-          frameworkCodes: workshop.frameworkCodes,
-          catalog,
-          responses: workshop.responses.map((r) => ({
-            controlId: r.controlId,
-            pillarId: r.pillarId,
-            maturity: r.maturity,
-            facilitatorNotes: r.facilitatorNotes,
-          })),
-        });
+  const report = buildGuidedWorkshopReport({
+    workshopTitle: workshop.title,
+    organizationName: workshop.organizationName ?? "",
+    clientIndustry: workshop.clientIndustry,
+    facilitatorName: workshop.facilitatorName,
+    facilitatorRole: workshop.facilitatorRole,
+    clientContactName: workshop.clientContactName,
+    clientContactRole: workshop.clientContactRole,
+    frameworkCodes: workshop.frameworkCodes,
+    generatedAt: (workshop.submittedAt ?? workshop.updatedAt).toISOString(),
+    catalog,
+    responses: workshop.responses.map((r) => ({
+      controlId: r.controlId,
+      pillarId: r.pillarId,
+      maturity: r.maturity,
+      facilitatorNotes: r.facilitatorNotes,
+    })),
+  });
 
   return { workshop, catalog, report };
 }

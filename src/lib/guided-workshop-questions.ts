@@ -63,6 +63,19 @@ function buildAnswerStatement(control: SurveyControlItem, level: MaturityLevel):
   return STATEMENT_TEMPLATES[level](capability);
 }
 
+export function getWorkshopPrompt(controlTitle: string): string {
+  const capability = controlCapabilityPhrase(controlTitle);
+  return `Which statement best describes your organisation's current capability for ${capability}?`;
+}
+
+/** Exact multiple-choice statement the client selected for this control in the workshop. */
+export function getWorkshopSelectedStatement(
+  controlTitle: string,
+  maturity: MaturityLevel
+): string {
+  return buildAnswerStatement({ title: controlTitle } as SurveyControlItem, maturity);
+}
+
 export function buildGuidedWorkshopQuestion(
   control: SurveyControlItem,
   pillarLabel: string
@@ -89,7 +102,7 @@ export function buildGuidedWorkshopQuestion(
     requirementContext: control.description.trim(),
     frameworkLabels,
     ownerRole: control.ownerRole?.trim() || null,
-    facilitationTip: `Read each weighted option aloud in the ${pillarLabel} section. The client selects the single statement that best matches their current state — do not accept narrative answers; map discussion to the closest weighted option.${frameworkNote}`,
+    facilitationTip: `Review the statements below together and agree on the single option that best reflects your organisation's current practice for this control.${frameworkNote} If your situation sits between two levels, choose the lower rating until evidence supports the higher one.`,
     answerOptions,
   };
 }

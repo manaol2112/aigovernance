@@ -27,7 +27,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const { id } = await params;
   assertGuidedWorkshopPrismaReady();
   const body = await request.json();
-  const { action, currentStepIndex } = body;
+  const { action, currentStepIndex } = body as {
+    action?: string;
+    currentStepIndex?: number;
+  };
 
   const workshop = await prisma.guidedWorkshop.findUnique({ where: { id } });
   if (!workshop) {
@@ -85,10 +88,17 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ workshop: updated, report });
   }
 
-  if (typeof currentStepIndex === "number") {
+  if (action === "save" || typeof currentStepIndex === "number") {
+    const data: { currentStepIndex?: number; status?: "in_progress" } = {};
+    if (typeof currentStepIndex === "number") {
+      data.currentStepIndex = Math.max(0, Math.floor(currentStepIndex));
+    }
+    if (workshop.status === "draft") {
+      data.status = "in_progress";
+    }
     const updated = await prisma.guidedWorkshop.update({
       where: { id },
-      data: { currentStepIndex },
+      data,
     });
     return NextResponse.json(updated);
   }

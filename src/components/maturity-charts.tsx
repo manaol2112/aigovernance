@@ -3,6 +3,7 @@
 import type { ControlReviewReportData, PillarMaturityRecord } from "@/lib/control-review-reports";
 import { MATURITY_LABELS } from "@/lib/maturity-survey-constants";
 import type { MaturityLevel } from "@prisma/client";
+import { cn } from "@/lib/utils";
 
 const COMPLIANCE = {
   aligned: "#059669",
@@ -66,20 +67,31 @@ function pillarsAtOrAbove(pillars: PillarMaturityRecord[], minPct: number): numb
   return pillars.filter((p) => p.reviewedControls > 0 && p.alignmentPct >= minPct).length;
 }
 
-/** NIST AI RMF / ISO-style spider chart — alignment % and review coverage overlay per pillar. */
+/** Spider chart — pillar alignment and how much of each pillar was rated in the workshop. */
 export function PillarMaturityRadarChart({
   pillars,
+  accent = "indigo",
 }: {
   pillars: PillarMaturityRecord[];
+  /** `brand` uses Deloitte green accents for workshop client reports. */
+  accent?: "indigo" | "brand";
 }) {
   const active = pillars.filter((p) => p.reviewedControls > 0);
   if (active.length < 3) {
     return (
       <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-sm text-slate-500">
-        Sign off controls in at least three pillars to render the maturity web.
+        Rate controls in at least three pillars to render the maturity web.
       </div>
     );
   }
+
+  const isBrand = accent === "brand";
+  const fillColor = isBrand ? "rgba(134,188,37,0.32)" : "rgba(99,102,241,0.35)";
+  const strokeColor = isBrand ? "#86bc25" : "#818cf8";
+  const labelAccent = isBrand ? "text-[var(--theme-shimmer-from)]" : "text-indigo-300";
+  const shellBg = isBrand
+    ? "border-slate-700/80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
+    : "border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950";
 
   const cx = 200;
   const cy = 200;
@@ -90,22 +102,22 @@ export function PillarMaturityRadarChart({
   const start = -Math.PI / 2;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-4 shadow-lg">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2 px-1">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300">
-            Governance maturity web
-          </p>
-          <p className="text-xs text-slate-400">
-            Solid: control alignment · Dashed: review coverage (signed-off / in scope)
-          </p>
-        </div>
+    <div className={cn("relative overflow-hidden rounded-2xl border p-4 shadow-lg", shellBg)}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
+        <p className={cn("text-[11px] font-semibold uppercase tracking-wider", labelAccent)}>
+          Governance maturity web
+        </p>
         <div className="flex gap-3 text-[10px] text-slate-300">
           <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded bg-indigo-400" /> Alignment
+            <span
+              className="h-0.5 w-4 rounded bg-indigo-400"
+              style={isBrand ? { backgroundColor: strokeColor } : undefined}
+            />
+            Maturity
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded border border-dashed border-emerald-400" /> Coverage
+            <span className="h-0.5 w-4 rounded border border-dashed border-emerald-400" />
+            Rated
           </span>
         </div>
       </div>
@@ -146,8 +158,8 @@ export function PillarMaturityRadarChart({
         />
         <polygon
           points={polygonPoints(cx, cy, maxR, alignment)}
-          fill="rgba(99,102,241,0.35)"
-          stroke="#818cf8"
+          fill={fillColor}
+          stroke={strokeColor}
           strokeWidth={2.5}
         />
         {active.map((p, i) => {

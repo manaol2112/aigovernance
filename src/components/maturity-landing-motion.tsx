@@ -200,10 +200,13 @@ export function MountReveal({
   as?: ElementType;
 }) {
   const reduced = usePrefersReducedMotion();
-  const [ready, setReady] = useState(reduced);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (reduced) return;
+    if (reduced) {
+      setReady(true);
+      return;
+    }
     const id = window.setTimeout(() => setReady(true), 40 + delay);
     return () => window.clearTimeout(id);
   }, [reduced, delay]);
@@ -239,10 +242,13 @@ export function ScrollReveal({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduced = usePrefersReducedMotion();
-  const [visible, setVisible] = useState(reduced);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (reduced) return;
+    if (reduced) {
+      setVisible(true);
+      return;
+    }
     const el = ref.current;
     if (!el) return;
 
@@ -300,11 +306,19 @@ export function ScrollSection({
 }) {
   const scrollY = useScrollY();
   const reduced = usePrefersReducedMotion();
+  const [mounted, setMounted] = useState(false);
   const glowColors = {
     indigo: "rgba(99,102,241,0.12)",
     emerald: "rgba(16,185,129,0.08)",
     none: "transparent",
   };
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const glowTransform =
+    !mounted || reduced ? "translateX(-50%)" : `translate3d(-50%, ${scrollY * 0.04}px, 0)`;
 
   return (
     <section id={id} data-header-theme={headerTheme} className={cn("relative overflow-hidden", className)}>
@@ -314,9 +328,7 @@ export function ScrollSection({
           className="pointer-events-none absolute left-1/2 top-0 h-[480px] w-[min(100%,900px)] -translate-x-1/2 rounded-full blur-3xl"
           style={{
             background: `radial-gradient(ellipse, ${glowColors[glow]}, transparent 70%)`,
-            transform: reduced
-              ? "translateX(-50%)"
-              : `translate3d(-50%, ${scrollY * 0.04}px, 0)`,
+            transform: glowTransform,
           }}
         />
       )}

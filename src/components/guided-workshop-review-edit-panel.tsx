@@ -4,7 +4,10 @@ import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import type { MaturityLevel } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { WorkshopAnswerPicker } from "@/components/guided-workshop-answer-picker";
+import {
+  WorkshopAnswerPicker,
+  WorkshopDiscussionGuide,
+} from "@/components/guided-workshop-answer-picker";
 import { buildGuidedWorkshopQuestion } from "@/lib/guided-workshop-questions";
 import type { SurveyStep } from "@/lib/maturity-survey-types";
 import { getFrameworkShortLabel } from "@/lib/framework-library";
@@ -37,15 +40,15 @@ export function GuidedWorkshopReviewEditPanel({
       <button
         type="button"
         onClick={onBackToReview}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 transition-colors hover:text-violet-800"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-theme-brand transition-colors hover:text-[var(--theme-brand-hover)]"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to review
       </button>
 
-      <div className="mb-5 rounded-2xl border border-violet-200/80 bg-gradient-to-r from-violet-50 to-white px-4 py-4 shadow-sm">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-          Editing weighted answer
+      <div className="mb-5 rounded-2xl border border-slate-200/90 bg-slate-50/50 px-4 py-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          Editing answer
         </p>
         <p className="mt-1 text-sm font-semibold text-slate-900">{step.pillarLabel}</p>
         <p className="mt-1 font-mono text-[10px] text-slate-500">{step.control.code}</p>
@@ -63,12 +66,19 @@ export function GuidedWorkshopReviewEditPanel({
           ))}
         </div>
 
+        <div className="mt-6">
+          <WorkshopDiscussionGuide
+            pillarLabel={step.pillarLabel}
+            facilitationTip={question.facilitationTip}
+            frameworkLabels={question.frameworkLabels}
+          />
+        </div>
+
         <div className="mt-6 border-t border-slate-100 pt-6">
           <WorkshopAnswerPicker
             value={maturity}
             disabled={saving}
             options={question.answerOptions}
-            showMethodology={false}
             onChange={onMaturityChange}
           />
         </div>
@@ -96,7 +106,7 @@ export function GuidedWorkshopReviewEditPanel({
             type="button"
             onClick={onBackToReview}
             disabled={!answered || saving}
-            className="gap-1.5 bg-violet-600 hover:bg-violet-700"
+            className="gap-1.5"
             size="lg"
           >
             Done — back to review
