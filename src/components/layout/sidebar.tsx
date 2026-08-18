@@ -95,7 +95,7 @@ const nav = [
   {
     href: "/guided-workshop",
     label: "Guided Workshop",
-    title: "Facilitator-led client workshop with weighted scoring",
+    title: "Live client workshop with weighted scoring",
     icon: Users,
   },
   {

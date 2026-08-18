@@ -340,12 +340,13 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
 
   function goToStep(index: number) {
     const clamped = Math.max(0, Math.min(index, steps.length - 1));
-    if (clamped === stepIndex) return;
-    setStepIndex(clamped);
+    if (clamped !== stepIndex) {
+      setStepIndex(clamped);
+      void saveStepIndex(clamped);
+    }
     setPhase("questions");
     setReviewEditStepIndex(null);
     setShowSavedHint(false);
-    void saveStepIndex(clamped);
     requestAnimationFrame(() => scrollToWizardTop());
   }
 
@@ -388,24 +389,24 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
   }
 
   return (
-    <div className="bg-gradient-to-b from-slate-50 to-white pb-32">
-      <div className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+    <div className="flex min-h-full flex-col bg-gradient-to-b from-slate-50 to-white">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+        <div className="mx-auto grid h-16 max-w-5xl grid-cols-[1fr_auto] items-center gap-3 px-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:px-6">
           <Link
             href="/guided-workshop"
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+            className="inline-flex items-center gap-2 justify-self-start text-sm font-medium text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
             Workshops
           </Link>
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
-            <div className="hidden min-w-0 text-right sm:block">
-              <p className="truncate text-sm font-semibold text-slate-900">{workshop.title}</p>
-              <p className="flex items-center justify-end gap-1 text-[11px] text-slate-500">
-                <Clock className="h-3 w-3 shrink-0" />
-                Saved {formatDateTime(lastSavedAt)}
-              </p>
-            </div>
+          <div className="hidden min-w-0 max-w-md text-center sm:block">
+            <p className="truncate text-sm font-semibold text-slate-900">{workshop.title}</p>
+            <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] text-slate-500">
+              <Clock className="h-3 w-3 shrink-0" />
+              Saved {formatDateTime(lastSavedAt)}
+            </p>
+          </div>
+          <div className="flex justify-end">
             <Button
               type="button"
               variant="outline"
@@ -419,13 +420,13 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
             </Button>
           </div>
         </div>
-      </div>
+      </header>
 
       <div
         className={cn(
-          "mx-auto max-w-5xl px-4 py-8 sm:px-6",
+          "mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6",
           (phase === "questions" || phase === "pillarSelect" || phase === "pillarComplete") &&
-            "pb-32"
+            "pb-28"
         )}
       >
         <div ref={questionAnchorRef} className="mb-6">
@@ -434,7 +435,7 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
               [
                 ["briefing", "Overview"],
                 ["pillarSelect", "Choose pillar"],
-                ["questions", "Facilitation"],
+                ["questions", "Session"],
                 ["review", "Review & submit"],
               ] as const
             ).map(([p, label], i, arr) => {
@@ -480,7 +481,7 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
           </div>
 
           {phase === "questions" && (
-            <div className="sticky top-0 z-20 -mx-4 bg-gradient-to-b from-slate-50 via-slate-50/95 to-transparent px-4 pb-2 pt-1 sm:-mx-6 sm:px-6">
+            <div className="sticky top-16 z-20 -mx-4 bg-gradient-to-b from-slate-50 via-slate-50/95 to-transparent px-4 pb-2 pt-1 sm:-mx-6 sm:px-6">
               <GuidedWorkshopQuestionChrome
                 steps={steps}
                 stepIndex={stepIndex}
@@ -549,12 +550,7 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
         )}
 
         {phase === "briefing" && (
-          <GuidedWorkshopBriefingPanel
-            briefing={briefing}
-            onBegin={beginWorkshop}
-            onSaveExit={handleSaveAndExit}
-            savingExit={savingExit}
-          />
+          <GuidedWorkshopBriefingPanel briefing={briefing} onBegin={beginWorkshop} />
         )}
 
         {phase === "review" && reviewEditStepIndex === null && (
@@ -648,8 +644,8 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
       </div>
 
       {(phase === "questions" || phase === "pillarSelect" || phase === "pillarComplete") && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/95 px-4 py-4 backdrop-blur-md">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+        <div className="sticky bottom-0 z-30 border-t border-slate-200/80 bg-white/95 backdrop-blur-md">
+          <div className="mx-auto flex h-[4.5rem] max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
             {phase === "pillarComplete" ? (
               <p className="text-sm text-slate-600">
                 Pillar finished — continue when you&apos;re ready.

@@ -10,6 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const isImmersiveReport =
     pathname.startsWith("/maturity-assessment") ||
     pathname.startsWith("/guided-workshop");
+  const isFullBleedMain = isImmersiveReport || pathname === "/";
   const colorTheme = await getColorTheme();
 
   return (
@@ -20,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <main
             className={cn(
               "min-h-0 flex-1",
-              isImmersiveReport ? "overflow-hidden p-0" : "overflow-auto p-8"
+              isFullBleedMain ? "overflow-hidden p-0" : "overflow-auto p-8"
             )}
           >
             {children}

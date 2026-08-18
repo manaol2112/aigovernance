@@ -16,15 +16,9 @@ import { formatOfTotal } from "@/lib/format-unit-count";
 import type { WorkshopPillarSummary } from "@/lib/guided-workshop-wizard-state";
 
 const CRITICALITY_BADGE: Record<string, string> = {
-  critical: "bg-rose-50 text-rose-700 ring-rose-200/80",
-  high: "bg-amber-50 text-amber-800 ring-amber-200/80",
-  medium: "bg-slate-100 text-slate-600 ring-slate-200/80",
-};
-
-const CRITICALITY_ACCENT: Record<string, string> = {
-  critical: "bg-rose-500",
-  high: "bg-amber-500",
-  medium: "bg-slate-400",
+  critical: "bg-slate-100 text-slate-700 ring-slate-200/80",
+  high: "bg-slate-50 text-slate-600 ring-slate-200/80",
+  medium: "text-slate-500 ring-slate-200/70",
 };
 
 type ViewFilter = "todo" | "in_progress" | "not_started" | "complete" | "all";
@@ -73,11 +67,10 @@ function PillarCard({
       )}
     >
       <span
+        aria-hidden
         className={cn(
-          "absolute left-0 top-3 bottom-3 w-1 rounded-full",
-          pillar.isComplete
-            ? "bg-emerald-500"
-            : CRITICALITY_ACCENT[pillar.criticality] ?? CRITICALITY_ACCENT.medium
+          "absolute left-0 top-3 bottom-3 w-1 rounded-full transition-colors",
+          pillar.isComplete ? "bg-theme-brand" : "bg-slate-200 group-hover:bg-theme-brand"
         )}
       />
 
@@ -91,7 +84,7 @@ function PillarCard({
               </span>
             )}
             {inProgress && !featured && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+              <span className="inline-flex items-center gap-1 rounded-full bg-theme-brand-muted px-2 py-0.5 text-[10px] font-semibold text-[var(--theme-brand-hover)]">
                 <PlayCircle className="h-3 w-3" />
                 In progress
               </span>

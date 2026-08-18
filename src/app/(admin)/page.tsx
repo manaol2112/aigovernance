@@ -1,61 +1,31 @@
 import { prisma } from "@/lib/db";
 import { GovernanceDashboard } from "@/components/governance-dashboard";
-import { getMatrixSummary } from "@/lib/risk-control-matrix";
-import { getMissionControlSnapshot } from "@/lib/mission-control";
+import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
 
 export const dynamic = "force-dynamic";
 
-async function getStats() {
-  const [
-    frameworkCount,
-    requirementCount,
-    crosswalkCount,
-    controlCount,
-    riskCount,
-    unmappedNist,
-    assessmentCount,
-  ] = await Promise.all([
-    prisma.framework.count(),
-    prisma.frameworkRequirement.count(),
-    prisma.crosswalkMapping.count(),
-    prisma.canonicalControl.count(),
-    prisma.riskStatement.count(),
-    prisma.frameworkRequirement.count({
-      where: {
-        framework: { code: "NIST-AI-RMF" },
-        requirementType: "subcategory",
-        crosswalkFrom: { none: {} },
-      },
-    }),
-    prisma.assessment.count(),
-  ]);
-  return { frameworkCount, requirementCount, crosswalkCount, controlCount, riskCount, unmappedNist, assessmentCount };
-}
-
 export default async function DashboardPage() {
-  const [stats, matrixSummary, mission, frameworks] = await Promise.all([
-    getStats(),
-    getMatrixSummary(),
-    getMissionControlSnapshot(),
-    prisma.framework.findMany({
-      include: { _count: { select: { requirements: true } } },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  let frameworkCount: number = FRAMEWORK_COLUMNS.length;
+  let controlCount = 0;
+  let requirementCount = 0;
+
+  try {
+    [frameworkCount, controlCount, requirementCount] = await Promise.all([
+      prisma.framework.count(),
+      prisma.canonicalControl.count(),
+      prisma.frameworkRequirement.count(),
+    ]);
+  } catch {
+    // Landing still renders if the catalog is not reachable.
+  }
 
   return (
     <GovernanceDashboard
-      stats={stats}
-      matrixSummary={matrixSummary}
-      mission={mission}
-      frameworks={frameworks.map((framework) => ({
-        id: framework.id,
-        code: framework.code,
-        name: framework.name,
-        version: framework.version,
-        publisher: framework.publisher,
-        requirementCount: framework._count.requirements,
-      }))}
+      proof={{
+        frameworkCount,
+        controlCount,
+        requirementCount,
+      }}
     />
   );
 }

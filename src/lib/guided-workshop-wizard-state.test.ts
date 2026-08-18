@@ -105,6 +105,7 @@ describe("guided-workshop-wizard-state", () => {
 
   it("enters a pillar on the first unanswered control", () => {
     const responses = [{ controlId: "c1", pillarId: "p1", maturity: "initial" as const }];
+    expect(resolvePillarEntryStepIndex(steps, "p1", [])).toBe(0);
     expect(resolvePillarEntryStepIndex(steps, "p1", responses)).toBe(1);
     expect(resolvePillarEntryStepIndex(steps, "p2", responses)).toBe(2);
   });

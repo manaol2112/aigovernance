@@ -2,7 +2,6 @@
 
 import {
   ArrowRight,
-  Bookmark,
   BookOpen,
   CheckCircle2,
   ClipboardList,
@@ -23,24 +22,17 @@ import {
 import { MATURITY_LEVELS, MATURITY_LEVEL_GUIDANCE } from "@/lib/maturity-survey-constants";
 
 const CRITICALITY_BADGE: Record<string, string> = {
-  critical: "bg-rose-50 text-rose-700 ring-rose-200/80",
-  high: "bg-amber-50 text-amber-800 ring-amber-200/80",
-  medium: "bg-slate-100 text-slate-600 ring-slate-200/80",
+  critical: "bg-slate-100 text-slate-700 ring-slate-200/80",
+  high: "bg-slate-50 text-slate-600 ring-slate-200/80",
+  medium: "text-slate-500 ring-slate-200/70",
 };
 
 type Props = {
   briefing: GuidedWorkshopBriefing;
   onBegin: () => void;
-  onSaveExit?: () => void;
-  savingExit?: boolean;
 };
 
-export function GuidedWorkshopBriefingPanel({
-  briefing,
-  onBegin,
-  onSaveExit,
-  savingExit = false,
-}: Props) {
+export function GuidedWorkshopBriefingPanel({ briefing, onBegin }: Props) {
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]">
       <div className="border-b border-slate-900/10 bg-[#0B1220] px-6 py-8 text-white sm:px-8">
@@ -59,7 +51,7 @@ export function GuidedWorkshopBriefingPanel({
               across{" "}
               <span className="font-semibold text-white">{briefing.pillarCount} governance pillars</span>
               , aligned to {briefing.frameworkLabels.join(", ")}. Review the coverage, how to answer,
-              and what to expect before starting facilitation.
+              and what to expect before starting the session.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[26rem]">
@@ -69,7 +61,7 @@ export function GuidedWorkshopBriefingPanel({
               { label: "Frameworks", value: String(briefing.frameworkLabels.length), icon: BookOpen },
               {
                 label: "Format",
-                value: "Facilitated",
+                value: "Live",
                 icon: Users,
               },
             ].map(({ label, value, icon: Icon }) => (
@@ -196,7 +188,7 @@ export function GuidedWorkshopBriefingPanel({
           <h3 className="mt-1 text-lg font-bold text-slate-900">The six levels you will select from</h3>
           <p className="mt-1.5 text-sm text-slate-500">
             Every control uses the same scale. Each level maps to a predefined statement you will
-            choose from during facilitation.
+            choose from during the session.
           </p>
           <div className="mt-4 flex gap-0.5 overflow-hidden rounded-full">
             {MATURITY_LEVELS.map((level) => (
@@ -230,35 +222,20 @@ export function GuidedWorkshopBriefingPanel({
           </div>
         </section>
 
-        <div className="flex flex-col items-center gap-3 border-t border-slate-200/80 pt-6 sm:flex-row sm:justify-between">
-          <p className="text-center text-xs text-slate-500 sm:text-left">
+        <div className="flex flex-col items-stretch gap-4 border-t border-slate-200/80 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-center text-xs text-slate-500 sm:max-w-md sm:text-left">
             {briefing.facilitatorName
-              ? `Facilitated by ${briefing.facilitatorName}`
+              ? `Led by ${briefing.facilitatorName}`
               : "Ready when your team and client are aligned on scope."}
             {briefing.clientContactName ? ` · Client lead: ${briefing.clientContactName}` : ""}
             {" · "}
             Progress saves automatically when you begin answering controls.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {onSaveExit && (
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                disabled={savingExit}
-                onClick={onSaveExit}
-                className="gap-2"
-              >
-                <Bookmark className="h-4 w-4" />
-                {savingExit ? "Saving…" : "Save & exit"}
-              </Button>
-            )}
-            <Button type="button" size="lg" onClick={onBegin} className="gap-2 shadow-lg">
-              <ClipboardList className="h-4 w-4" />
-              Begin workshop
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button type="button" size="lg" onClick={onBegin} className="shrink-0 gap-2 shadow-lg sm:self-auto">
+            <ClipboardList className="h-4 w-4" />
+            Begin workshop
+            <ArrowRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

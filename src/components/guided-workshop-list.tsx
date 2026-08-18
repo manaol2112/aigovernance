@@ -58,7 +58,7 @@ export function GuidedWorkshopLanding({
           <MountReveal delay={0}>
             <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--theme-shimmer-from)]">
               <Sparkles className="h-3.5 w-3.5" />
-              Facilitator-led · Client-presentable output
+              Live client session
             </p>
           </MountReveal>
 
@@ -94,8 +94,8 @@ export function GuidedWorkshopLanding({
               {[
                 {
                   icon: Users,
-                  title: "Facilitator-led",
-                  desc: "Your team guides the client through each control — not a self-service survey.",
+                  title: "Live with the client",
+                  desc: "Your team walks the client through each control — not a self-service survey.",
                 },
                 {
                   icon: Scale,

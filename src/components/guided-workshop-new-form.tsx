@@ -35,7 +35,7 @@ const ALL_FRAMEWORKS = [
 ] as const;
 
 const WIZARD_STEPS = [
-  { id: "client", label: "Client & team", description: "Who you're facilitating for" },
+  { id: "client", label: "Client & team", description: "Who this workshop is for" },
   { id: "frameworks", label: "Framework scope", description: "Standards in scope" },
   { id: "confirm", label: "Confirm", description: "Start the session" },
 ] as const;
@@ -115,7 +115,7 @@ export function NewGuidedWorkshopForm() {
         throw new Error((err as { error?: string }).error ?? "Failed to create workshop");
       }
       const data = await res.json();
-      toast("Workshop ready — begin facilitation.", { variant: "success" });
+      toast("Workshop ready — you can begin.", { variant: "success" });
       router.push(`/guided-workshop/${data.id}`);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Failed to create workshop.", { variant: "error" });
@@ -147,7 +147,7 @@ export function NewGuidedWorkshopForm() {
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <div className="mb-8 text-center">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-theme-brand">
-            Facilitator setup
+            Workshop setup
           </p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             Configure your client workshop
@@ -186,7 +186,7 @@ export function NewGuidedWorkshopForm() {
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Client organization</h2>
-                  <p className="mt-0.5 text-sm text-slate-500">Who you&apos;re facilitating the workshop for</p>
+                  <p className="mt-0.5 text-sm text-slate-500">Who this workshop is for</p>
                 </div>
               </div>
               <div className="space-y-5 p-6">
@@ -227,13 +227,13 @@ export function NewGuidedWorkshopForm() {
                   <UserCircle2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Facilitation team</h2>
-                  <p className="mt-0.5 text-sm text-slate-500">Your team and primary client contact</p>
+                  <h2 className="text-base font-bold text-slate-900">Workshop team</h2>
+                  <p className="mt-0.5 text-sm text-slate-500">Your lead and primary client contact</p>
                 </div>
               </div>
               <div className="grid gap-5 p-6 sm:grid-cols-2">
                 <div>
-                  <label className="text-sm font-medium text-slate-700">Facilitator name</label>
+                  <label className="text-sm font-medium text-slate-700">Lead name</label>
                   <input
                     className={INPUT_CLASS}
                     value={form.facilitatorName}
@@ -241,7 +241,7 @@ export function NewGuidedWorkshopForm() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700">Facilitator role</label>
+                  <label className="text-sm font-medium text-slate-700">Lead role</label>
                   <input
                     className={INPUT_CLASS}
                     value={form.facilitatorRole}
@@ -334,7 +334,7 @@ export function NewGuidedWorkshopForm() {
           {step === "confirm" && (
             <div className={SECTION_CARD}>
               <div className="border-b border-slate-100 bg-gradient-to-r from-[var(--theme-brand-muted)]/80 to-white px-6 py-5">
-                <h2 className="text-base font-bold text-slate-900">Ready to facilitate</h2>
+                <h2 className="text-base font-bold text-slate-900">Ready to begin</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Deep-dive control questions across all 11 pillars · weighted maturity scoring
                 </p>
@@ -346,7 +346,7 @@ export function NewGuidedWorkshopForm() {
                 </div>
                 {form.facilitatorName && (
                   <div className="py-4">
-                    <dt className="text-xs font-medium uppercase tracking-wider text-slate-400">Facilitator</dt>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-slate-400">Workshop lead</dt>
                     <dd className="mt-1 text-sm text-slate-900">
                       {form.facilitatorName}
                       {form.facilitatorRole ? ` · ${form.facilitatorRole}` : ""}

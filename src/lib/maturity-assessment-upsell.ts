@@ -126,7 +126,7 @@ export function buildMaturityUpsellContent(report: MaturitySurveyReport): Maturi
 
   const fullItems = [
     `Every in-scope control reviewed with cited evidence (${library}+ controls)`,
-    "Facilitated workshops with department-specific guides",
+    "Live workshops with department-specific guides",
     "AI-analyzed transcripts mapped to canonical controls & frameworks",
     "Human-validated findings + PDF deliverables for leadership",
   ];
@@ -136,7 +136,7 @@ export function buildMaturityUpsellContent(report: MaturitySurveyReport): Maturi
     gaps > 0
       ? `Validate whether your ${gaps} flagged gap${gaps === 1 ? "" : "s"} are real, partial, or already addressed`
       : "Confirm strengths before regulators or auditors challenge them",
-    "End-to-end engagement workflow — scope, facilitate, evidence, validate, deliver",
+    "End-to-end engagement workflow — scope, workshop, evidence, validate, deliver",
     "From workshop notes to board package in one platform",
   ];
 

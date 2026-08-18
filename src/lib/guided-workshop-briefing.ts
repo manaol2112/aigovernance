@@ -49,7 +49,7 @@ export const WORKSHOP_EXPECTATIONS = [
   {
     title: "What this workshop covers",
     description:
-      "A facilitated walkthrough of framework-mapped governance controls across eleven risk pillars — aligned to the standards you selected at setup.",
+      "A live walkthrough of framework-mapped governance controls across eleven risk pillars — aligned to the standards you selected at setup.",
   },
   {
     title: "What you will receive",

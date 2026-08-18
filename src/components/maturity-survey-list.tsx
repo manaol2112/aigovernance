@@ -76,10 +76,6 @@ export function MaturityAssessmentLanding({
     <div className="bg-slate-950">
       <StickyScrollCTA />
 
-      {inProgressSurveys.length > 0 && (
-        <MaturitySurveyResumePanel surveys={inProgressSurveys} />
-      )}
-
       {/* ── HERO ── */}
       <ScrollSection glow="indigo" className="text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_70%_-10%,rgba(99,102,241,0.45),transparent)]" />
@@ -124,6 +120,19 @@ export function MaturityAssessmentLanding({
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>
+                  {inProgressSurveys.length > 0 && (
+                    <Button
+                      asChild
+                      size="lg"
+                      variant="outline"
+                      className="h-12 rounded-xl border-white/15 bg-white/5 px-6 text-white hover:bg-white/10"
+                    >
+                      <a href="#in-progress">
+                        Resume in progress
+                        {inProgressSurveys.length > 1 ? ` (${inProgressSurveys.length})` : ""}
+                      </a>
+                    </Button>
+                  )}
                 </div>
                 <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
@@ -276,6 +285,10 @@ export function MaturityAssessmentLanding({
           </div>
         </div>
       </ScrollSection>
+
+      {inProgressSurveys.length > 0 && (
+        <MaturitySurveyResumePanel surveys={inProgressSurveys} />
+      )}
 
       <SectionSeam from="light" to="dark" />
 
