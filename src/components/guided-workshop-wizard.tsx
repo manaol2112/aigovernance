@@ -19,7 +19,8 @@ import {
   WORKSHOP_QUESTION_CARD,
 } from "@/components/guided-workshop-question-chrome";
 import { MaturitySurveyReviewPanel } from "@/components/maturity-survey-review-panel";
-import { MaturitySurveyReviewEditPanel } from "@/components/maturity-survey-review-edit-panel";
+import { GuidedWorkshopReviewEditPanel } from "@/components/guided-workshop-review-edit-panel";
+import { buildGuidedWorkshopQuestion } from "@/lib/guided-workshop-questions";
 import {
   computeSurveyProgress,
   buildSurveyResponsesByStepKey,
@@ -27,7 +28,6 @@ import {
   isStepAnswered,
 } from "@/lib/maturity-survey-progress";
 import type { SurveyPillarGroup, SurveyStep } from "@/lib/maturity-survey-types";
-import { getFrameworkShortLabel } from "@/lib/framework-library";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 
@@ -54,8 +54,6 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
   const [stepIndex, setStepIndex] = useState(workshop.currentStepIndex ?? 0);
   const [phase, setPhase] = useState<WizardPhase>("questions");
   const [reviewEditStepIndex, setReviewEditStepIndex] = useState<number | null>(null);
-  const [editNotes, setEditNotes] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
   const [showSavedHint, setShowSavedHint] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -87,12 +85,6 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
   const currentStep = steps[stepIndex];
 
   function openReviewEdit(index: number) {
-    const step = steps[index];
-    if (!step) return;
-    const wr = responseList.find(
-      (r) => `${r.pillarId}:${r.controlId}` === surveyStepResponseKeyFromStep(step)
-    );
-    setEditNotes(wr?.facilitatorNotes ?? "");
     setShowSavedHint(false);
     setReviewEditStepIndex(index);
   }
@@ -218,6 +210,14 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
       )
     : undefined;
 
+  const currentQuestion = useMemo(
+    () =>
+      currentStep
+        ? buildGuidedWorkshopQuestion(currentStep.control, currentStep.pillarLabel)
+        : null,
+    [currentStep]
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <div className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
@@ -293,106 +293,62 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
         )}
 
         {phase === "review" && reviewEditStepIndex !== null && editStep && (
-          <MaturitySurveyReviewEditPanel
+          <GuidedWorkshopReviewEditPanel
             step={editStep}
-            mode="deep_dive"
             maturity={editResponse?.maturity ?? null}
-            notes={editNotes}
             saving={saving}
-            savingNotes={savingNotes}
             showSavedHint={showSavedHint}
             onMaturityChange={(level) => {
-              void saveResponse(editStep, level, editNotes, reviewEditStepIndex ?? undefined).then(
+              void saveResponse(editStep, level, undefined, reviewEditStepIndex ?? undefined).then(
                 () => setShowSavedHint(true)
-              );
-            }}
-            onNotesChange={setEditNotes}
-            onNotesBlur={() => {
-              if (!editResponse?.maturity) return;
-              setSavingNotes(true);
-              void saveResponse(editStep, editResponse.maturity, editNotes).finally(() =>
-                setSavingNotes(false)
               );
             }}
             onBackToReview={() => setReviewEditStepIndex(null)}
           />
         )}
 
-        {phase === "questions" && currentStep && (
+        {phase === "questions" && currentStep && currentQuestion && (
           <div className={WORKSHOP_QUESTION_CARD}>
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <Badge variant="outline" className="mb-2 font-mono text-[10px]">
-                  {currentStep.control.code}
-                </Badge>
-                <h3 className="text-lg font-bold tracking-tight text-slate-900">
-                  {currentStep.control.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  {currentStep.control.description}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {currentStep.control.frameworkCodes.map((code) => (
-                  <Badge key={code} className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50">
-                    {getFrameworkShortLabel(code)}
+            <div className="mb-6">
+              <Badge variant="outline" className="mb-3 font-mono text-[10px]">
+                {currentQuestion.controlCode}
+              </Badge>
+              <h3 className="text-xl font-bold leading-snug tracking-tight text-slate-900 sm:text-2xl">
+                {currentQuestion.prompt}
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                {currentQuestion.requirementContext}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {currentQuestion.frameworkLabels.map((label) => (
+                  <Badge key={label} className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50">
+                    {label}
                   </Badge>
                 ))}
+                {currentQuestion.ownerRole && (
+                  <span className="text-xs text-slate-500">
+                    Typical owner:{" "}
+                    <span className="font-medium text-slate-700">{currentQuestion.ownerRole}</span>
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Facilitation prompt
+            <div className="mb-6 rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-violet-800">
+                Facilitator guide
               </p>
-              <p className="mt-1 text-sm text-slate-700">
-                Ask the client how they currently address this control. Select the maturity level that
-                best matches their answer — weights are shown for client transparency.
+              <p className="mt-1 text-sm leading-relaxed text-violet-950/80">
+                {currentQuestion.facilitationTip}
               </p>
-              {currentStep.control.ownerRole && (
-                <p className="mt-2 text-xs text-slate-500">
-                  Typical owner: <span className="font-medium">{currentStep.control.ownerRole}</span>
-                </p>
-              )}
             </div>
 
             <WorkshopAnswerPicker
               value={currentResponse?.maturity ?? null}
-              onChange={(level) => void saveResponse(currentStep, level, currentResponse?.facilitatorNotes ?? undefined)}
+              onChange={(level) => void saveResponse(currentStep, level)}
               disabled={saving}
+              options={currentQuestion.answerOptions}
             />
-
-            <div className="mt-6">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Facilitator notes (optional)
-              </label>
-              <textarea
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-500/10"
-                rows={3}
-                placeholder="Capture client quotes, evidence discussed, or follow-up items…"
-                value={currentResponse?.facilitatorNotes ?? ""}
-                onChange={(e) => {
-                  const notes = e.target.value;
-                  setResponseList((prev) => {
-                    const key = surveyStepResponseKeyFromStep(currentStep);
-                    const existing = prev.find(
-                      (r) => `${r.pillarId}:${r.controlId}` === key
-                    );
-                    if (!existing) return prev;
-                    return prev.map((r) =>
-                      `${r.pillarId}:${r.controlId}` === key
-                        ? { ...r, facilitatorNotes: notes }
-                        : r
-                    );
-                  });
-                }}
-                onBlur={(e) => {
-                  if (currentResponse?.maturity) {
-                    void saveResponse(currentStep, currentResponse.maturity, e.target.value);
-                  }
-                }}
-              />
-            </div>
 
             <div className="mt-8 flex items-center justify-between gap-4 border-t border-slate-100 pt-6">
               <Button

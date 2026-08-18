@@ -173,7 +173,7 @@ export function buildGuidedWorkshopReport(input: {
     completionPct: maturityReport.completionPct,
     weightMethodology: {
       title: "How we scored your workshop",
-      summary: `${org} rated each in-scope control using a structured maturity scale. Every selection carries a defined weight so results are transparent and defensible in board or regulator discussions.`,
+      summary: `${org} rated each in-scope control by selecting one weighted statement that best describes current capability. Every selection carries a defined weight so results are transparent and defensible in board or regulator discussions.`,
       formula:
         "Pillar score = average weight of all rated controls in that pillar. Overall score = criticality-weighted average across pillars (same weighting as the maturity assessment engine).",
       answerOptions: getWorkshopAnswerOptions(),

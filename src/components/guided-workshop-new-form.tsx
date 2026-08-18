@@ -196,7 +196,9 @@ export function NewGuidedWorkshopForm() {
                     className={INPUT_CLASS}
                     value={form.organizationName}
                     onChange={(e) => setForm({ ...form, organizationName: e.target.value })}
-                    placeholder="Acme Corp"
+                    placeholder="Enter organisation name"
+                    autoComplete="off"
+                    name="workshop-client-organization"
                   />
                 </div>
                 <IndustrySelect
