@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useRouter } from "next/navigation";
 import {
   DEFAULT_COLOR_THEME,
-  isColorThemeId,
   type ColorThemeId,
 } from "@/lib/theme";
 
@@ -83,11 +82,4 @@ export function useColorTheme(): ThemeContextValue {
     };
   }
   return ctx;
-}
-
-/** Apply theme before hydration when server HTML already has data-theme (no-op safety). */
-export function ThemeBootScript({ theme }: { theme: ColorThemeId }) {
-  const safe = isColorThemeId(theme) ? theme : DEFAULT_COLOR_THEME;
-  const script = `document.documentElement.setAttribute('data-theme',${JSON.stringify(safe)});`;
-  return <script dangerouslySetInnerHTML={{ __html: script }} />;
 }

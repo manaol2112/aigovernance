@@ -5,8 +5,8 @@ const globalForPrisma = globalThis as unknown as {
   maturitySchemaVersion?: number;
 };
 
-/** Bump when MaturitySurvey schema changes so dev hot-reload drops stale clients. */
-const MATURITY_SCHEMA_VERSION = 3;
+/** Bump when survey/workshop schema changes so dev hot-reload drops stale clients. */
+const MATURITY_SCHEMA_VERSION = 4;
 
 /** Models every page needs — keep minimal so hot-reload never bricks unrelated routes. */
 const CORE_DELEGATES = [
@@ -28,6 +28,9 @@ const MATURITY_DELEGATES = [
   "maturitySurveyDocumentResponse",
 ] as const;
 
+/** Guided workshop models — checked on workshop routes/APIs. */
+const GUIDED_WORKSHOP_DELEGATES = ["guidedWorkshop", "guidedWorkshopResponse"] as const;
+
 function hasDelegate(client: PrismaClient, key: string): boolean {
   if (Object.prototype.hasOwnProperty.call(client, key)) return true;
   const delegate = (client as unknown as Record<string, unknown>)[key];
@@ -46,9 +49,17 @@ function isMaturityPrismaReady(client: PrismaClient): boolean {
   return MATURITY_DELEGATES.every((key) => hasDelegate(client, key));
 }
 
+function isGuidedWorkshopPrismaReady(client: PrismaClient): boolean {
+  return GUIDED_WORKSHOP_DELEGATES.every((key) => hasDelegate(client, key));
+}
+
 function isMaturitySchemaCurrent(): boolean {
   const fields = Prisma.MaturitySurveyScalarFieldEnum;
   return "parentSurveyId" in fields && "focusPillarIds" in fields;
+}
+
+function isGuidedWorkshopSchemaCurrent(): boolean {
+  return "GuidedWorkshopScalarFieldEnum" in Prisma;
 }
 
 function createPrismaClient(): PrismaClient {
@@ -76,12 +87,13 @@ function withConnectionLimit(databaseUrl: string | undefined): string | undefine
 
 function getPrismaClient(): PrismaClient {
   const cached = globalForPrisma.prisma;
-  const schemaCurrent = isMaturitySchemaCurrent();
+  const schemaCurrent = isMaturitySchemaCurrent() && isGuidedWorkshopSchemaCurrent();
 
   if (
     cached &&
     isCorePrismaReady(cached) &&
     schemaCurrent &&
+    isGuidedWorkshopPrismaReady(cached) &&
     globalForPrisma.maturitySchemaVersion === MATURITY_SCHEMA_VERSION
   ) {
     return cached;
@@ -96,7 +108,7 @@ function getPrismaClient(): PrismaClient {
 
   if (!schemaCurrent) {
     throw new PrismaNotReadyError(
-      "Prisma client is missing maturity survey continuation fields. Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
+      "Prisma client is out of date (missing survey or workshop models). Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
     );
   }
 
@@ -105,6 +117,12 @@ function getPrismaClient(): PrismaClient {
   if (!isCorePrismaReady(client)) {
     throw new Error(
       "Prisma client is missing core models. Run `npx prisma generate` and restart the dev server."
+    );
+  }
+
+  if (!isGuidedWorkshopPrismaReady(client)) {
+    throw new PrismaNotReadyError(
+      "Guided workshop models are not in the Prisma client. Run `npx prisma generate` and restart the dev server."
     );
   }
 
@@ -150,6 +168,24 @@ export function assertPrismaReady(): void {
   if (!isMaturitySchemaCurrent()) {
     throw new PrismaNotReadyError(
       "Prisma client is missing maturity survey continuation fields. Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
+    );
+  }
+}
+
+/** Call before using guided workshop models in API routes or server components. */
+export function assertGuidedWorkshopPrismaReady(): void {
+  const client = getResolvedClient();
+  if (!isCorePrismaReady(client)) {
+    throw new PrismaNotReadyError();
+  }
+  if (!isGuidedWorkshopPrismaReady(client)) {
+    throw new PrismaNotReadyError(
+      "Guided workshop models are not in the Prisma client. Run `npx prisma generate` and restart the dev server."
+    );
+  }
+  if (!isGuidedWorkshopSchemaCurrent()) {
+    throw new PrismaNotReadyError(
+      "Prisma client is missing guided workshop models. Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
     );
   }
 }

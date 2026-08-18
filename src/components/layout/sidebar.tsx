@@ -14,6 +14,7 @@ import {
   Palette,
   Shield,
   ShieldAlert,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +91,12 @@ const nav = [
     label: "Maturity Survey",
     title: "Rapid pillar & control self-assessment with roadmap",
     icon: Gauge,
+  },
+  {
+    href: "/guided-workshop",
+    label: "Guided Workshop",
+    title: "Facilitator-led client workshop with weighted scoring",
+    icon: Users,
   },
   {
     href: "/admin",

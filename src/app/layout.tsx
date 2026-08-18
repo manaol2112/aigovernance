@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getColorTheme } from "@/lib/theme-settings";
-import { ThemeBootScript } from "@/components/theme-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,9 +32,6 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
       suppressHydrationWarning
     >
-      <head>
-        <ThemeBootScript theme={colorTheme} />
-      </head>
       <body className="min-h-full font-sans antialiased">{children}</body>
     </html>
   );

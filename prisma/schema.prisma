@@ -312,6 +312,7 @@ model CanonicalControl {
   gapFindings      GapFinding[]
   controlEvaluations ControlEvaluation[]
   maturitySurveyResponses MaturitySurveyResponse[]
+  guidedWorkshopResponses GuidedWorkshopResponse[]
   dependenciesAsSource ControlDependency[] @relation("DependencySource")
   dependenciesAsTarget ControlDependency[] @relation("DependencyTarget")
 
@@ -1045,4 +1046,51 @@ model MaturitySurveyResponse {
   @@unique([surveyId, pillarId, controlId])
   @@index([surveyId])
   @@map("maturity_survey_responses")
+}
+
+enum GuidedWorkshopStatus {
+  draft
+  in_progress
+  completed
+}
+
+/** Facilitator-led client workshop — weighted control questions across 11 pillars. */
+model GuidedWorkshop {
+  id                 String               @id @default(cuid())
+  title              String
+  organizationName   String?              @map("organization_name")
+  clientIndustry     String?              @map("client_industry")
+  facilitatorName    String?              @map("facilitator_name")
+  facilitatorRole    String?              @map("facilitator_role")
+  clientContactName  String?              @map("client_contact_name")
+  clientContactRole  String?              @map("client_contact_role")
+  frameworkCodes     String[]             @map("framework_codes")
+  status             GuidedWorkshopStatus @default(in_progress)
+  currentStepIndex   Int                  @default(0) @map("current_step_index")
+  submittedAt        DateTime?            @map("submitted_at")
+  reportCache        Json?                @map("report_cache")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  responses GuidedWorkshopResponse[]
+
+  @@map("guided_workshops")
+}
+
+model GuidedWorkshopResponse {
+  id               String        @id @default(cuid())
+  workshopId       String        @map("workshop_id")
+  pillarId         String        @map("pillar_id")
+  controlId        String        @map("control_id")
+  maturity         MaturityLevel @default(not_implemented)
+  facilitatorNotes String?       @map("facilitator_notes") @db.Text
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  workshop GuidedWorkshop   @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+  control  CanonicalControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@unique([workshopId, pillarId, controlId])
+  @@index([workshopId])
+  @@map("guided_workshop_responses")
 }
