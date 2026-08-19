@@ -2,8 +2,51 @@
 
 import Link from "next/link";
 import { Shield } from "lucide-react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { PACK_ASSESSMENT_COPY } from "@/lib/maturity-client-copy";
 import { MountReveal, ScrollProgressBar, useLightHeaderZone, useScrolledPast } from "@/components/maturity-landing-motion";
+
+export type MaturityPortalFooterMode = "framework" | "pack" | "hidden";
+
+const MaturityPortalFooterContext = createContext<{
+  mode: MaturityPortalFooterMode;
+  setMode: (mode: MaturityPortalFooterMode) => void;
+} | null>(null);
+
+/** Pack/custom-question pages opt out of the framework-mapped portal footer. */
+export function MaturityPortalFooterMode({ mode }: { mode: MaturityPortalFooterMode }) {
+  const context = useContext(MaturityPortalFooterContext);
+  if (!context) return null;
+
+  const setMode = context.setMode;
+
+  useEffect(() => {
+    setMode(mode);
+    return () => setMode("framework");
+  }, [mode, setMode]);
+
+  return null;
+}
+
+function PortalFooter({ mode }: { mode: MaturityPortalFooterMode }) {
+  if (mode === "hidden") return null;
+
+  return (
+    <footer className="border-t border-slate-200/80 bg-white py-8 print:hidden">
+      <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+        {mode === "framework" && (
+          <p className="text-xs text-slate-400">
+            Mapped to NIST AI RMF · ISO 42001 · EU AI Act · OECD · COSO ERM
+          </p>
+        )}
+        <p className={cn("text-[11px] text-slate-300", mode === "framework" && "mt-1")}>
+          {PACK_ASSESSMENT_COPY.printConfidential}
+        </p>
+      </div>
+    </footer>
+  );
+}
 
 export function MaturityPortalShell({
   children,
@@ -12,11 +55,13 @@ export function MaturityPortalShell({
   children: React.ReactNode;
   className?: string;
 }) {
+  const [footerMode, setFooterMode] = useState<MaturityPortalFooterMode>("framework");
   const scrolled = useScrolledPast(32);
   const lightZone = useLightHeaderZone();
   const lightHeader = scrolled && lightZone;
 
   return (
+    <MaturityPortalFooterContext.Provider value={{ mode: footerMode, setMode: setFooterMode }}>
     <div
       data-maturity-scroll
       className={cn("h-full min-h-0 overflow-y-auto scroll-smooth bg-theme-page", className)}
@@ -74,16 +119,8 @@ export function MaturityPortalShell({
         </MountReveal>
       </header>
       {children}
-      <footer className="border-t border-slate-200/80 bg-white py-8">
-        <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-          <p className="text-xs text-slate-400">
-            Mapped to NIST AI RMF · ISO 42001 · EU AI Act · OECD · COSO ERM
-          </p>
-          <p className="mt-1 text-[11px] text-slate-300">
-            Confidential — for authorized organizational use only
-          </p>
-        </div>
-      </footer>
+      <PortalFooter mode={footerMode} />
     </div>
+    </MaturityPortalFooterContext.Provider>
   );
 }

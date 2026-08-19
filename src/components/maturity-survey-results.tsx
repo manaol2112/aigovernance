@@ -52,6 +52,7 @@ import {
   ScrollSection,
   SectionSeam,
   ShimmerGradientText,
+  handleMaturitySectionNav,
 } from "@/components/maturity-landing-motion";
 
 const PHASE_META: Record<
@@ -728,7 +729,8 @@ export function MaturitySurveyResults({
                 Back to maturity assessment
               </Link>
               <MaturityReportExportButton
-                surveyId={surveyId}
+                exportUrl={`/api/maturity-surveys/${surveyId}/export`}
+                filenamePrefix="maturity-report"
                 organizationName={report.organizationName}
               />
             </div>
@@ -825,7 +827,7 @@ export function MaturitySurveyResults({
                 </div>
               )}
               <MaturityReportSharePanel
-                surveyId={surveyId}
+                sessionId={surveyId}
                 organizationName={report.organizationName}
                 surveyModeLabel={report.surveyModeLabel}
                 className="w-full max-w-xs"
@@ -839,6 +841,7 @@ export function MaturitySurveyResults({
               <a
                 key={item.id}
                 href={`#${item.id}`}
+                onClick={(event) => handleMaturitySectionNav(event, item.id)}
                 className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-indigo-400/40 hover:bg-indigo-500/10 hover:text-white"
               >
                 {item.label}

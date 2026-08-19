@@ -5,6 +5,8 @@ import {
   type MaturitySurveyReport,
 } from "@/lib/maturity-survey-analysis";
 import { buildFindingEngagementGuide } from "@/lib/maturity-finding-engagement-guide";
+import { isQuestionCatalogPack, hydratePackSnapshots } from "@/lib/pillar-questionnaire";
+import { buildPackReport, type PackReport } from "@/lib/pillar-questionnaire-scoring";
 
 function enrichReportWithEngagementGuides(report: MaturitySurveyReport): MaturitySurveyReport {
   if (!report.pillarDeepDive) return report;
@@ -110,9 +112,30 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
     include: {
       responses: true,
       documentResponses: true,
+      packQuestions: true,
+      packResponses: true,
+      questionPack: { select: { name: true } },
     },
   });
   if (!survey) return null;
+
+  if (isQuestionCatalogPack(survey.questionCatalogSource)) {
+    const snapshots = hydratePackSnapshots(survey.packQuestions);
+    const packAnswers = survey.packResponses.map((response) => ({
+      questionId: response.questionId,
+      answer: response.answer,
+      notes: response.notes,
+    }));
+    const packReport = buildPackReport({
+      title: survey.title,
+      organizationName: survey.organizationName,
+      packName: survey.questionPack?.name ?? null,
+      generatedAt: (survey.submittedAt ?? survey.updatedAt).toISOString(),
+      snapshots,
+      answers: packAnswers,
+    });
+    return { survey, catalog: [], report: null, snapshots, packAnswers, packReport };
+  }
 
   const mode = (survey.surveyMode ?? "quick") as import("@/lib/maturity-survey-mode").SurveyMode;
   const fullCatalog = await buildMaturitySurveyCatalog(survey.frameworkCodes, mode);
@@ -162,21 +185,25 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
   })
   );
 
-  return { survey, catalog, report };
+  return { survey, catalog, report, snapshots: [], packAnswers: [], packReport: null as PackReport | null };
 }
 
 export async function listMaturitySurveysForPage() {
   assertPrismaReady();
 
   const surveys = await prisma.maturitySurvey.findMany({
-    include: { _count: { select: { responses: true } } },
+    include: {
+      _count: { select: { responses: true, packResponses: true, packQuestions: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
   return Promise.all(
     surveys.map(async (s) => {
       const mode = (s.surveyMode ?? "quick") as import("@/lib/maturity-survey-mode").SurveyMode;
-      const catalog = await buildMaturitySurveyCatalog(s.frameworkCodes, mode);
+      const catalog = isQuestionCatalogPack(s.questionCatalogSource)
+        ? []
+        : await buildMaturitySurveyCatalog(s.frameworkCodes, mode);
       return {
         id: s.id,
         title: s.title,
@@ -184,8 +211,12 @@ export async function listMaturitySurveysForPage() {
         status: s.status,
         surveyMode: mode,
         frameworkCodes: s.frameworkCodes,
-        responseCount: s._count.responses,
-        totalQuestions: countSurveyQuestions(catalog),
+        responseCount: isQuestionCatalogPack(s.questionCatalogSource)
+          ? s._count.packResponses
+          : s._count.responses,
+        totalQuestions: isQuestionCatalogPack(s.questionCatalogSource)
+          ? s._count.packQuestions
+          : countSurveyQuestions(catalog),
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
         submittedAt: s.submittedAt,

@@ -23,6 +23,12 @@ export async function POST(request: Request, { params }: RouteParams) {
   if (!survey) {
     return NextResponse.json({ error: "Survey not found" }, { status: 404 });
   }
+  if (survey.questionCatalogSource === "pack") {
+    return NextResponse.json(
+      { error: "Use the questionnaire answer endpoint for this survey." },
+      { status: 400 }
+    );
+  }
   if (survey.status === "completed") {
     return NextResponse.json({ error: "Survey is already completed." }, { status: 400 });
   }

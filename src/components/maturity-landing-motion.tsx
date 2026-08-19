@@ -57,6 +57,37 @@ function subscribeMaturityScroll(onScroll: () => void): () => void {
   return () => root.removeEventListener("scroll", handler);
 }
 
+const HEADER_SCROLL_OFFSET = 72;
+
+/** Scroll the portal shell (not the window) to an in-page report section. */
+export function scrollToMaturitySection(sectionId: string) {
+  const el = document.getElementById(sectionId);
+  if (!el) return;
+
+  const root = getMaturityScrollRoot();
+  if (isDocumentScrollRoot(root)) {
+    const top = el.getBoundingClientRect().top + window.scrollY - HEADER_SCROLL_OFFSET;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    return;
+  }
+
+  const top =
+    el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop - HEADER_SCROLL_OFFSET;
+  root.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
+export function handleMaturitySectionNav(
+  event: { preventDefault: () => void },
+  sectionId: string
+) {
+  event.preventDefault();
+  scrollToMaturitySection(sectionId);
+  const next = new URL(window.location.href);
+  next.hash = sectionId;
+  window.history.replaceState(null, "", `${next.pathname}${next.search}${next.hash}`);
+  window.dispatchEvent(new CustomEvent("maturity-section-nav", { detail: { sectionId } }));
+}
+
 export function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
 
@@ -226,32 +257,53 @@ export function MountReveal({
   );
 }
 
-/** Premium scroll reveal — blur, scale, and rise. */
+/** Premium scroll reveal — blur, scale, and rise. Pass `instant` on report pages to skip animation. */
 export function ScrollReveal({
   children,
   className,
   delay = 0,
   as: Tag = "div",
   variant = "premium",
+  instant = false,
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
   as?: ElementType;
   variant?: "default" | "premium";
+  instant?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduced = usePrefersReducedMotion();
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(instant || reduced);
 
   useEffect(() => {
-    if (reduced) {
+    if (instant || reduced) {
       setVisible(true);
       return;
     }
     const el = ref.current;
     if (!el) return;
 
+    const revealIfTarget = (sectionId?: string) => {
+      const hashId = (sectionId ?? window.location.hash.replace(/^#/, "")).trim();
+      const ownSectionId = el.closest("section[id]")?.id;
+      if (hashId && ownSectionId === hashId) {
+        setVisible(true);
+        return true;
+      }
+      return false;
+    };
+
+    if (revealIfTarget()) return;
+
+    const onSectionNav = (event: Event) => {
+      const sectionId = (event as CustomEvent<{ sectionId: string }>).detail?.sectionId;
+      if (sectionId) revealIfTarget(sectionId);
+    };
+    window.addEventListener("maturity-section-nav", onSectionNav);
+
+    const root = getMaturityScrollRoot();
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -259,31 +311,43 @@ export function ScrollReveal({
           observer.disconnect();
         }
       },
-      { threshold: 0.1, rootMargin: "0px 0px -8% 0px" }
+      {
+        threshold: 0,
+        root: isDocumentScrollRoot(root) ? null : root,
+        rootMargin: "120px 0px 0px 0px",
+      }
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [reduced]);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("maturity-section-nav", onSectionNav);
+    };
+  }, [instant, reduced]);
 
   const Component = Tag as ElementType;
   const isPremium = variant === "premium";
+  const show = visible || instant || reduced;
 
   return (
     <Component
       ref={ref}
-      className={cn("will-change-[transform,opacity,filter]", className)}
-      style={{
-        transition: `opacity 1s ${EASE_PREMIUM}, transform 1s ${EASE_PREMIUM}, filter 1s ${EASE_PREMIUM}`,
-        transitionDelay: `${delay}ms`,
-        opacity: visible ? 1 : 0,
-        transform: visible
-          ? "translateY(0) scale(1)"
-          : isPremium
-            ? "translateY(48px) scale(0.96)"
-            : "translateY(32px) scale(1)",
-        filter: visible ? "blur(0px)" : isPremium ? "blur(6px)" : "blur(0px)",
-      }}
+      className={cn(instant ? undefined : "will-change-[transform,opacity,filter]", className)}
+      style={
+        instant || reduced
+          ? undefined
+          : {
+              transition: `opacity 1s ${EASE_PREMIUM}, transform 1s ${EASE_PREMIUM}, filter 1s ${EASE_PREMIUM}`,
+              transitionDelay: `${delay}ms`,
+              opacity: show ? 1 : 0,
+              transform: show
+                ? "translateY(0) scale(1)"
+                : isPremium
+                  ? "translateY(48px) scale(0.96)"
+                  : "translateY(32px) scale(1)",
+              filter: show ? "blur(0px)" : isPremium ? "blur(6px)" : "blur(0px)",
+            }
+      }
     >
       {children}
     </Component>
@@ -321,7 +385,11 @@ export function ScrollSection({
     !mounted || reduced ? "translateX(-50%)" : `translate3d(-50%, ${scrollY * 0.04}px, 0)`;
 
   return (
-    <section id={id} data-header-theme={headerTheme} className={cn("relative overflow-hidden", className)}>
+    <section
+      id={id}
+      data-header-theme={headerTheme}
+      className={cn("relative overflow-hidden", id && "scroll-mt-20", className)}
+    >
       {glow !== "none" && (
         <div
           aria-hidden

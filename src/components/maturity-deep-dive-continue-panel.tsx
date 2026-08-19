@@ -22,6 +22,7 @@ import type {
 import type { MaturitySurveyReport } from "@/lib/maturity-survey-analysis";
 import { formatUnitCount } from "@/lib/format-unit-count";
 import { toast } from "@/components/ui/toast";
+import { BrandLoadingOverlay } from "@/components/brand-page-loader";
 
 function formatFollowUpQuestions(count: number): string {
   return formatUnitCount(count, "follow-up question", "follow-up questions");
@@ -205,7 +206,6 @@ export function MaturityDeepDiveContinuePanel({
       toast(error instanceof Error ? error.message : "Failed to start assessment.", {
         variant: "error",
       });
-    } finally {
       setLoading(false);
       setActivePillarId(null);
     }
@@ -231,6 +231,7 @@ export function MaturityDeepDiveContinuePanel({
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-emerald-500/25 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 text-white shadow-2xl shadow-emerald-900/20">
+      <BrandLoadingOverlay show={loading} label="Opening your assessment" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_0%_0%,rgba(16,185,129,0.22),transparent)]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_100%_100%,rgba(99,102,241,0.18),transparent)]" />
 

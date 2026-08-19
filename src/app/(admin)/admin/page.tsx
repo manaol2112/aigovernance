@@ -1,10 +1,10 @@
-import { AdminThemeSettings } from "@/components/admin-theme-settings";
+import { AdminSettingsShell } from "@/components/admin-settings-shell";
 
 export const metadata = {
-  title: "Admin · Appearance",
-  description: "Configure application color theme and branding",
+  title: "Admin",
+  description: "Questionnaire packs, defaults, and appearance",
 };
 
 export default function AdminSettingsPage() {
-  return <AdminThemeSettings />;
+  return <AdminSettingsShell />;
 }

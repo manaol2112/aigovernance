@@ -5,6 +5,8 @@ import {
   databaseSetupMessage,
 } from "@/lib/maturity-survey-service";
 import { MaturitySurveyWizard } from "@/components/maturity-survey-wizard";
+import { PillarQuestionnaireWizard } from "@/components/pillar-questionnaire-wizard";
+import { isQuestionCatalogPack } from "@/lib/pillar-questionnaire";
 import { DatabaseSetupNotice } from "@/components/database-setup-notice";
 import { getParentQuickScanControlIds } from "@/lib/maturity-survey-continue";
 import { buildMaturitySurveyCatalog } from "@/lib/maturity-survey-catalog-server";
@@ -24,6 +26,21 @@ export default async function MaturitySurveyPage({ params }: PageProps) {
 
     if (bundle.survey.status === "completed") {
       redirect(`/maturity-assessment/${id}/results`);
+    }
+
+    if (isQuestionCatalogPack(bundle.survey.questionCatalogSource)) {
+      return (
+        <PillarQuestionnaireWizard
+          product="maturity"
+          sessionId={bundle.survey.id}
+          title={bundle.survey.title}
+          organizationName={bundle.survey.organizationName}
+          packName={bundle.survey.questionPack?.name ?? null}
+          snapshots={bundle.snapshots}
+          initialAnswers={bundle.packAnswers}
+          initialStepIndex={bundle.survey.currentStepIndex}
+        />
+      );
     }
 
     const seededControlIds =

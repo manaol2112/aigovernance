@@ -25,6 +25,7 @@ import {
 } from "@/lib/client-industries";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
+import { BrandLoadingOverlay } from "@/components/brand-page-loader";
 
 const ALL_FRAMEWORKS = [
   { code: "NIST-AI-RMF", name: "NIST AI RMF", tagline: "US risk management baseline" },
@@ -119,7 +120,6 @@ export function NewGuidedWorkshopForm() {
       router.push(`/guided-workshop/${data.id}`);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Failed to create workshop.", { variant: "error" });
-    } finally {
       setLoading(false);
     }
   }
@@ -128,6 +128,7 @@ export function NewGuidedWorkshopForm() {
 
   return (
     <div className="bg-gradient-to-b from-slate-50 via-white to-[var(--theme-brand-muted)]/30 pb-16">
+      <BrandLoadingOverlay show={loading} label="Opening your workshop" />
       <div className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-4 sm:px-6">
           <Link

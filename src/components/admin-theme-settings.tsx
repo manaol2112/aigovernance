@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Loader2, Palette } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   COLOR_THEME_IDS,
@@ -116,20 +115,15 @@ export function AdminThemeSettings() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--theme-brand-muted)] text-[var(--theme-brand)]">
-          <Palette className="h-6 w-6" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--theme-text)]">
-            Appearance & branding
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--theme-text-muted)]">
-            Choose a color theme for the entire application. Changes apply immediately across
-            dashboards, assessments, and the maturity portal for all users.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold tracking-tight text-[var(--theme-text)]">
+          Appearance & branding
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm text-[var(--theme-text-muted)]">
+          Choose a color theme for the entire application. Changes apply immediately across
+          dashboards, assessments, and the maturity portal for all users.
+        </p>
       </div>
 
       <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-5 shadow-sm">

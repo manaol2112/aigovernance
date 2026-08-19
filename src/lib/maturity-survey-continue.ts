@@ -242,6 +242,9 @@ export async function createDeepDiveFromQuickScan(
   if (!parent) {
     throw new Error("Quick scan not found.");
   }
+  if (parent.questionCatalogSource === "pack") {
+    throw new Error("Deep dive is only available for framework-aligned assessments.");
+  }
   if (parent.status !== "completed") {
     throw new Error("Complete the quick scan before starting a deep dive.");
   }

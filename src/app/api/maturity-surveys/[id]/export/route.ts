@@ -4,11 +4,16 @@ import {
   isDatabaseSetupError,
   databaseSetupMessage,
 } from "@/lib/maturity-survey-service";
+import { isQuestionCatalogPack } from "@/lib/pillar-questionnaire";
 import type { MaturitySurveyReport } from "@/lib/maturity-survey-analysis";
 import {
   buildMaturityExportFilename,
   generateMaturitySurveyPdf,
 } from "@/lib/maturity-survey-pdf-generator";
+import {
+  buildPackExportFilename,
+  generatePackMaturityPdf,
+} from "@/lib/pack-maturity-pdf-generator";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -22,6 +27,18 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
     if (bundle.survey.status !== "completed") {
       return NextResponse.json({ error: "Complete the assessment before exporting." }, { status: 400 });
+    }
+
+    if (isQuestionCatalogPack(bundle.survey.questionCatalogSource) && bundle.packReport) {
+      const pdf = await generatePackMaturityPdf(bundle.packReport);
+      const filename = buildPackExportFilename(bundle.packReport);
+      return new NextResponse(new Uint8Array(pdf), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Cache-Control": "no-store",
+        },
+      });
     }
 
     const report = bundle.report as MaturitySurveyReport;

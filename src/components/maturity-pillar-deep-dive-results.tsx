@@ -214,7 +214,8 @@ export function MaturityPillarDeepDiveResults({
                 </Link>
               )}
               <MaturityReportExportButton
-                surveyId={surveyId}
+                exportUrl={`/api/maturity-surveys/${surveyId}/export`}
+                filenamePrefix="maturity-report"
                 organizationName={report.organizationName}
               />
             </div>
@@ -310,7 +311,7 @@ export function MaturityPillarDeepDiveResults({
                 </div>
               )}
               <MaturityReportSharePanel
-                surveyId={surveyId}
+                sessionId={surveyId}
                 organizationName={report.organizationName}
                 surveyModeLabel={report.surveyModeLabel}
                 className="w-full max-w-xs"

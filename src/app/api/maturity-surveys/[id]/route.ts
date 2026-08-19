@@ -28,12 +28,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Survey not found" }, { status: 404 });
   }
 
-  const { survey, catalog, report } = bundle;
+  const { survey, catalog, report, snapshots } = bundle;
   return NextResponse.json({
     survey,
     catalog,
     report,
-    totalQuestions: countSurveyQuestions(catalog),
+    totalQuestions: snapshots.length > 0 ? snapshots.length : countSurveyQuestions(catalog),
   });
 }
 
@@ -49,6 +49,49 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const mode = (survey.surveyMode ?? "quick") as SurveyMode;
+
+  if (action === "submit" && survey.questionCatalogSource === "pack") {
+    const [snapshots, packResponses] = await Promise.all([
+      prisma.maturitySurveyPackQuestion.findMany({ where: { surveyId: id } }),
+      prisma.maturitySurveyPackResponse.findMany({ where: { surveyId: id } }),
+    ]);
+    if (snapshots.length === 0) {
+      return NextResponse.json({ error: "This questionnaire has no questions." }, { status: 400 });
+    }
+    const answered = new Set(packResponses.map((response) => response.questionId));
+    const missing = snapshots.filter((snapshot) => !answered.has(snapshot.id)).length;
+    if (missing > 0) {
+      return NextResponse.json(
+        { error: `Complete all questions before submitting. ${missing} remaining.` },
+        { status: 400 }
+      );
+    }
+    const pack = survey.questionPackId
+      ? await prisma.questionPack.findUnique({ where: { id: survey.questionPackId } })
+      : null;
+    const { hydratePackSnapshots } = await import("@/lib/pillar-questionnaire");
+    const { buildPackReport } = await import("@/lib/pillar-questionnaire-scoring");
+    const report = buildPackReport({
+      title: survey.title,
+      organizationName: survey.organizationName,
+      packName: pack?.name ?? null,
+      snapshots: hydratePackSnapshots(snapshots),
+      answers: packResponses.map((response) => ({
+        questionId: response.questionId,
+        answer: response.answer,
+        notes: response.notes,
+      })),
+    });
+    const updated = await prisma.maturitySurvey.update({
+      where: { id },
+      data: {
+        status: "completed",
+        submittedAt: new Date(),
+        reportCache: report,
+      },
+    });
+    return NextResponse.json({ survey: updated, report });
+  }
 
   if (action === "submit") {
     const fullCatalog = await buildMaturitySurveyCatalog(survey.frameworkCodes, mode);

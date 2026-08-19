@@ -31,7 +31,10 @@ function shortPillarLabel(label: string): string {
 
 function polar(cx: number, cy: number, radius: number, angle: number, pct: number) {
   const r = (Math.min(100, Math.max(0, pct)) / 100) * radius;
-  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  return {
+    x: (cx + r * Math.cos(angle)).toFixed(2),
+    y: (cy + r * Math.sin(angle)).toFixed(2),
+  };
 }
 
 function polygonPoints(

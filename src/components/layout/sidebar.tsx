@@ -101,7 +101,7 @@ const nav = [
   {
     href: "/admin",
     label: "Admin",
-    title: "Appearance, branding, and color theme settings",
+    title: "Question packs, defaults, and appearance",
     icon: Palette,
   },
 ];

@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Building2,
   Check,
-  CheckCircle2,
   ChevronRight,
   Clock,
   Lock,
@@ -39,7 +38,6 @@ import { getSurveyModeMeta, SURVEY_MODE_META, type SurveyMode } from "@/lib/matu
 import { MaturitySurveyBriefingPanel } from "@/components/maturity-survey-briefing";
 import {
   formatBriefingFrameworksInScope,
-  formatBriefingOverviewMeta,
   formatBriefingStep3Footer,
   getBriefingQuestionCount,
   normalizeMaturitySurveyBriefing,
@@ -48,6 +46,7 @@ import {
 import { formatUnitCount } from "@/lib/format-unit-count";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
+import { BrandLoadingOverlay } from "@/components/brand-page-loader";
 
 const ALL_FRAMEWORKS = [
   { code: "NIST-AI-RMF", name: "NIST AI RMF", tagline: "US risk management baseline" },
@@ -325,7 +324,6 @@ export function NewMaturitySurveyForm() {
       router.push(`/maturity-assessment/${data.id}`);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Failed to create survey.", { variant: "error" });
-    } finally {
       setLoading(false);
     }
   }
@@ -359,6 +357,7 @@ export function NewMaturitySurveyForm() {
 
   return (
     <div className="bg-slate-950">
+      <BrandLoadingOverlay show={loading} label="Opening your assessment" />
       <ScrollSection glow="indigo" className="text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_80%_0%,rgba(99,102,241,0.35),transparent)]" />
         <FilmGrain />
@@ -422,110 +421,6 @@ export function NewMaturitySurveyForm() {
         )}>
           <ScrollReveal variant="premium" className="mb-8">
             <SetupWizardStepper steps={[...WIZARD_STEPS]} currentStepId={step} />
-          </ScrollReveal>
-
-          <ScrollReveal variant="premium" delay={0}>
-            <div className="mb-8 grid gap-3 sm:grid-cols-3">
-              <div
-                className={cn(
-                  "rounded-xl border px-4 py-3 transition-all",
-                  orgComplete
-                    ? "border-emerald-200 bg-emerald-50/80"
-                    : step === "organization"
-                      ? "border-indigo-200 bg-indigo-50/50"
-                      : "border-slate-200 bg-white"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  {orgComplete ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white">
-                      1
-                    </span>
-                  )}
-                  <p className="text-xs font-semibold text-slate-800">Organization</p>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {orgComplete ? form.organizationName.trim() : "Required to continue"}
-                </p>
-              </div>
-              <div
-                className={cn(
-                  "rounded-xl border px-4 py-3 transition-all",
-                  frameworksComplete
-                    ? "border-emerald-200 bg-emerald-50/80"
-                    : step === "frameworks"
-                      ? "border-violet-200 bg-violet-50/50 shadow-sm shadow-violet-500/10"
-                      : "border-slate-200 bg-white opacity-80"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  {frameworksComplete ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <span
-                      className={cn(
-                        "flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold",
-                        step === "frameworks"
-                          ? "bg-violet-600 text-white"
-                          : "bg-slate-200 text-slate-500"
-                      )}
-                    >
-                      2
-                    </span>
-                  )}
-                  <p className="text-xs font-semibold text-slate-800">Framework scope</p>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {frameworksComplete
-                    ? `${frameworkCodes.length} selected`
-                    : step === "frameworks"
-                      ? "Select at least one standard"
-                      : "After organization"}
-                </p>
-              </div>
-              <div
-                className={cn(
-                  "rounded-xl border px-4 py-3 transition-all",
-                  step === "overview" && overviewReady
-                    ? "border-emerald-200 bg-emerald-50/80"
-                    : step === "overview"
-                      ? "border-indigo-200 bg-indigo-50/50 shadow-sm shadow-indigo-500/10"
-                      : "border-slate-200 bg-white opacity-80"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  {step === "overview" && overviewReady ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <span
-                      className={cn(
-                        "flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold",
-                        step === "overview"
-                          ? "bg-indigo-600 text-white"
-                          : "bg-slate-200 text-slate-500"
-                      )}
-                    >
-                      3
-                    </span>
-                  )}
-                  <p className="text-xs font-semibold text-slate-800">Overview</p>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {step === "overview"
-                    ? briefingLoading
-                      ? "Loading overview…"
-                      : briefing
-                    ? formatBriefingOverviewMeta(
-                        briefingQuestionCount ?? RISK_PILLARS.length,
-                        briefing.frameworkLabels.length
-                      )
-                    : "Review coverage & rating guide"
-                    : "Before you start"}
-                </p>
-              </div>
-            </div>
           </ScrollReveal>
 
           {step === "organization" && (

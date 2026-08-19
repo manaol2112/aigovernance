@@ -4,6 +4,8 @@ import {
   buildGuidedWorkshopReport,
 } from "@/lib/guided-workshop-analysis";
 import { countSurveyQuestions } from "@/lib/maturity-survey-types";
+import { hydratePackSnapshots, isQuestionCatalogPack } from "@/lib/pillar-questionnaire";
+import { buildPackReport } from "@/lib/pillar-questionnaire-scoring";
 
 export { PrismaNotReadyError };
 
@@ -12,9 +14,32 @@ export async function loadGuidedWorkshopBundle(workshopId: string) {
 
   const workshop = await prisma.guidedWorkshop.findUnique({
     where: { id: workshopId },
-    include: { responses: true },
+    include: {
+      responses: true,
+      packQuestions: true,
+      packResponses: true,
+      questionPack: { select: { name: true } },
+    },
   });
   if (!workshop) return null;
+
+  if (isQuestionCatalogPack(workshop.questionCatalogSource)) {
+    const snapshots = hydratePackSnapshots(workshop.packQuestions);
+    const packAnswers = workshop.packResponses.map((response) => ({
+      questionId: response.questionId,
+      answer: response.answer,
+      notes: response.facilitatorNotes,
+    }));
+    const packReport = buildPackReport({
+      title: workshop.title,
+      organizationName: workshop.organizationName,
+      packName: workshop.questionPack?.name ?? null,
+      generatedAt: (workshop.submittedAt ?? workshop.updatedAt).toISOString(),
+      snapshots,
+      answers: packAnswers,
+    });
+    return { workshop, catalog: [], report: null, snapshots, packAnswers, packReport };
+  }
 
   const catalog = await buildMaturitySurveyCatalog(workshop.frameworkCodes, "deep_dive");
   const report = buildGuidedWorkshopReport({
@@ -36,20 +61,24 @@ export async function loadGuidedWorkshopBundle(workshopId: string) {
     })),
   });
 
-  return { workshop, catalog, report };
+  return { workshop, catalog, report, snapshots: [], packAnswers: [], packReport: null };
 }
 
 export async function listGuidedWorkshopsForPage() {
   assertGuidedWorkshopPrismaReady();
 
   const workshops = await prisma.guidedWorkshop.findMany({
-    include: { _count: { select: { responses: true } } },
+    include: {
+      _count: { select: { responses: true, packResponses: true, packQuestions: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
   return Promise.all(
     workshops.map(async (w) => {
-      const catalog = await buildMaturitySurveyCatalog(w.frameworkCodes, "deep_dive");
+      const catalog = isQuestionCatalogPack(w.questionCatalogSource)
+        ? []
+        : await buildMaturitySurveyCatalog(w.frameworkCodes, "deep_dive");
       return {
         id: w.id,
         title: w.title,
@@ -58,8 +87,12 @@ export async function listGuidedWorkshopsForPage() {
         facilitatorName: w.facilitatorName,
         status: w.status,
         frameworkCodes: w.frameworkCodes,
-        responseCount: w._count.responses,
-        totalQuestions: countSurveyQuestions(catalog),
+        responseCount: isQuestionCatalogPack(w.questionCatalogSource)
+          ? w._count.packResponses
+          : w._count.responses,
+        totalQuestions: isQuestionCatalogPack(w.questionCatalogSource)
+          ? w._count.packQuestions
+          : countSurveyQuestions(catalog),
         createdAt: w.createdAt,
         updatedAt: w.updatedAt,
         submittedAt: w.submittedAt,

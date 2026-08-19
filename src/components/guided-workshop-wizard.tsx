@@ -47,6 +47,7 @@ import { cn, formatDateTime } from "@/lib/utils";
 import { formatOfTotal } from "@/lib/format-unit-count";
 import { MATURITY_LEVEL_GUIDANCE } from "@/lib/maturity-survey-constants";
 import { toast } from "@/components/ui/toast";
+import { BrandLoadingOverlay } from "@/components/brand-page-loader";
 
 type WorkshopResponse = {
   controlId: string;
@@ -199,7 +200,6 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
         }
       } catch (e) {
         toast(e instanceof Error ? e.message : "Failed to save progress.", { variant: "error" });
-      } finally {
         if (options?.exit) setSavingExit(false);
       }
     },
@@ -383,13 +383,16 @@ export function GuidedWorkshopWizard({ initial }: { initial: WorkshopBundle }) {
       router.refresh();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Failed to submit.", { variant: "error" });
-    } finally {
       setSubmitting(false);
     }
   }
 
   return (
     <div className="flex min-h-full flex-col bg-gradient-to-b from-slate-50 to-white">
+      <BrandLoadingOverlay
+        show={submitting || savingExit}
+        label={savingExit ? "Saving and returning" : "Preparing your report"}
+      />
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
         <div className="mx-auto grid h-16 max-w-5xl grid-cols-[1fr_auto] items-center gap-3 px-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:px-6">
           <Link

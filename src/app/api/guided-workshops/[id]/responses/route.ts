@@ -26,6 +26,12 @@ export async function POST(request: Request, { params }: RouteParams) {
   if (!workshop) {
     return NextResponse.json({ error: "Workshop not found" }, { status: 404 });
   }
+  if (workshop.questionCatalogSource === "pack") {
+    return NextResponse.json(
+      { error: "Use the questionnaire answer endpoint for this workshop." },
+      { status: 400 }
+    );
+  }
   if (workshop.status === "completed") {
     return NextResponse.json({ error: "Workshop is already completed." }, { status: 400 });
   }

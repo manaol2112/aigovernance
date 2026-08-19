@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 
 export function MaturityReportExportButton({
-  surveyId,
+  exportUrl,
   organizationName,
+  filenamePrefix = "governance-report",
   className,
 }: {
-  surveyId: string;
+  exportUrl: string;
   organizationName: string;
+  filenamePrefix?: string;
   className?: string;
 }) {
   const [downloading, setDownloading] = useState(false);
@@ -19,7 +21,7 @@ export function MaturityReportExportButton({
   async function handleDownload() {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/maturity-surveys/${surveyId}/export`);
+      const res = await fetch(exportUrl);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error((err as { error?: string }).error ?? "Export failed");
@@ -29,7 +31,7 @@ export function MaturityReportExportButton({
       const anchor = document.createElement("a");
       const safeOrg = organizationName.replace(/[^a-zA-Z0-9-_]+/g, "-").slice(0, 40);
       anchor.href = url;
-      anchor.download = `maturity-report-${safeOrg || surveyId}.pdf`;
+      anchor.download = `${filenamePrefix}-${safeOrg || "report"}.pdf`;
       anchor.click();
       URL.revokeObjectURL(url);
       toast("Report downloaded.", { variant: "success" });

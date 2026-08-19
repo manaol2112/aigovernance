@@ -19,7 +19,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
     workshop: bundle.workshop,
     catalog: bundle.catalog,
     report: bundle.report,
-    totalQuestions: countSurveyQuestions(bundle.catalog),
+    totalQuestions:
+      bundle.snapshots.length > 0
+        ? bundle.snapshots.length
+        : countSurveyQuestions(bundle.catalog),
   });
 }
 
@@ -35,6 +38,49 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const workshop = await prisma.guidedWorkshop.findUnique({ where: { id } });
   if (!workshop) {
     return NextResponse.json({ error: "Workshop not found" }, { status: 404 });
+  }
+
+  if (action === "submit" && workshop.questionCatalogSource === "pack") {
+    const [snapshots, packResponses] = await Promise.all([
+      prisma.guidedWorkshopPackQuestion.findMany({ where: { workshopId: id } }),
+      prisma.guidedWorkshopPackResponse.findMany({ where: { workshopId: id } }),
+    ]);
+    if (snapshots.length === 0) {
+      return NextResponse.json({ error: "This questionnaire has no questions." }, { status: 400 });
+    }
+    const answered = new Set(packResponses.map((response) => response.questionId));
+    const missing = snapshots.filter((snapshot) => !answered.has(snapshot.id)).length;
+    if (missing > 0) {
+      return NextResponse.json(
+        { error: `Complete all questions before submitting. ${missing} remaining.` },
+        { status: 400 }
+      );
+    }
+    const pack = workshop.questionPackId
+      ? await prisma.questionPack.findUnique({ where: { id: workshop.questionPackId } })
+      : null;
+    const { hydratePackSnapshots } = await import("@/lib/pillar-questionnaire");
+    const { buildPackReport } = await import("@/lib/pillar-questionnaire-scoring");
+    const report = buildPackReport({
+      title: workshop.title,
+      organizationName: workshop.organizationName,
+      packName: pack?.name ?? null,
+      snapshots: hydratePackSnapshots(snapshots),
+      answers: packResponses.map((response) => ({
+        questionId: response.questionId,
+        answer: response.answer,
+        notes: response.facilitatorNotes,
+      })),
+    });
+    const updated = await prisma.guidedWorkshop.update({
+      where: { id },
+      data: {
+        status: "completed",
+        submittedAt: new Date(),
+        reportCache: report,
+      },
+    });
+    return NextResponse.json({ workshop: updated, report });
   }
 
   if (action === "submit") {

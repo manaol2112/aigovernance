@@ -36,6 +36,7 @@ import {
   isDocumentationChecklistComplete,
 } from "@/lib/maturity-survey-documents";
 import { toast } from "@/components/ui/toast";
+import { BrandLoadingOverlay } from "@/components/brand-page-loader";
 import { CLIENT_TERMS } from "@/lib/maturity-client-copy";
 import {
   formatOfTotal,
@@ -493,7 +494,6 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
       router.refresh();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Failed to submit.", { variant: "error" });
-    } finally {
       setSubmitting(false);
     }
   }
@@ -510,6 +510,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
 
     return (
       <div className="mx-auto max-w-2xl">
+        <BrandLoadingOverlay show={submitting} label="Preparing your report" />
         <div ref={questionAnchorRef} className="scroll-mt-6" />
 
         <div className="mb-6">
@@ -557,6 +558,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
   if (phase === "documentation") {
     return (
       <div className="mx-auto max-w-2xl pb-28">
+        <BrandLoadingOverlay show={submitting} label="Preparing your report" />
         <div ref={questionAnchorRef} className="scroll-mt-6" />
 
         <div className="mb-6">
@@ -716,6 +718,7 @@ export function MaturitySurveyWizard({ initial }: { initial: SurveyBundle }) {
 
   return (
     <div className="mx-auto max-w-2xl pb-28">
+      <BrandLoadingOverlay show={submitting} label="Preparing your report" />
       <div ref={questionAnchorRef} className="scroll-mt-6" />
 
       <div className="mb-6">

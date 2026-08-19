@@ -921,30 +921,123 @@ model GovernanceInitiative {
   @@map("governance_initiatives")
 }
 
-model MaturitySurvey {
-  id                 String               @id @default(cuid())
-  title              String
-  organizationName   String?              @map("organization_name")
-  respondentName     String?              @map("respondent_name")
-  respondentRole     String?              @map("respondent_role")
-  frameworkCodes     String[]             @map("framework_codes")
-  surveyMode         MaturitySurveyMode   @default(quick) @map("survey_mode")
-  status             MaturitySurveyStatus @default(draft)
-  currentStepIndex   Int                  @default(0) @map("current_step_index")
-  submittedAt        DateTime?            @map("submitted_at")
-  reportCache        Json?                @map("report_cache")
-  parentSurveyId     String?              @map("parent_survey_id")
-  focusPillarIds     String[]             @default([]) @map("focus_pillar_ids")
-  createdAt          DateTime             @default(now()) @map("created_at")
-  updatedAt          DateTime             @updatedAt @map("updated_at")
+enum QuestionCatalogSource {
+  framework
+  pack
+}
 
-  parentSurvey MaturitySurvey?  @relation("SurveyContinuation", fields: [parentSurveyId], references: [id], onDelete: SetNull)
-  continuations MaturitySurvey[] @relation("SurveyContinuation")
+enum QuestionPackProduct {
+  maturity_assessment
+  guided_workshop
+}
+
+enum PillarQuestionAnswer {
+  yes
+  no
+  partial
+  dont_know
+}
+
+model QuestionPack {
+  id          String              @id @default(cuid())
+  name        String
+  description String?             @db.Text
+  product     QuestionPackProduct @default(maturity_assessment)
+  archivedAt  DateTime?           @map("archived_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  questions                 Question[]
+  maturityDefaultFor        AppSetting[]     @relation("MaturityDefaultPack")
+  workshopDefaultFor        AppSetting[]     @relation("WorkshopDefaultPack")
+  maturitySurveys           MaturitySurvey[]
+  workshops                 GuidedWorkshop[]
+
+  @@index([product])
+  @@map("question_packs")
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  packId    String   @map("pack_id")
+  pillarId  String   @map("pillar_id")
+  prompt    String   @db.Text
+  helpText  String?  @map("help_text") @db.Text
+  sortOrder Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  pack QuestionPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@index([packId, pillarId, sortOrder])
+  @@map("questions")
+}
+
+model MaturitySurvey {
+  id                      String                 @id @default(cuid())
+  title                   String
+  organizationName        String?                @map("organization_name")
+  respondentName          String?                @map("respondent_name")
+  respondentRole          String?                @map("respondent_role")
+  frameworkCodes          String[]               @map("framework_codes")
+  surveyMode              MaturitySurveyMode     @default(quick) @map("survey_mode")
+  questionCatalogSource   QuestionCatalogSource  @default(framework) @map("question_catalog_source")
+  questionPackId          String?                @map("question_pack_id")
+  status                  MaturitySurveyStatus   @default(draft)
+  currentStepIndex        Int                    @default(0) @map("current_step_index")
+  submittedAt             DateTime?              @map("submitted_at")
+  reportCache             Json?                  @map("report_cache")
+  parentSurveyId          String?                @map("parent_survey_id")
+  focusPillarIds          String[]               @default([]) @map("focus_pillar_ids")
+  createdAt               DateTime               @default(now()) @map("created_at")
+  updatedAt               DateTime               @updatedAt @map("updated_at")
+
+  parentSurvey      MaturitySurvey?  @relation("SurveyContinuation", fields: [parentSurveyId], references: [id], onDelete: SetNull)
+  continuations     MaturitySurvey[] @relation("SurveyContinuation")
+  questionPack      QuestionPack?    @relation(fields: [questionPackId], references: [id], onDelete: SetNull)
   responses         MaturitySurveyResponse[]
   documentResponses MaturitySurveyDocumentResponse[]
+  packQuestions     MaturitySurveyPackQuestion[]
+  packResponses     MaturitySurveyPackResponse[]
 
   @@index([parentSurveyId])
+  @@index([questionPackId])
   @@map("maturity_surveys")
+}
+
+model MaturitySurveyPackQuestion {
+  id               String   @id @default(cuid())
+  surveyId         String   @map("survey_id")
+  sourceQuestionId String?  @map("source_question_id")
+  pillarId         String   @map("pillar_id")
+  prompt           String   @db.Text
+  helpText         String?  @map("help_text") @db.Text
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  survey    MaturitySurvey             @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responses MaturitySurveyPackResponse[]
+
+  @@index([surveyId, sortOrder])
+  @@map("maturity_survey_pack_questions")
+}
+
+model MaturitySurveyPackResponse {
+  id         String               @id @default(cuid())
+  surveyId   String               @map("survey_id")
+  questionId String               @map("question_id")
+  answer     PillarQuestionAnswer
+  notes      String?              @db.Text
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  survey   MaturitySurvey             @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  question MaturitySurveyPackQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([surveyId, questionId])
+  @@index([surveyId])
+  @@map("maturity_survey_pack_responses")
 }
 
 enum MaturityDocumentStatus {
@@ -1023,9 +1116,17 @@ enum DisagreementResolutionStatus {
 }
 
 model AppSetting {
-  id         String     @id @default("singleton")
-  colorTheme ColorTheme @default(light) @map("color_theme")
-  updatedAt  DateTime   @updatedAt @map("updated_at")
+  id                           String                @id @default("singleton")
+  colorTheme                   ColorTheme            @default(light) @map("color_theme")
+  maturityQuestionCatalogSource QuestionCatalogSource @default(framework) @map("maturity_question_catalog_source")
+  defaultMaturityQuestionPackId String?               @map("default_maturity_question_pack_id")
+  workshopQuestionCatalogSource QuestionCatalogSource @default(framework) @map("workshop_question_catalog_source")
+  defaultWorkshopQuestionPackId String?               @map("default_workshop_question_pack_id")
+  allowQuestionCatalogOverride Boolean               @default(false) @map("allow_question_catalog_override")
+  updatedAt                    DateTime              @updatedAt @map("updated_at")
+
+  defaultMaturityQuestionPack QuestionPack? @relation("MaturityDefaultPack", fields: [defaultMaturityQuestionPackId], references: [id], onDelete: SetNull)
+  defaultWorkshopQuestionPack QuestionPack? @relation("WorkshopDefaultPack", fields: [defaultWorkshopQuestionPackId], references: [id], onDelete: SetNull)
 
   @@map("app_settings")
 }
@@ -1056,25 +1157,65 @@ enum GuidedWorkshopStatus {
 
 /** Facilitator-led client workshop — weighted control questions across 11 pillars. */
 model GuidedWorkshop {
-  id                 String               @id @default(cuid())
-  title              String
-  organizationName   String?              @map("organization_name")
-  clientIndustry     String?              @map("client_industry")
-  facilitatorName    String?              @map("facilitator_name")
-  facilitatorRole    String?              @map("facilitator_role")
-  clientContactName  String?              @map("client_contact_name")
-  clientContactRole  String?              @map("client_contact_role")
-  frameworkCodes     String[]             @map("framework_codes")
-  status             GuidedWorkshopStatus @default(in_progress)
-  currentStepIndex   Int                  @default(0) @map("current_step_index")
-  submittedAt        DateTime?            @map("submitted_at")
-  reportCache        Json?                @map("report_cache")
-  createdAt          DateTime             @default(now()) @map("created_at")
-  updatedAt          DateTime             @updatedAt @map("updated_at")
+  id                    String                @id @default(cuid())
+  title                 String
+  organizationName      String?               @map("organization_name")
+  clientIndustry        String?               @map("client_industry")
+  facilitatorName       String?               @map("facilitator_name")
+  facilitatorRole       String?               @map("facilitator_role")
+  clientContactName     String?               @map("client_contact_name")
+  clientContactRole     String?               @map("client_contact_role")
+  frameworkCodes        String[]              @map("framework_codes")
+  questionCatalogSource QuestionCatalogSource @default(framework) @map("question_catalog_source")
+  questionPackId        String?               @map("question_pack_id")
+  status                GuidedWorkshopStatus  @default(in_progress)
+  currentStepIndex      Int                   @default(0) @map("current_step_index")
+  submittedAt           DateTime?             @map("submitted_at")
+  reportCache           Json?                 @map("report_cache")
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
 
-  responses GuidedWorkshopResponse[]
+  questionPack  QuestionPack? @relation(fields: [questionPackId], references: [id], onDelete: SetNull)
+  responses     GuidedWorkshopResponse[]
+  packQuestions GuidedWorkshopPackQuestion[]
+  packResponses GuidedWorkshopPackResponse[]
 
+  @@index([questionPackId])
   @@map("guided_workshops")
+}
+
+model GuidedWorkshopPackQuestion {
+  id               String   @id @default(cuid())
+  workshopId       String   @map("workshop_id")
+  sourceQuestionId String?  @map("source_question_id")
+  pillarId         String   @map("pillar_id")
+  prompt           String   @db.Text
+  helpText         String?  @map("help_text") @db.Text
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  workshop  GuidedWorkshop             @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+  responses GuidedWorkshopPackResponse[]
+
+  @@index([workshopId, sortOrder])
+  @@map("guided_workshop_pack_questions")
+}
+
+model GuidedWorkshopPackResponse {
+  id               String               @id @default(cuid())
+  workshopId       String               @map("workshop_id")
+  questionId       String               @map("question_id")
+  answer           PillarQuestionAnswer
+  facilitatorNotes String?              @map("facilitator_notes") @db.Text
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  workshop GuidedWorkshop             @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+  question GuidedWorkshopPackQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([workshopId, questionId])
+  @@index([workshopId])
+  @@map("guided_workshop_pack_responses")
 }
 
 model GuidedWorkshopResponse {

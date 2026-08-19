@@ -6,7 +6,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /** Bump when survey/workshop schema changes so dev hot-reload drops stale clients. */
-const MATURITY_SCHEMA_VERSION = 4;
+const MATURITY_SCHEMA_VERSION = 6;
 
 /** Models every page needs — keep minimal so hot-reload never bricks unrelated routes. */
 const CORE_DELEGATES = [
@@ -26,10 +26,19 @@ const MATURITY_DELEGATES = [
   "maturitySurvey",
   "maturitySurveyResponse",
   "maturitySurveyDocumentResponse",
+  "questionPack",
+  "question",
+  "maturitySurveyPackQuestion",
+  "maturitySurveyPackResponse",
 ] as const;
 
 /** Guided workshop models — checked on workshop routes/APIs. */
-const GUIDED_WORKSHOP_DELEGATES = ["guidedWorkshop", "guidedWorkshopResponse"] as const;
+const GUIDED_WORKSHOP_DELEGATES = [
+  "guidedWorkshop",
+  "guidedWorkshopResponse",
+  "guidedWorkshopPackQuestion",
+  "guidedWorkshopPackResponse",
+] as const;
 
 function hasDelegate(client: PrismaClient, key: string): boolean {
   if (Object.prototype.hasOwnProperty.call(client, key)) return true;
@@ -54,12 +63,20 @@ function isGuidedWorkshopPrismaReady(client: PrismaClient): boolean {
 }
 
 function isMaturitySchemaCurrent(): boolean {
-  const fields = Prisma.MaturitySurveyScalarFieldEnum;
-  return "parentSurveyId" in fields && "focusPillarIds" in fields;
+  const surveyFields = Prisma.MaturitySurveyScalarFieldEnum;
+  const settingFields = Prisma.AppSettingScalarFieldEnum;
+  return (
+    "parentSurveyId" in surveyFields &&
+    "focusPillarIds" in surveyFields &&
+    "questionCatalogSource" in surveyFields &&
+    "maturityQuestionCatalogSource" in settingFields
+  );
 }
 
 function isGuidedWorkshopSchemaCurrent(): boolean {
-  return "GuidedWorkshopScalarFieldEnum" in Prisma;
+  if (!("GuidedWorkshopScalarFieldEnum" in Prisma)) return false;
+  const fields = Prisma.GuidedWorkshopScalarFieldEnum;
+  return "questionCatalogSource" in fields;
 }
 
 function createPrismaClient(): PrismaClient {

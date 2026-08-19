@@ -6,14 +6,18 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 
 export function MaturityReportSharePanel({
-  surveyId,
+  sessionId,
+  resultsBasePath = "/maturity-assessment",
   organizationName,
   surveyModeLabel,
+  shareSummary,
   className,
 }: {
-  surveyId: string;
+  sessionId: string;
+  resultsBasePath?: string;
   organizationName: string;
   surveyModeLabel: string;
+  shareSummary?: string;
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -21,22 +25,23 @@ export function MaturityReportSharePanel({
   const [reportUrl, setReportUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    setReportUrl(
-      `${window.location.origin}/maturity-assessment/${surveyId}/results`
-    );
+    setReportUrl(`${window.location.origin}${resultsBasePath}/${sessionId}/results`);
     setHasNativeShare("share" in navigator);
-  }, [surveyId]);
+  }, [sessionId, resultsBasePath]);
 
   const mailtoHref = useMemo(() => {
     if (!reportUrl) return null;
     const subject = encodeURIComponent(
       `AI Governance Maturity Report — ${organizationName}`
     );
+    const summary =
+      shareSummary ??
+      "This includes maturity scores, priority gaps, and a remediation roadmap prepared for leadership review.";
     const body = encodeURIComponent(
-      `Hello,\n\nI've completed an AI governance maturity assessment for ${organizationName} (${surveyModeLabel}).\n\nPlease review the full report here:\n${reportUrl}\n\nThis includes maturity scores, priority gaps, and a remediation roadmap prepared for leadership review.\n\nThank you.`
+      `Hello,\n\nI've completed an AI governance maturity assessment for ${organizationName} (${surveyModeLabel}).\n\nPlease review the full report here:\n${reportUrl}\n\n${summary}\n\nThank you.`
     );
     return `mailto:?subject=${subject}&body=${body}`;
-  }, [organizationName, reportUrl, surveyModeLabel]);
+  }, [organizationName, reportUrl, shareSummary, surveyModeLabel]);
 
   const copyLink = useCallback(async () => {
     if (!reportUrl) return;

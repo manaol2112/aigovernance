@@ -7,6 +7,8 @@ import {
 import { getDeepDiveContinuationState } from "@/lib/maturity-survey-continue";
 import { getCompletedPillarComparisons } from "@/lib/maturity-pillar-comparison";
 import { MaturitySurveyResults } from "@/components/maturity-survey-results";
+import { MaturityPackSurveyResultsClient } from "@/components/maturity-pack-survey-results-client";
+import { isQuestionCatalogPack } from "@/lib/pillar-questionnaire";
 import type { MaturitySurveyReport } from "@/lib/maturity-survey-analysis";
 import { isPillarFocusedDeepDive } from "@/lib/maturity-survey-analysis";
 import { DatabaseSetupNotice } from "@/components/database-setup-notice";
@@ -24,6 +26,18 @@ export default async function MaturitySurveyResultsPage({ params }: PageProps) {
 
     if (bundle.survey.status !== "completed") {
       redirect(`/maturity-assessment/${id}`);
+    }
+
+    if (isQuestionCatalogPack(bundle.survey.questionCatalogSource) && bundle.packReport) {
+      return (
+        <MaturityPackSurveyResultsClient
+          sessionId={id}
+          report={bundle.packReport}
+          backHref="/maturity-assessment"
+          backLabel="Assessments"
+          product="maturity"
+        />
+      );
     }
 
     const report = bundle.report as MaturitySurveyReport;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma, assertGuidedWorkshopPrismaReady, PrismaNotReadyError } from "@/lib/db";
 import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
+import { packQuestionCreateData, snapshotPackQuestions } from "@/lib/question-pack-service";
 
 function prismaErrorResponse(error: unknown) {
   if (error instanceof PrismaNotReadyError) {
@@ -48,6 +49,8 @@ export async function POST(request: Request) {
       clientContactName,
       clientContactRole,
       frameworkCodes,
+      questionCatalogSource,
+      questionPackId,
     } = body as {
       title?: string;
       organizationName: string;
@@ -57,23 +60,52 @@ export async function POST(request: Request) {
       clientContactName?: string;
       clientContactRole?: string;
       frameworkCodes?: string[];
+      questionCatalogSource?: "framework" | "pack";
+      questionPackId?: string;
     };
+
+    if (!organizationName?.trim()) {
+      return NextResponse.json({ error: "Organization name is required." }, { status: 400 });
+    }
+
+    const resolvedTitle =
+      title?.trim() || `${organizationName.trim()} AI Governance Workshop`;
+
+    if (questionCatalogSource === "pack") {
+      if (!questionPackId) {
+        return NextResponse.json({ error: "A question pack is required." }, { status: 400 });
+      }
+      const { pack, snapshots } = await snapshotPackQuestions(
+        questionPackId,
+        "guided_workshop"
+      );
+      const workshop = await prisma.guidedWorkshop.create({
+        data: {
+          title: resolvedTitle,
+          organizationName: organizationName.trim(),
+          clientIndustry: clientIndustry?.trim() || null,
+          facilitatorName: facilitatorName?.trim() || null,
+          facilitatorRole: facilitatorRole?.trim() || null,
+          clientContactName: clientContactName?.trim() || null,
+          clientContactRole: clientContactRole?.trim() || null,
+          frameworkCodes: [],
+          questionCatalogSource: "pack",
+          questionPackId: pack.id,
+          status: "in_progress",
+          packQuestions: { create: packQuestionCreateData(snapshots) },
+        },
+      });
+      return NextResponse.json(workshop);
+    }
 
     const allowedFrameworkCodes = new Set<string>(FRAMEWORK_COLUMNS.map((f) => f.code));
     const resolvedFrameworkCodes = Array.isArray(frameworkCodes)
       ? [...new Set(frameworkCodes.filter((code) => allowedFrameworkCodes.has(code)))]
       : [];
 
-    if (!organizationName?.trim()) {
-      return NextResponse.json({ error: "Organization name is required." }, { status: 400 });
-    }
-
     if (resolvedFrameworkCodes.length === 0) {
       return NextResponse.json({ error: "Select at least one framework." }, { status: 400 });
     }
-
-    const resolvedTitle =
-      title?.trim() || `${organizationName.trim()} AI Governance Workshop`;
 
     const workshop = await prisma.guidedWorkshop.create({
       data: {
