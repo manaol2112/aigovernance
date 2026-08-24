@@ -38,6 +38,7 @@ import { getPackClientCopy, PACK_WORKSHOP_COPY } from "@/lib/maturity-client-cop
 import { RISK_PILLARS } from "@/lib/risk-pillars";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
+import { rememberClientOwnedSession } from "@/lib/client-owned-sessions";
 
 type Props = {
   product: "maturity" | "workshop";
@@ -356,6 +357,7 @@ function PackNewForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start");
+      rememberClientOwnedSession(product === "maturity" ? "maturity" : "workshop", data.id);
       router.push(`${sessionBase}/${data.id}`);
     } catch (error) {
       toast(error instanceof Error ? error.message : "Failed to start.", { variant: "error" });

@@ -46,6 +46,7 @@ import {
 import { formatUnitCount } from "@/lib/format-unit-count";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
+import { rememberClientOwnedSession } from "@/lib/client-owned-sessions";
 import { BrandLoadingOverlay } from "@/components/brand-page-loader";
 
 const ALL_FRAMEWORKS = [
@@ -320,6 +321,7 @@ export function NewMaturitySurveyForm() {
         throw new Error((err as { error?: string }).error ?? "Failed to create");
       }
       const data = await res.json();
+      rememberClientOwnedSession("maturity", data.id);
       toast("Ready when you are.", { variant: "success" });
       router.push(`/maturity-assessment/${data.id}`);
     } catch (e) {

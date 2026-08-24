@@ -47,7 +47,6 @@ import {
   getPackClientCopy,
   type PackClientCopy,
 } from "@/lib/maturity-client-copy";
-import { RISK_PILLARS } from "@/lib/risk-pillars";
 import { cn, formatDate } from "@/lib/utils";
 
 const ROADMAP_PHASE_META: Record<
@@ -78,15 +77,17 @@ function SectionHeading({
   eyebrow,
   title,
   description,
+  className,
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
+  className?: string;
 }) {
   return (
-    <div className="mb-6">
+    <div className={cn("mb-6", className)}>
       {eyebrow && (
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">{eyebrow}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{eyebrow}</p>
       )}
       <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h2>
       {description && <p className="mt-1.5 max-w-2xl text-sm text-slate-500">{description}</p>}
@@ -94,74 +95,209 @@ function SectionHeading({
   );
 }
 
+type PillarAnswerFact = {
+  prompt: string;
+  status: "no" | "partial" | "dont_know" | "yes";
+};
+
+const PILLAR_FACT_STATUS: Record<
+  PillarAnswerFact["status"],
+  { label: string; short: string; row: string; mark: string }
+> = {
+  no: {
+    label: "Not in place",
+    short: "No",
+    row: "text-rose-800",
+    mark: "bg-rose-500",
+  },
+  partial: {
+    label: "Underway",
+    short: "Partial",
+    row: "text-amber-800",
+    mark: "bg-amber-500",
+  },
+  dont_know: {
+    label: "To confirm",
+    short: "Unknown",
+    row: "text-slate-600",
+    mark: "bg-slate-400",
+  },
+  yes: {
+    label: "In place",
+    short: "Yes",
+    row: "text-emerald-800",
+    mark: "bg-emerald-500",
+  },
+};
+
+function displaySurveyPrompt(prompt: string): string {
+  const cleaned = prompt.trim().replace(/\s+/g, " ");
+  if (!cleaned) return cleaned;
+  // Keep the original question text — accuracy over rewriting.
+  return /[?.!]$/.test(cleaned) ? cleaned : `${cleaned}?`;
+}
+
+function postureLabelClass(tone: ReturnType<typeof scoreBandLabel>["tone"] | null, unknown?: boolean): string {
+  if (unknown) return "text-slate-500";
+  switch (tone) {
+    case "critical":
+      return "text-rose-700";
+    case "developing":
+      return "text-amber-700";
+    case "defined":
+      return "text-amber-600";
+    case "leading":
+      return "text-emerald-700";
+    default:
+      return "text-slate-700";
+  }
+}
+
 function PackPillarScoreRow({
   pillar,
   priorityFocus,
-  gapCount,
-  partialCount,
+  facts = [],
 }: {
   pillar: PackPillarScore;
   priorityFocus?: boolean;
-  gapCount: number;
-  partialCount: number;
+  facts?: PillarAnswerFact[];
 }) {
   const [open, setOpen] = useState(false);
-  const meta = RISK_PILLARS.find((item) => item.id === pillar.pillarId);
   const posture = scoreBandLabel(pillar.alignmentPct);
+  const unknown = pillar.alignmentPct == null;
+  const ratingLabel = unknown ? "To confirm" : posture.shortLabel;
+
+  const counts = [
+    pillar.noCount > 0
+      ? { key: "no", count: pillar.noCount, label: "Not in place", className: "bg-rose-50 text-rose-800" }
+      : null,
+    pillar.partialCount > 0
+      ? { key: "partial", count: pillar.partialCount, label: "Underway", className: "bg-amber-50 text-amber-900" }
+      : null,
+    pillar.dontKnowCount > 0
+      ? {
+          key: "dont_know",
+          count: pillar.dontKnowCount,
+          label: "To confirm",
+          className: "bg-slate-100 text-slate-700",
+        }
+      : null,
+    pillar.yesCount > 0
+      ? { key: "yes", count: pillar.yesCount, label: "In place", className: "bg-emerald-50 text-emerald-900" }
+      : null,
+  ].filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow",
-        priorityFocus ? "border-amber-200/90 ring-1 ring-amber-100" : "border-slate-200/90"
+        "border-b border-slate-200/80 last:border-b-0",
+        open && "bg-slate-50/80"
       )}
     >
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="w-full px-4 py-3.5 text-left transition-colors hover:bg-slate-50/80"
+        className={cn(
+          "group w-full px-5 py-4 text-left transition-colors",
+          open ? "bg-slate-50/80" : "hover:bg-slate-50/60"
+        )}
         aria-expanded={open}
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {priorityFocus && (
-              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
-                Priority
-              </span>
-            )}
-            <p className="truncate text-sm font-medium text-slate-900">{pillar.pillarLabel}</p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {priorityFocus && (
+                <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white">
+                  Focus
+                </span>
+              )}
+              <p className="truncate text-[15px] font-semibold tracking-tight text-slate-900">
+                {pillar.pillarLabel}
+              </p>
+            </div>
+            <div className="mt-3 max-w-md">
+              <PackPostureMeter tone={unknown ? null : posture.tone} size="sm" />
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3 pt-0.5">
+            <div className="text-right">
+              <p
+                className={cn(
+                  "text-sm font-semibold tracking-tight",
+                  postureLabelClass(unknown ? null : posture.tone, unknown)
+                )}
+              >
+                {ratingLabel}
+              </p>
+              {!unknown && (
+                <p className="mt-0.5 text-[11px] tabular-nums text-slate-400">
+                  {pillar.alignmentPct}%
+                </p>
+              )}
+            </div>
             <ChevronDown
               className={cn(
-                "h-4 w-4 shrink-0 text-slate-400 transition-transform",
-                open && "rotate-180"
+                "h-4 w-4 text-slate-300 transition-transform duration-200 group-hover:text-slate-500",
+                open && "rotate-180 text-slate-500"
               )}
             />
           </div>
-          <span className="shrink-0 text-xs font-semibold text-slate-700">
-            {pillar.alignmentPct == null ? "To confirm" : posture.shortLabel}
-          </span>
-        </div>
-        <div className="mt-2">
-          <PackPostureMeter tone={pillar.alignmentPct == null ? null : posture.tone} size="sm" />
         </div>
       </button>
 
       {open && (
-        <div className="space-y-3 border-t border-slate-100 px-4 py-4">
-          {meta && (
-            <p className="text-xs leading-relaxed text-slate-500">{meta.description}</p>
+        <div className="px-5 pb-4 pt-0">
+          {counts.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {counts.map((item) => (
+                <span
+                  key={item.key}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                    item.className
+                  )}
+                >
+                  <span className="tabular-nums">{item.count}</span>
+                  {item.label}
+                </span>
+              ))}
+            </div>
           )}
-          <p className="text-xs text-slate-500">
-            {pillar.yesCount} in place · {pillar.partialCount} underway · {pillar.noCount} not yet
-            in place
-            {pillar.dontKnowCount > 0 ? ` · ${pillar.dontKnowCount} to confirm` : ""}
-          </p>
-          {(gapCount > 0 || partialCount > 0) && (
-            <p className="text-xs text-slate-600">
-              {gapCount > 0 && `${gapCount} priority improvement${gapCount === 1 ? "" : "s"}`}
-              {gapCount > 0 && partialCount > 0 && " · "}
-              {partialCount > 0 && `${partialCount} area${partialCount === 1 ? "" : "s"} underway`}
-            </p>
+
+          {facts.length === 0 ? (
+            <p className="text-sm text-slate-500">No answers recorded for this pillar yet.</p>
+          ) : (
+            <ul className="overflow-hidden rounded-xl border border-slate-200/90 bg-white">
+              {facts.map((fact, index) => {
+                const status = PILLAR_FACT_STATUS[fact.status];
+                return (
+                  <li
+                    key={`${fact.status}-${index}`}
+                    className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-3 last:border-b-0"
+                  >
+                    <span
+                      className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", status.mark)}
+                      aria-hidden
+                    />
+                    <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-slate-700">
+                      {displaySurveyPrompt(fact.prompt)}
+                    </p>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em]",
+                        status.row,
+                        fact.status === "no" && "bg-rose-50",
+                        fact.status === "partial" && "bg-amber-50",
+                        fact.status === "dont_know" && "bg-slate-50",
+                        fact.status === "yes" && "bg-emerald-50"
+                      )}
+                    >
+                      {status.short}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
       )}
@@ -172,21 +308,104 @@ function PackPillarScoreRow({
 function FindingCard({
   item,
   rank,
+  variant = "gap",
 }: {
-  item: { pillarLabel: string; prompt: string; summary: string };
+  item: {
+    pillarLabel: string;
+    summary: string;
+    insight: string;
+    recommendation: string;
+    severity?: "critical" | "high" | "medium";
+  };
   rank: number;
+  variant?: "gap" | "partial" | "follow" | "strength";
 }) {
+  const tone =
+    variant === "gap"
+      ? {
+          shell: "border-rose-200/80 bg-gradient-to-br from-white via-white to-rose-50/40",
+          rank: "bg-rose-600 text-white",
+          label: "Why it matters",
+          actionLabel: "Recommended move",
+          action: "border-rose-100 bg-rose-50/80 text-rose-950",
+        }
+      : variant === "partial"
+        ? {
+            shell: "border-amber-200/80 bg-gradient-to-br from-white via-white to-amber-50/40",
+            rank: "bg-amber-500 text-white",
+            label: "Why finish this",
+            actionLabel: "Recommended move",
+            action: "border-amber-100 bg-amber-50/80 text-amber-950",
+          }
+        : variant === "follow"
+          ? {
+              shell: "border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50",
+              rank: "bg-slate-700 text-white",
+              label: "Why confirm this",
+              actionLabel: "Recommended move",
+              action: "border-slate-200 bg-slate-50 text-slate-800",
+            }
+          : {
+              shell: "border-emerald-200/80 bg-gradient-to-br from-white via-white to-emerald-50/40",
+              rank: "bg-emerald-600 text-white",
+              label: "Why this matters",
+              actionLabel: "Protect it",
+              action: "border-emerald-100 bg-emerald-50/80 text-emerald-950",
+            };
+
   return (
-    <article className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm print:break-inside-avoid print:shadow-none">
+    <article
+      className={cn(
+        "rounded-2xl border p-5 shadow-sm print:break-inside-avoid print:shadow-none",
+        tone.shell
+      )}
+    >
       <div className="flex items-start gap-3">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold tabular-nums text-slate-600">
+        <span
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums",
+            tone.rank
+          )}
+        >
           {rank}
         </span>
-        <div className="min-w-0">
-          <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">
-            {item.pillarLabel}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">
+              {item.pillarLabel}
+            </p>
+            {variant === "gap" && item.severity && (
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  item.severity === "critical"
+                    ? "bg-rose-100 text-rose-800"
+                    : item.severity === "high"
+                      ? "bg-orange-100 text-orange-800"
+                      : "bg-slate-100 text-slate-600"
+                )}
+              >
+                {item.severity === "critical"
+                  ? "Critical pillar"
+                  : item.severity === "high"
+                    ? "High priority"
+                    : "Medium priority"}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-base font-semibold leading-snug tracking-tight text-slate-900">
+            {item.summary}
           </p>
-          <p className="mt-1.5 text-sm font-medium leading-relaxed text-slate-900">{item.summary}</p>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            <span className="font-semibold text-slate-800">{tone.label}. </span>
+            {item.insight}
+          </p>
+          <div className={cn("mt-4 rounded-xl border px-3.5 py-3", tone.action)}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">
+              {tone.actionLabel}
+            </p>
+            <p className="mt-1 text-sm font-medium leading-relaxed">{item.recommendation}</p>
+          </div>
         </div>
       </div>
     </article>
@@ -216,10 +435,10 @@ function PackRoadmapPhaseColumn({
         </div>
       </div>
       <ol className="mt-4 space-y-3">
-        {steps.map((step) => (
+        {steps.map((step, index) => (
           <li
-            key={`${phase}-${step.priority}-${step.summary}`}
-            className="rounded-xl border border-white/60 bg-white/70 p-3.5"
+            key={`${phase}-${step.priority}-${index}`}
+            className="rounded-xl border border-white/60 bg-white/80 p-3.5 shadow-sm"
           >
             <div className="flex items-center gap-2">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
@@ -229,8 +448,11 @@ function PackRoadmapPhaseColumn({
                 {step.pillarLabel}
               </span>
             </div>
-            <p className="mt-2 text-sm font-medium leading-relaxed text-slate-900">{step.summary}</p>
-            <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{step.action}</p>
+            <p className="mt-2 text-sm font-semibold leading-snug text-slate-900">{step.summary}</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{step.insight}</p>
+            <p className="mt-2 rounded-lg bg-slate-900/[0.04] px-2.5 py-2 text-xs font-medium leading-relaxed text-slate-700">
+              {step.action}
+            </p>
           </li>
         ))}
       </ol>
@@ -270,24 +492,27 @@ export function MaturityPackSurveyResults({
     [report.pillarScores]
   );
 
-  const gapsByPillar = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const gap of report.gaps) {
-      map.set(gap.pillarLabel, (map.get(gap.pillarLabel) ?? 0) + 1);
-    }
-    return map;
-  }, [report.gaps]);
+  const factsByPillar = useMemo(() => {
+    const map = new Map<string, PillarAnswerFact[]>();
+    const push = (pillarLabel: string, prompt: string, status: PillarAnswerFact["status"]) => {
+      const list = map.get(pillarLabel) ?? [];
+      list.push({ prompt, status });
+      map.set(pillarLabel, list);
+    };
 
-  const partialsByPillar = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const partial of report.partials) {
-      map.set(partial.pillarLabel, (map.get(partial.pillarLabel) ?? 0) + 1);
-    }
+    // Gaps first, then partials / unknowns / strengths — mirrors priority reading order.
+    for (const gap of report.gaps) push(gap.pillarLabel, gap.prompt, "no");
+    for (const partial of report.partials) push(partial.pillarLabel, partial.prompt, "partial");
+    for (const followUp of report.followUps) push(followUp.pillarLabel, followUp.prompt, "dont_know");
+    for (const strength of report.strengths) push(strength.pillarLabel, strength.prompt, "yes");
+
     return map;
-  }, [report.partials]);
+  }, [report.gaps, report.partials, report.strengths, report.followUps]);
 
   const priorityPillarId = useMemo(() => {
-    const withGaps = sortedPillars.filter((pillar) => (gapsByPillar.get(pillar.pillarLabel) ?? 0) > 0);
+    const withGaps = sortedPillars.filter((pillar) =>
+      (factsByPillar.get(pillar.pillarLabel) ?? []).some((fact) => fact.status === "no")
+    );
     if (withGaps.length > 0) return withGaps[0]?.pillarId;
 
     const needsAttention = sortedPillars.filter((pillar) => {
@@ -295,7 +520,7 @@ export function MaturityPackSurveyResults({
       return pillar.alignmentPct < 51;
     });
     return needsAttention[0]?.pillarId;
-  }, [sortedPillars, gapsByPillar]);
+  }, [sortedPillars, factsByPillar]);
 
   const hasStrengths = report.strengths.length > 0;
   const hasRoadmap = roadmap.length > 0;
@@ -471,52 +696,42 @@ export function MaturityPackSurveyResults({
         <div className="mx-auto max-w-7xl space-y-12 px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
           <ScrollSection data-header-theme="light" glow="none" id="profile" className="print:break-inside-avoid">
             <ScrollReveal variant="premium" instant>
-              <SectionHeading
-                eyebrow="Your profile"
-                title="Where you stand"
-                description={copy.postureScaleNote}
-              />
-              <PackPostureLegend className="mb-8" />
+              <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <SectionHeading
+                  eyebrow={copy.sectionProfileEyebrow}
+                  title={copy.sectionProfileTitle}
+                  description={copy.sectionProfileDescription}
+                  className="mb-0"
+                />
+                <PackPostureLegend className="sm:mb-1 sm:justify-end" />
+              </div>
 
-              <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
-                <div className="space-y-2">
-                  {sortedPillars.map((pillar) => (
-                    <PackPillarScoreRow
-                      key={pillar.pillarId}
-                      pillar={pillar}
-                      priorityFocus={pillar.pillarId === priorityPillarId}
-                      gapCount={gapsByPillar.get(pillar.pillarLabel) ?? 0}
-                      partialCount={partialsByPillar.get(pillar.pillarLabel) ?? 0}
-                    />
-                  ))}
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Pillars
+                    </p>
+                    <p className="text-[11px] text-slate-400">{sortedPillars.length} assessed</p>
+                  </div>
+                  <div>
+                    {sortedPillars.map((pillar) => (
+                      <PackPillarScoreRow
+                        key={pillar.pillarId}
+                        pillar={pillar}
+                        priorityFocus={pillar.pillarId === priorityPillarId}
+                        facts={factsByPillar.get(pillar.pillarLabel) ?? []}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-8">
-                  <PackPillarRadarChart pillars={report.pillarScores} />
+
+                <div className="space-y-4">
+                  <PackPillarRadarChart
+                    pillars={report.pillarScores}
+                    accent={isWorkshop ? "brand" : "indigo"}
+                  />
                   <PackAnswerStackedChart pillars={report.pillarScores} />
-                  {hasStrengths && (
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-400">
-                        Strengths
-                      </p>
-                      <ul className="mt-4 space-y-3">
-                        {report.strengths.slice(0, 3).map((strength, index) => (
-                          <li key={`${strength.pillarLabel}-${index}`} className="text-sm leading-relaxed text-slate-600">
-                            <span className="font-medium text-slate-800">{strength.pillarLabel}.</span>{" "}
-                            {strength.summary}
-                          </li>
-                        ))}
-                      </ul>
-                      {report.strengths.length > 3 && (
-                        <a
-                          href="#strengths"
-                          onClick={(event) => handleMaturitySectionNav(event, "strengths")}
-                          className="mt-3 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                        >
-                          View all {report.strengths.length} strengths
-                        </a>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             </ScrollReveal>
@@ -532,7 +747,12 @@ export function MaturityPackSurveyResults({
                 />
                 <div className="grid gap-3 sm:grid-cols-2">
                   {report.strengths.map((strength, index) => (
-                    <FindingCard key={`${strength.pillarLabel}-${index}`} item={strength} rank={index + 1} />
+                    <FindingCard
+                      key={`${strength.pillarLabel}-${index}`}
+                      item={strength}
+                      rank={index + 1}
+                      variant="strength"
+                    />
                   ))}
                 </div>
               </ScrollReveal>
@@ -556,7 +776,12 @@ export function MaturityPackSurveyResults({
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {report.gaps.map((gap, index) => (
-                    <FindingCard key={`${gap.pillarLabel}-${index}`} item={gap} rank={index + 1} />
+                    <FindingCard
+                      key={`${gap.pillarLabel}-${index}`}
+                      item={gap}
+                      rank={index + 1}
+                      variant="gap"
+                    />
                   ))}
                 </div>
               )}
@@ -575,7 +800,12 @@ export function MaturityPackSurveyResults({
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {report.partials.map((partial, index) => (
-                    <FindingCard key={`${partial.pillarLabel}-${index}`} item={partial} rank={index + 1} />
+                    <FindingCard
+                      key={`${partial.pillarLabel}-${index}`}
+                      item={partial}
+                      rank={index + 1}
+                      variant="partial"
+                    />
                   ))}
                 </div>
               )}
@@ -594,7 +824,12 @@ export function MaturityPackSurveyResults({
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {report.followUps.map((followUp, index) => (
-                    <FindingCard key={`${followUp.pillarLabel}-${index}`} item={followUp} rank={index + 1} />
+                    <FindingCard
+                      key={`${followUp.pillarLabel}-${index}`}
+                      item={followUp}
+                      rank={index + 1}
+                      variant="follow"
+                    />
                   ))}
                 </div>
               )}

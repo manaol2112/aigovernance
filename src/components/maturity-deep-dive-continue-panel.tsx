@@ -23,6 +23,7 @@ import type { MaturitySurveyReport } from "@/lib/maturity-survey-analysis";
 import { formatUnitCount } from "@/lib/format-unit-count";
 import { toast } from "@/components/ui/toast";
 import { BrandLoadingOverlay } from "@/components/brand-page-loader";
+import { rememberClientOwnedSession } from "@/lib/client-owned-sessions";
 
 function formatFollowUpQuestions(count: number): string {
   return formatUnitCount(count, "follow-up question", "follow-up questions");
@@ -200,6 +201,7 @@ export function MaturityDeepDiveContinuePanel({
           : "Resuming your assessment.",
         { variant: "success" }
       );
+      rememberClientOwnedSession("maturity", data.surveyId);
       router.push(`/maturity-assessment/${data.surveyId}`);
       router.refresh();
     } catch (error) {

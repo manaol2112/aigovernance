@@ -9,6 +9,7 @@ import { MaturityPackSurveyResultsClient } from "@/components/maturity-pack-surv
 import { isQuestionCatalogPack } from "@/lib/pillar-questionnaire";
 import type { GuidedWorkshopReport } from "@/lib/guided-workshop-analysis";
 import { DatabaseSetupNotice } from "@/components/database-setup-notice";
+import { RememberClientOwnedSession } from "@/components/remember-client-owned-session";
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +28,24 @@ export default async function GuidedWorkshopResultsPage({ params }: PageProps) {
 
     if (isQuestionCatalogPack(bundle.workshop.questionCatalogSource) && bundle.packReport) {
       return (
-        <MaturityPackSurveyResultsClient
-          sessionId={id}
-          report={bundle.packReport}
-          backHref="/guided-workshop"
-          backLabel="Workshops"
-          product="workshop"
-        />
+        <>
+          <RememberClientOwnedSession kind="workshop" id={id} />
+          <MaturityPackSurveyResultsClient
+            sessionId={id}
+            report={bundle.packReport}
+            backHref="/guided-workshop"
+            backLabel="Workshops"
+            product="workshop"
+          />
+        </>
       );
     }
 
     return (
-      <GuidedWorkshopResults report={bundle.report as GuidedWorkshopReport} />
+      <>
+        <RememberClientOwnedSession kind="workshop" id={id} />
+        <GuidedWorkshopResults report={bundle.report as GuidedWorkshopReport} />
+      </>
     );
   } catch (error) {
     if (isGuidedWorkshopDbError(error)) {

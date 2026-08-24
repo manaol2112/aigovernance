@@ -10,6 +10,11 @@ import {
   type PackSnapshot,
   type PillarQuestionAnswer,
 } from "@/lib/pillar-questionnaire";
+import {
+  buildPackFindingInsight,
+  buildPackKeyInsights,
+  topicFromFindingSummary,
+} from "@/lib/pack-finding-insights";
 
 const CRITICALITY_WEIGHT: Record<string, number> = {
   critical: 3,
@@ -78,6 +83,7 @@ export type PackExecutiveSummary = {
   leadingPillarLabels: string[];
   priorityPillarLabels: string[];
   pillarsAssessed: number;
+  keyInsights: import("@/lib/pack-finding-insights").PackKeyInsight[];
 };
 
 export type PackRoadmapPhase = "immediate" | "short_term" | "medium_term";
@@ -89,6 +95,7 @@ export type PackRoadmapStep = {
   pillarLabel: string;
   prompt: string;
   summary: string;
+  insight: string;
   action: string;
 };
 
@@ -104,27 +111,6 @@ const CRITICALITY_RANK: Record<string, number> = {
   medium: 2,
 };
 
-function topicFromFindingSummary(summary: string): string {
-  return summary
-    .replace(/ is not yet in place\.$/i, "")
-    .replace(/ is underway but not yet complete\.$/i, "")
-    .replace(/ still needs confirmation\.$/i, "")
-    .replace(/ is in place\.$/i, "")
-    .trim();
-}
-
-function packRoadmapAction(kind: "gap" | "partial" | "follow", summary: string): string {
-  const label = topicFromFindingSummary(summary);
-  const subject = label ? label.charAt(0).toUpperCase() + label.slice(1) : "This area";
-  if (kind === "gap") {
-    return `${subject}: assign an owner, set a 90-day milestone, and define evidence of completion.`;
-  }
-  if (kind === "partial") {
-    return `${subject}: finish remaining work, document what is in place, and schedule a follow-up review.`;
-  }
-  return `${subject}: confirm status with the right stakeholders and collect supporting evidence.`;
-}
-
 export function buildPackRoadmap(report: PackReport): PackRoadmapStep[] {
   const criticalityByPillar = new Map(
     report.pillarScores.map((pillar) => [pillar.pillarLabel, pillar.criticality])
@@ -134,32 +120,37 @@ export function buildPackRoadmap(report: PackReport): PackRoadmapStep[] {
     CRITICALITY_RANK[criticalityByPillar.get(pillarLabel) ?? "medium"] ?? 2;
 
   const gapSteps = [...report.gaps]
-    .sort((left, right) => rank(left.pillarLabel) - rank(right.pillarLabel))
-    .map((item, index) => ({
+    .sort((left, right) => {
+      const severityDelta =
+        (CRITICALITY_RANK[left.severity] ?? 2) - (CRITICALITY_RANK[right.severity] ?? 2);
+      if (severityDelta !== 0) return severityDelta;
+      return rank(left.pillarLabel) - rank(right.pillarLabel);
+    })
+    .map((item) => ({
       phase: "immediate" as const,
       pillarLabel: item.pillarLabel,
       prompt: item.prompt,
       summary: item.summary,
-      action: packRoadmapAction("gap", item.summary),
-      sortKey: index,
+      insight: item.insight,
+      action: item.recommendation,
     }));
 
-  const partialSteps = report.partials.map((item, index) => ({
+  const partialSteps = report.partials.map((item) => ({
     phase: "short_term" as const,
     pillarLabel: item.pillarLabel,
     prompt: item.prompt,
     summary: item.summary,
-    action: packRoadmapAction("partial", item.summary),
-    sortKey: index,
+    insight: item.insight,
+    action: item.recommendation,
   }));
 
-  const followSteps = report.followUps.map((item, index) => ({
+  const followSteps = report.followUps.map((item) => ({
     phase: "medium_term" as const,
     pillarLabel: item.pillarLabel,
     prompt: item.prompt,
     summary: item.summary,
-    action: packRoadmapAction("follow", item.summary),
-    sortKey: index,
+    insight: item.insight,
+    action: item.recommendation,
   }));
 
   return [...gapSteps, ...partialSteps, ...followSteps].map((step, index) => ({
@@ -169,6 +160,7 @@ export function buildPackRoadmap(report: PackReport): PackRoadmapStep[] {
     pillarLabel: step.pillarLabel,
     prompt: step.prompt,
     summary: step.summary,
+    insight: step.insight,
     action: step.action,
   }));
 }
@@ -203,31 +195,50 @@ export function derivePackExecutiveSummary(report: PackReport): PackExecutiveSum
   if (report.overallScorePct != null) {
     headline =
       report.overallScorePct >= 76
-        ? "Strong governance posture across your pillars"
+        ? "Strong governance posture — protect and evidence what works"
         : report.overallScorePct >= 51
-          ? "A defined baseline with room to strengthen"
+          ? "A defined baseline with clear levers to strengthen"
           : report.overallScorePct >= 26
-            ? "Foundational priorities to address next"
-            : "Immediate priorities need executive attention";
+            ? "Foundational priorities that deserve executive attention"
+            : "Immediate priorities need ownership in the next 90 days";
   }
+
+  const topGapTopics = report.gaps
+    .slice(0, 2)
+    .map((gap) => topicFromFindingSummary(gap.summary))
+    .filter(Boolean);
 
   const narrativeParts = [
     `${org} completed a maturity assessment across ${scoredPillars.length} assessed pillar${scoredPillars.length === 1 ? "" : "s"}. ${scoreText}.`,
     report.gaps.length > 0
-      ? `${report.gaps.length} priority improvement${report.gaps.length === 1 ? "" : "s"} and ${report.partials.length} area${report.partials.length === 1 ? "" : "s"} underway were identified for follow-up.`
+      ? `${report.gaps.length} priority improvement${report.gaps.length === 1 ? "" : "s"} stand out${
+          topGapTopics.length > 0
+            ? ` — starting with ${topGapTopics.join(" and ")}`
+            : ""
+        }. ${report.partials.length} area${report.partials.length === 1 ? "" : "s"} are already underway.`
       : report.partials.length > 0
-        ? `${report.partials.length} area${report.partials.length === 1 ? "" : "s"} underway were identified where work has started but is not yet complete.`
+        ? `${report.partials.length} area${report.partials.length === 1 ? "" : "s"} are underway where finishing delivery can lift posture quickly.`
         : "No material priority improvements were identified in this assessment.",
     report.followUps.length > 0
-      ? `${report.followUps.length} item${report.followUps.length === 1 ? "" : "s"} still need confirmation.`
+      ? `${report.followUps.length} item${report.followUps.length === 1 ? "" : "s"} still need confirmation before the baseline is board-ready.`
       : "",
-    leadingPillarLabels.length > 0
-      ? `Leading pillars: ${leadingPillarLabels.join(", ")}.`
-      : "",
+    leadingPillarLabels.length > 0 ? `Leading pillars: ${leadingPillarLabels.join(", ")}.` : "",
     priorityPillarLabels.length > 0 && (report.gaps.length > 0 || (report.overallScorePct ?? 100) < 76)
       ? `Priority focus: ${priorityPillarLabels.join(", ")}.`
       : "",
   ].filter(Boolean);
+
+  const keyInsights = buildPackKeyInsights({
+    organizationName: org,
+    scoreLabel,
+    overallScorePct: report.overallScorePct,
+    gapCount: report.gaps.length,
+    partialCount: report.partials.length,
+    followUpCount: report.followUps.length,
+    leadingPillarLabels,
+    priorityPillarLabels,
+    topGapSummaries: report.gaps.map((gap) => gap.summary),
+  });
 
   return {
     headline,
@@ -237,6 +248,7 @@ export function derivePackExecutiveSummary(report: PackReport): PackExecutiveSum
     leadingPillarLabels,
     priorityPillarLabels,
     pillarsAssessed: scoredPillars.length,
+    keyInsights,
   };
 }
 
@@ -246,6 +258,24 @@ export function scorePillarAnswers(answers: PillarQuestionAnswer[]): number | nu
     .filter((score): score is number => score != null);
   if (scored.length === 0) return null;
   return Math.round(scored.reduce((sum, score) => sum + score, 0) / scored.length);
+}
+
+function toFinding(snapshot: PackSnapshot, answer: PillarQuestionAnswer): PackFinding {
+  const summary = packAnswerFindingSummary(snapshot.prompt, answer, snapshot.helpText);
+  const enriched = buildPackFindingInsight({
+    pillarId: snapshot.pillarId,
+    summary,
+    answer,
+  });
+  return {
+    pillarId: snapshot.pillarId,
+    pillarLabel: packPillarLabel(snapshot.pillarId),
+    prompt: snapshot.prompt,
+    summary,
+    insight: enriched.insight,
+    recommendation: enriched.recommendation,
+    severity: enriched.severity,
+  };
 }
 
 export function buildPackReport(input: {
@@ -302,16 +332,17 @@ export function buildPackReport(input: {
   for (const snapshot of input.snapshots) {
     const answer = answersByQuestion.get(snapshot.id)?.answer;
     if (!answer) continue;
-    const row: PackFinding = {
-      pillarLabel: packPillarLabel(snapshot.pillarId),
-      prompt: snapshot.prompt,
-      summary: packAnswerFindingSummary(snapshot.prompt, answer, snapshot.helpText),
-    };
+    const row = toFinding(snapshot, answer);
     if (answer === "yes") strengths.push(row);
     if (answer === "no") gaps.push(row);
     if (answer === "partial") partials.push(row);
     if (answer === "dont_know") followUps.push(row);
   }
+
+  gaps.sort(
+    (left, right) =>
+      (CRITICALITY_RANK[left.severity] ?? 2) - (CRITICALITY_RANK[right.severity] ?? 2)
+  );
 
   return {
     kind: "pillar_questionnaire",

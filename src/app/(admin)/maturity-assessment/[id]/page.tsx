@@ -12,6 +12,7 @@ import { getParentQuickScanControlIds } from "@/lib/maturity-survey-continue";
 import { buildMaturitySurveyCatalog } from "@/lib/maturity-survey-catalog-server";
 import { formatFocusPillarLabels } from "@/lib/maturity-survey-types";
 import { prepareWizardCatalog } from "@/lib/maturity-survey-wizard-state";
+import { RememberClientOwnedSession } from "@/components/remember-client-owned-session";
 
 export const dynamic = "force-dynamic";
 
@@ -30,16 +31,19 @@ export default async function MaturitySurveyPage({ params }: PageProps) {
 
     if (isQuestionCatalogPack(bundle.survey.questionCatalogSource)) {
       return (
-        <PillarQuestionnaireWizard
-          product="maturity"
-          sessionId={bundle.survey.id}
-          title={bundle.survey.title}
-          organizationName={bundle.survey.organizationName}
-          packName={bundle.survey.questionPack?.name ?? null}
-          snapshots={bundle.snapshots}
-          initialAnswers={bundle.packAnswers}
-          initialStepIndex={bundle.survey.currentStepIndex}
-        />
+        <>
+          <RememberClientOwnedSession kind="maturity" id={bundle.survey.id} />
+          <PillarQuestionnaireWizard
+            product="maturity"
+            sessionId={bundle.survey.id}
+            title={bundle.survey.title}
+            organizationName={bundle.survey.organizationName}
+            packName={bundle.survey.questionPack?.name ?? null}
+            snapshots={bundle.snapshots}
+            initialAnswers={bundle.packAnswers}
+            initialStepIndex={bundle.survey.currentStepIndex}
+          />
+        </>
       );
     }
 
@@ -66,22 +70,25 @@ export default async function MaturitySurveyPage({ params }: PageProps) {
     );
 
     return (
-      <MaturitySurveyWizard
-        initial={{
-          survey: {
-            ...bundle.survey,
-            responses: bundle.survey.responses,
-            documentResponses: bundle.survey.documentResponses.map((response) => ({
-              documentId: response.documentId,
-              pillarId: response.pillarId,
-              status: response.status,
-            })),
-          },
-          catalog: wizardCatalog,
-          seededControlIds,
-          focusPillarLabels,
-        }}
-      />
+      <>
+        <RememberClientOwnedSession kind="maturity" id={bundle.survey.id} />
+        <MaturitySurveyWizard
+          initial={{
+            survey: {
+              ...bundle.survey,
+              responses: bundle.survey.responses,
+              documentResponses: bundle.survey.documentResponses.map((response) => ({
+                documentId: response.documentId,
+                pillarId: response.pillarId,
+                status: response.status,
+              })),
+            },
+            catalog: wizardCatalog,
+            seededControlIds,
+            focusPillarLabels,
+          }}
+        />
+      </>
     );
   } catch (error) {
     if (isDatabaseSetupError(error)) {

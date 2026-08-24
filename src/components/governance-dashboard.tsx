@@ -134,7 +134,7 @@ export function GovernanceDashboard({ proof }: { proof: DashboardProof }) {
           <MountReveal delay={0}>
             <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--theme-shimmer-from)]">
               <Sparkles className="h-3.5 w-3.5" />
-              AI Governance and Assurance
+              AI Assurance Hub
             </p>
           </MountReveal>
 

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Governance | Crosswalk & Assessment",
+  title: "AI Assurance Hub | Crosswalk & Assessment",
   description: "Enterprise AI governance crosswalk and assessment platform",
 };
 

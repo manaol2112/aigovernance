@@ -12,6 +12,7 @@ import { isQuestionCatalogPack } from "@/lib/pillar-questionnaire";
 import type { MaturitySurveyReport } from "@/lib/maturity-survey-analysis";
 import { isPillarFocusedDeepDive } from "@/lib/maturity-survey-analysis";
 import { DatabaseSetupNotice } from "@/components/database-setup-notice";
+import { RememberClientOwnedSession } from "@/components/remember-client-owned-session";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +31,16 @@ export default async function MaturitySurveyResultsPage({ params }: PageProps) {
 
     if (isQuestionCatalogPack(bundle.survey.questionCatalogSource) && bundle.packReport) {
       return (
-        <MaturityPackSurveyResultsClient
-          sessionId={id}
-          report={bundle.packReport}
-          backHref="/maturity-assessment"
-          backLabel="Assessments"
-          product="maturity"
-        />
+        <>
+          <RememberClientOwnedSession kind="maturity" id={id} />
+          <MaturityPackSurveyResultsClient
+            sessionId={id}
+            report={bundle.packReport}
+            backHref="/maturity-assessment"
+            backLabel="Assessments"
+            product="maturity"
+          />
+        </>
       );
     }
 
@@ -70,13 +74,16 @@ export default async function MaturitySurveyResultsPage({ params }: PageProps) {
     }
 
     return (
-      <MaturitySurveyResults
-        surveyId={id}
-        report={report}
-        deepDiveContinuation={deepDiveContinuation}
-        quickScanReport={quickScanReport}
-        pillarComparisons={pillarComparisons}
-      />
+      <>
+        <RememberClientOwnedSession kind="maturity" id={id} />
+        <MaturitySurveyResults
+          surveyId={id}
+          report={report}
+          deepDiveContinuation={deepDiveContinuation}
+          quickScanReport={quickScanReport}
+          pillarComparisons={pillarComparisons}
+        />
+      </>
     );
   } catch (error) {
     if (isDatabaseSetupError(error)) {

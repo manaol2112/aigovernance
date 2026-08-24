@@ -202,7 +202,7 @@ export function Sidebar({ pathname }: { pathname: string }) {
             </span>
             <div className="min-w-0">
               <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Enterprise</div>
-              <div className="mt-1 text-lg font-bold tracking-tight">AI Governance</div>
+              <div className="mt-1 text-lg font-bold tracking-tight">AI Assurance Hub</div>
               <div className="text-xs text-slate-500">Crosswalk & Assessment</div>
             </div>
           </div>
@@ -210,8 +210,8 @@ export function Sidebar({ pathname }: { pathname: string }) {
           <Link
             href="/"
             className="group relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10 transition-all duration-200 hover:bg-white/10 hover:ring-white/20"
-            title="AI Governance"
-            aria-label="AI Governance home"
+            title="AI Assurance Hub"
+            aria-label="AI Assurance Hub home"
           >
             <DeloitteBrandMark />
           </Link>

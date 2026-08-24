@@ -6,7 +6,8 @@ import {
 } from "@/lib/maturity-survey-analysis";
 import { buildFindingEngagementGuide } from "@/lib/maturity-finding-engagement-guide";
 import { isQuestionCatalogPack, hydratePackSnapshots } from "@/lib/pillar-questionnaire";
-import { buildPackReport, type PackReport } from "@/lib/pillar-questionnaire-scoring";
+import { type PackReport } from "@/lib/pillar-questionnaire-scoring";
+import { buildPackReportWithAiDrafts } from "@/lib/pack-finding-ai-draft";
 
 function enrichReportWithEngagementGuides(report: MaturitySurveyReport): MaturitySurveyReport {
   if (!report.pillarDeepDive) return report;
@@ -39,6 +40,8 @@ function enrichReportWithEngagementGuides(report: MaturitySurveyReport): Maturit
 import type { PillarQuickScanBaseline } from "@/lib/maturity-survey-analysis";
 import { MATURITY_LABELS } from "@/lib/maturity-survey-constants";
 import { countSurveyQuestions, filterCatalogByPillars, formatFocusPillarLabels } from "@/lib/maturity-survey-types";
+import { getParentQuickScanControlIds } from "@/lib/maturity-survey-continue";
+import { computeSurveyListProgress } from "@/lib/maturity-survey-list-progress";
 
 export { PrismaNotReadyError };
 
@@ -126,7 +129,7 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
       answer: response.answer,
       notes: response.notes,
     }));
-    const packReport = buildPackReport({
+    const packReport = await buildPackReportWithAiDrafts({
       title: survey.title,
       organizationName: survey.organizationName,
       packName: survey.questionPack?.name ?? null,
@@ -188,22 +191,42 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
   return { survey, catalog, report, snapshots: [], packAnswers: [], packReport: null as PackReport | null };
 }
 
-export async function listMaturitySurveysForPage() {
+export async function listMaturitySurveysForPage(ids?: string[]) {
   assertPrismaReady();
 
+  const requestedIds = (ids ?? []).map((id) => id.trim()).filter(Boolean).slice(0, 40);
+  if (ids && requestedIds.length === 0) return [];
+
   const surveys = await prisma.maturitySurvey.findMany({
+    where: requestedIds.length > 0 ? { id: { in: requestedIds } } : undefined,
     include: {
       _count: { select: { responses: true, packResponses: true, packQuestions: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { updatedAt: "desc" },
   });
 
-  return Promise.all(
+  const items = await Promise.all(
     surveys.map(async (s) => {
       const mode = (s.surveyMode ?? "quick") as import("@/lib/maturity-survey-mode").SurveyMode;
       const catalog = isQuestionCatalogPack(s.questionCatalogSource)
         ? []
         : await buildMaturitySurveyCatalog(s.frameworkCodes, mode);
+      const seededControlIds =
+        !isQuestionCatalogPack(s.questionCatalogSource) &&
+        mode === "deep_dive" &&
+        s.parentSurveyId
+          ? await getParentQuickScanControlIds(s.parentSurveyId, s.focusPillarIds ?? [])
+          : [];
+      const progress = computeSurveyListProgress({
+        questionCatalogSource: s.questionCatalogSource,
+        surveyMode: mode,
+        focusPillarIds: s.focusPillarIds ?? [],
+        packQuestionCount: s._count.packQuestions,
+        packResponseCount: s._count.packResponses,
+        frameworkResponseCount: s._count.responses,
+        frameworkCatalog: catalog,
+        seededControlIds,
+      });
       return {
         id: s.id,
         title: s.title,
@@ -211,18 +234,20 @@ export async function listMaturitySurveysForPage() {
         status: s.status,
         surveyMode: mode,
         frameworkCodes: s.frameworkCodes,
-        responseCount: isQuestionCatalogPack(s.questionCatalogSource)
-          ? s._count.packResponses
-          : s._count.responses,
-        totalQuestions: isQuestionCatalogPack(s.questionCatalogSource)
-          ? s._count.packQuestions
-          : countSurveyQuestions(catalog),
+        responseCount: progress.responseCount,
+        totalQuestions: progress.totalQuestions,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
         submittedAt: s.submittedAt,
       };
     })
   );
+
+  if (requestedIds.length === 0) return items;
+
+  // Preserve client-owned order (most recently remembered first).
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return requestedIds.map((id) => byId.get(id)).filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
 
 export function isDatabaseSetupError(error: unknown): boolean {

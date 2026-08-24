@@ -25,16 +25,8 @@ function prismaErrorResponse(error: unknown) {
 }
 
 export async function GET() {
-  try {
-    assertPrismaReady();
-    const surveys = await prisma.maturitySurvey.findMany({
-      include: { _count: { select: { responses: true } } },
-      orderBy: { createdAt: "desc" },
-    });
-    return NextResponse.json(surveys);
-  } catch (error) {
-    return prismaErrorResponse(error);
-  }
+  // Public listing of all surveys is disabled — use /api/maturity-surveys/owned?ids=...
+  return NextResponse.json([]);
 }
 
 export async function POST(request: Request) {

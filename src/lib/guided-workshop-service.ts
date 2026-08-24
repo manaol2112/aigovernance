@@ -5,7 +5,7 @@ import {
 } from "@/lib/guided-workshop-analysis";
 import { countSurveyQuestions } from "@/lib/maturity-survey-types";
 import { hydratePackSnapshots, isQuestionCatalogPack } from "@/lib/pillar-questionnaire";
-import { buildPackReport } from "@/lib/pillar-questionnaire-scoring";
+import { buildPackReportWithAiDrafts } from "@/lib/pack-finding-ai-draft";
 
 export { PrismaNotReadyError };
 
@@ -30,7 +30,7 @@ export async function loadGuidedWorkshopBundle(workshopId: string) {
       answer: response.answer,
       notes: response.facilitatorNotes,
     }));
-    const packReport = buildPackReport({
+    const packReport = await buildPackReportWithAiDrafts({
       title: workshop.title,
       organizationName: workshop.organizationName,
       packName: workshop.questionPack?.name ?? null,
@@ -64,17 +64,21 @@ export async function loadGuidedWorkshopBundle(workshopId: string) {
   return { workshop, catalog, report, snapshots: [], packAnswers: [], packReport: null };
 }
 
-export async function listGuidedWorkshopsForPage() {
+export async function listGuidedWorkshopsForPage(ids?: string[]) {
   assertGuidedWorkshopPrismaReady();
 
+  const requestedIds = (ids ?? []).map((id) => id.trim()).filter(Boolean).slice(0, 40);
+  if (ids && requestedIds.length === 0) return [];
+
   const workshops = await prisma.guidedWorkshop.findMany({
+    where: requestedIds.length > 0 ? { id: { in: requestedIds } } : undefined,
     include: {
       _count: { select: { responses: true, packResponses: true, packQuestions: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { updatedAt: "desc" },
   });
 
-  return Promise.all(
+  const items = await Promise.all(
     workshops.map(async (w) => {
       const catalog = isQuestionCatalogPack(w.questionCatalogSource)
         ? []
@@ -99,6 +103,13 @@ export async function listGuidedWorkshopsForPage() {
       };
     })
   );
+
+  if (requestedIds.length === 0) return items;
+
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return requestedIds
+    .map((id) => byId.get(id))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
 
 export function isGuidedWorkshopDbError(error: unknown): boolean {

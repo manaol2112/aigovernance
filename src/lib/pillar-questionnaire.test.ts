@@ -149,30 +149,35 @@ describe("derivePackExecutiveSummary", () => {
     expect(summary.narrative).toContain("Acme Corp");
     expect(summary.narrative).toContain("priority improvement");
     expect(summary.narrative).not.toMatch(/%/);
+    expect(summary.keyInsights.length).toBeGreaterThan(0);
+    expect(summary.keyInsights.map((item) => item.body).join(" ")).toContain("Acme Corp");
+    expect(summary.keyInsights.every((item) => item.title && item.body)).toBe(true);
     expect(report.gaps).toHaveLength(1);
-    expect(report.gaps[0]?.summary).toMatch(/not yet in place/i);
+    expect(report.gaps[0]?.summary).toMatch(/has not been established|not yet in place/i);
+    expect(report.gaps[0]?.insight).toMatch(/missing/i);
+    expect(report.gaps[0]?.recommendation).toMatch(/90-day/i);
     expect(report.gaps[0]?.prompt).toContain("Board");
   });
 });
 
 describe("packAnswerFindingSummary", () => {
-  it("turns questions into answer-based finding statements", () => {
+  it("turns questions into professionally drafted finding statements", () => {
     expect(
       packAnswerFindingSummary(
         "Does the organization have a board mandate for AI governance?",
         "no"
       )
-    ).toBe("Board mandate for AI governance is not yet in place.");
+    ).toBe("A board mandate for AI governance has not been established.");
 
     expect(
       packAnswerFindingSummary(
         "Is there a documented data inventory for AI systems?",
         "partial"
       )
-    ).toBe("Documented data inventory for AI systems is underway but not yet complete.");
+    ).toBe("A documented data inventory for AI systems is underway but not yet complete.");
 
     expect(packAnswerFindingSummary("Incident response playbook", "yes")).toBe(
-      "Incident response playbook is in place."
+      "An incident response playbook is in place."
     );
 
     expect(
@@ -181,7 +186,7 @@ describe("packAnswerFindingSummary", () => {
         "yes"
       )
     ).toBe(
-      "Complete, centralize inventory of AI tools, models, agents, and use cases in use across the organization is in place."
+      "A complete and centralized inventory of AI tools, models, agents, and use cases is in place."
     );
 
     expect(
@@ -189,14 +194,16 @@ describe("packAnswerFindingSummary", () => {
         "Does the board oversee AI risk with a documented mandate?",
         "no"
       )
-    ).toBe("AI risk with a documented mandate is not yet in place.");
+    ).toBe("Documented board oversight of AI risk has not been established.");
 
     expect(
       packAnswerFindingSummary(
         "Is personal data used by AI systems inventoried and classified?",
         "partial"
       )
-    ).toBe("Personal data used by AI systems is underway but not yet complete.");
+    ).toBe(
+      "Inventory and classification of personal data used by AI systems is underway but not yet complete."
+    );
 
     expect(
       packAnswerFindingSummary(
@@ -204,7 +211,144 @@ describe("packAnswerFindingSummary", () => {
         "no",
         "Board mandate for AI governance"
       )
-    ).toBe("Board mandate for AI governance is not yet in place.");
+    ).toBe("A board mandate for AI governance has not been established.");
+
+    expect(
+      packAnswerFindingSummary(
+        "Are AI transparency disclosures documented for user-facing systems?",
+        "dont_know"
+      )
+    ).toBe(
+      "The status of documentation of AI transparency disclosures for user-facing systems still needs confirmation."
+    );
+  });
+
+  it("drafts explainability and user-awareness prompts as full sentences", () => {
+    expect(
+      packAnswerFindingSummary(
+        "Can you explain, in plain language, how your AI systems arrive at their outputs or recommendations?",
+        "no"
+      )
+    ).toBe(
+      "Plain-language explanations of how your AI systems arrive at their outputs or recommendations have not been established."
+    );
+
+    expect(
+      packAnswerFindingSummary(
+        "Do you explain, in plain language, how your AI systems arrive at their outputs or recommendations?",
+        "partial"
+      )
+    ).toBe(
+      "Plain-language explanations of how your AI systems arrive at their outputs or recommendations are underway but not yet complete."
+    );
+
+    expect(
+      packAnswerFindingSummary(
+        "Do users or customers know when they're interacting with AI rather than a human?",
+        "no"
+      )
+    ).toBe(
+      "Users and customers are not clearly informed when they are interacting with AI rather than a human."
+    );
+
+    expect(
+      packAnswerFindingSummary(
+        "Do users or customers know when they're interacting with AI rather than a human?",
+        "yes"
+      )
+    ).toBe("Users and customers know when they are interacting with AI rather than a human.");
+  });
+
+  it("converts action-style questions into practice statements, never echoing the question", () => {
+    expect(
+      packAnswerFindingSummary(
+        "Do you test AI systems for bias or disparate impact before deployment.",
+        "no"
+      )
+    ).toBe(
+      "Testing of AI systems for bias or disparate impact before deployment has not been established."
+    );
+
+    expect(
+      packAnswerFindingSummary(
+        "Have you identified which AI use cases could affect protected classes or individual rights - e.g., hiring, lending, healthcare.",
+        "no"
+      )
+    ).toBe(
+      "Identification of AI use cases that could affect protected classes or individual rights (e.g., hiring, lending, healthcare) has not been established."
+    );
+
+    expect(
+      packAnswerFindingSummary(
+        "Do you monitor model performance after deployment?",
+        "partial"
+      )
+    ).toBe("Monitoring of model performance after deployment is underway but not yet complete.");
+
+    expect(
+      packAnswerFindingSummary("Do you provide clear AI use notices to customers?", "yes")
+    ).toBe("Clear AI use notices to customers are in place.");
+
+    const samples = [
+      "Do you test AI systems for bias or disparate impact before deployment?",
+      "Have you identified which AI use cases could affect protected classes?",
+      "Can you demonstrate human oversight for high-risk decisions?",
+      "Do teams review training data for representative coverage?",
+      "Have you documented escalation paths for AI incidents?",
+    ];
+
+    for (const prompt of samples) {
+      const summary = packAnswerFindingSummary(prompt, "no");
+      expect(summary).not.toMatch(
+        /^(?:Not yet in place|Confirmed in place|Underway|Still to confirm):/i
+      );
+      expect(summary).not.toMatch(/^(?:Do|Does|Did|Have|Has|Can|Could|Is|Are|Would|Should)\b/);
+      expect(summary).toMatch(
+        /(?:has not been established|have not been established|is in place|are in place)\.$/
+      );
+    }
+  });
+
+  it("converts Is/Are property questions into proper practice statements", () => {
+    expect(
+      packAnswerFindingSummary(
+        "Is every AI use case assessed before deployment?",
+        "no"
+      )
+    ).toBe(
+      "Assessment of every AI use case before deployment has not been established."
+    );
+
+    expect(packAnswerFindingSummary("Are AI decisions traceable?", "yes")).toBe(
+      "Traceability of AI decisions is in place."
+    );
+
+    expect(
+      packAnswerFindingSummary(
+        "Are human reviews in place before critical decisions are made?",
+        "yes"
+      )
+    ).toBe("Human review before critical decisions is in place.");
+
+    expect(
+      packAnswerFindingSummary(
+        "Do you have human reviews before critical decisions are made?",
+        "yes"
+      )
+    ).toBe("Human review before critical decisions is in place.");
+
+    // Never produce article or dangling-adjective trash
+    for (const prompt of [
+      "Is every AI use case assessed before deployment?",
+      "Are AI decisions traceable?",
+      "Are human reviews before critical decisions made?",
+    ]) {
+      const summary = packAnswerFindingSummary(prompt, "no");
+      expect(summary).not.toMatch(/\bAn every\b/i);
+      expect(summary).not.toMatch(/\btraceable\b/i);
+      expect(summary).not.toMatch(/\bare made are\b/i);
+      expect(summary).not.toMatch(/^(?:Is|Are|Do|Have)\b/);
+    }
   });
 });
 
@@ -259,6 +403,8 @@ describe("buildPackRoadmap", () => {
     expect(steps[1]?.phase).toBe("short_term");
     expect(steps[2]?.phase).toBe("medium_term");
     expect(steps[0]?.action).toMatch(/Board oversight/i);
+    expect(steps[0]?.action).toMatch(/90-day/i);
+    expect(steps[0]?.insight).toMatch(/missing|ownership|board/i);
     expect(steps[0]?.action).not.toMatch(/\?/);
   });
 });

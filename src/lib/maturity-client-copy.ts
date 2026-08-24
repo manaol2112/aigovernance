@@ -50,25 +50,32 @@ export const PACK_ASSESSMENT_COPY = {
   sectionPriorities: "Priority improvements",
   sectionPrioritiesEyebrow: "What to address first",
   sectionPrioritiesDescription:
-    "These practices are not yet in place. They are the recommended starting points for your governance program.",
+    "These practices are not yet in place. Each card explains why it matters and the first move to close it.",
   sectionImprovementsEyebrow: "Building momentum",
   sectionImprovementsDescription:
-    "Work has started in these areas but is not yet complete.",
+    "Work has started — finish delivery and lock evidence so these do not stall as open risk.",
   sectionToConfirmEyebrow: "Open items",
   sectionToConfirmDescription:
-    "You marked these for follow-up — a conversation or evidence check is needed before they can be rated.",
+    "You marked these for follow-up. Confirm status with an owner before treating the baseline as closed.",
   sectionRoadmapEyebrow: "Recommended next steps",
   sectionRoadmapTitle: "Your action plan",
   sectionRoadmapDescription:
-    "Phased actions based on priority improvements, areas underway, and items still to confirm.",
+    "A sequenced plan from priority gaps to areas underway and items still to confirm — built for leadership follow-through.",
   sectionStrengthsEyebrow: "What's working",
   sectionStrengthsTitle: "Strengths",
-  sectionStrengthsDescription: "Practices you confirmed are in place today.",
+  sectionStrengthsDescription:
+    "Practices you confirmed are in place — protect the operating rhythm and keep evidence current.",
+  sectionInsightsEyebrow: "Key findings",
+  sectionInsightsTitle: "What matters most",
+  sectionInsightsDescription: "",
+  sectionProfileEyebrow: "Pillar view",
+  sectionProfileTitle: "Where you stand",
+  sectionProfileDescription: "",
   shareSummary:
-    "This includes posture by pillar, priority improvements, and a phased action plan prepared for leadership review.",
+    "Posture by pillar, priority improvements with recommended actions, and a phased plan you can act on.",
   aboutReportTitle: "About this report",
   aboutReport:
-    "This report reflects your current-state responses across governance pillars. Use the findings to prioritize next steps, evidence collection, and policy work.",
+    "This report reflects your current-state responses across governance pillars. Each finding includes why it matters and a concrete next step.",
   printConfidential: "Confidential — for authorized organizational use only",
   sessionTitleLabel: "Assessment title (optional)",
   sessionTitlePlaceholder: "Q3 governance baseline",
@@ -133,25 +140,32 @@ export const PACK_WORKSHOP_COPY = {
   sectionPriorities: "Priority improvements",
   sectionPrioritiesEyebrow: "Discuss with the client",
   sectionPrioritiesDescription:
-    "Practices not yet in place — use these to shape workshop follow-ups and the client's roadmap.",
+    "Practices not yet in place — each card explains why it matters for the client and the first move to close it.",
   sectionImprovementsEyebrow: "Underway",
   sectionImprovementsDescription:
-    "Work has started in these areas but is not yet complete.",
+    "Work has started — help the client finish delivery and lock evidence so these do not stall as open risk.",
   sectionToConfirmEyebrow: "Follow up after the session",
   sectionToConfirmDescription:
-    "The client flagged these for follow-up — schedule evidence checks or deeper conversations.",
+    "The client flagged these for follow-up — confirm with an owner before treating the baseline as closed.",
   sectionRoadmapEyebrow: "Recommended next steps",
   sectionRoadmapTitle: "Workshop action plan",
   sectionRoadmapDescription:
-    "Phased actions based on priority improvements, areas underway, and items still to confirm.",
+    "A sequenced plan from priority gaps to areas underway and items still to confirm — ready for client debrief.",
   sectionStrengthsEyebrow: "Confirmed strengths",
   sectionStrengthsTitle: "What's working",
-  sectionStrengthsDescription: "Practices the client confirmed are in place today.",
+  sectionStrengthsDescription:
+    "Practices the client confirmed are in place — protect the operating rhythm and keep evidence current.",
+  sectionInsightsEyebrow: "Key findings",
+  sectionInsightsTitle: "What matters most",
+  sectionInsightsDescription: "",
+  sectionProfileEyebrow: "Pillar view",
+  sectionProfileTitle: "Where you stand",
+  sectionProfileDescription: "",
   shareSummary:
-    "Workshop summary with posture by pillar, priority improvements, and a phased action plan for the client.",
+    "Posture by pillar, priority improvements with recommended actions, and a phased plan for follow-through.",
   aboutReportTitle: "About this summary",
   aboutReport:
-    "This summary reflects current-state responses captured during your guided workshop. Use it for client debriefs, follow-up planning, and evidence collection.",
+    "This summary reflects current-state responses from the workshop. Each finding includes why it matters and a concrete next step.",
   printConfidential: "Confidential — for authorized client use only",
   sessionTitleLabel: "Workshop title (optional)",
   sessionTitlePlaceholder: "Auto-generated from organization name",

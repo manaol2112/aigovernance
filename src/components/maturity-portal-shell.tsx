@@ -104,7 +104,7 @@ export function MaturityPortalShell({
                   lightHeader ? "text-slate-900" : "text-white"
                 )}
               >
-                AI Governance
+                AI Assurance Hub
               </p>
               <p
                 className={cn(

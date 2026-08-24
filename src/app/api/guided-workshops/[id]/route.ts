@@ -60,8 +60,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       ? await prisma.questionPack.findUnique({ where: { id: workshop.questionPackId } })
       : null;
     const { hydratePackSnapshots } = await import("@/lib/pillar-questionnaire");
-    const { buildPackReport } = await import("@/lib/pillar-questionnaire-scoring");
-    const report = buildPackReport({
+    const { buildPackReportWithAiDrafts } = await import("@/lib/pack-finding-ai-draft");
+    const report = await buildPackReportWithAiDrafts({
       title: workshop.title,
       organizationName: workshop.organizationName,
       packName: pack?.name ?? null,

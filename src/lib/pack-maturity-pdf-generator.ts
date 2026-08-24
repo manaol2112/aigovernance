@@ -115,6 +115,19 @@ function buildPackPdf(doc: PDFKit.PDFDocument, report: PackReport, copy: PackCli
   y = drawParagraph(doc, y, summary.narrative);
   y = drawParagraph(doc, y, summary.headline, { bold: true });
 
+  if (summary.keyInsights.length > 0) {
+    y = drawSection(doc, y, "Key Insights");
+    for (const [index, insight] of summary.keyInsights.entries()) {
+      y = ensureSpace(doc, y, 48);
+      doc
+        .fillColor(BRAND.greenDark)
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .text(`${index + 1}. ${insight.title}`, 50, y);
+      y = drawParagraph(doc, y + 14, insight.body);
+    }
+  }
+
   y = drawSection(doc, y, "Posture by Pillar");
   for (const pillar of report.pillarScores.filter((item) => item.questionCount > 0)) {
     y = ensureSpace(doc, y, 36);
@@ -135,18 +148,21 @@ function buildPackPdf(doc: PDFKit.PDFDocument, report: PackReport, copy: PackCli
   if (report.strengths.length > 0) {
     y = drawSection(doc, y, "Strengths");
     for (const item of report.strengths.slice(0, 12)) {
-      y = ensureSpace(doc, y, 28);
+      y = ensureSpace(doc, y, 48);
       doc.fillColor(BRAND.greenDark).font("Helvetica-Bold").fontSize(9).text(item.pillarLabel, 50, y);
-      y = drawParagraph(doc, y + 12, item.summary);
+      y = drawParagraph(doc, y + 12, item.summary, { bold: true });
+      y = drawParagraph(doc, y, item.recommendation);
     }
   }
 
   if (report.gaps.length > 0) {
     y = drawSection(doc, y, "Priority Improvements");
     for (const [index, item] of report.gaps.slice(0, 12).entries()) {
-      y = ensureSpace(doc, y, 36);
+      y = ensureSpace(doc, y, 64);
       doc.fillColor(BRAND.black).font("Helvetica-Bold").fontSize(10).text(`${index + 1}. ${item.pillarLabel}`, 50, y);
-      y = drawParagraph(doc, y + 14, item.summary);
+      y = drawParagraph(doc, y + 14, item.summary, { bold: true });
+      y = drawParagraph(doc, y, item.insight);
+      y = drawParagraph(doc, y, `Next: ${item.recommendation}`);
     }
   }
 
@@ -159,9 +175,10 @@ function buildPackPdf(doc: PDFKit.PDFDocument, report: PackReport, copy: PackCli
       doc.fillColor(BRAND.greenDark).font("Helvetica-Bold").fontSize(10).text(steps[0]!.phaseLabel, 50, y);
       y += 16;
       for (const step of steps.slice(0, 8)) {
-        y = ensureSpace(doc, y, 40);
+        y = ensureSpace(doc, y, 52);
         doc.fillColor(BRAND.black).font("Helvetica-Bold").fontSize(9).text(`${step.priority}. ${step.pillarLabel}`, 50, y);
-        y = drawParagraph(doc, y + 12, step.summary);
+        y = drawParagraph(doc, y + 12, step.summary, { bold: true });
+        y = drawParagraph(doc, y, step.insight);
         y = drawParagraph(doc, y, step.action);
       }
     }

@@ -52,7 +52,7 @@ function ThemePreviewCard({
           className="flex items-center justify-between px-3 py-2"
           style={{ backgroundColor: meta.preview.accent, color: themeId === "deloitte" ? "#fff" : meta.preview.text }}
         >
-          <span className="text-[10px] font-bold uppercase tracking-wider">AI Governance</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider">AI Assurance Hub</span>
           <span
             className="h-2 w-2 rounded-full"
             style={{ backgroundColor: meta.preview.primary }}

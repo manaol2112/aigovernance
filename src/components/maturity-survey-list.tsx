@@ -28,7 +28,7 @@ import {
   StickyScrollCTA,
 } from "@/components/maturity-landing-motion";
 import { MaturityReportPreviewShowcase } from "@/components/maturity-report-preview-showcase";
-import { MaturitySurveyResumePanel } from "@/components/maturity-survey-resume-panel";
+import { ClientOwnedSessionsPanel } from "@/components/client-owned-sessions-panel";
 
 const BASELINE_PILLAR_COUNT = RISK_PILLARS.length;
 
@@ -66,12 +66,8 @@ function FrameworkMarquee() {
   );
 }
 
-/** Public marketing landing — conversion-focused with optional resume list. */
-export function MaturityAssessmentLanding({
-  inProgressSurveys = [],
-}: {
-  inProgressSurveys?: MaturitySurveyListItem[];
-}) {
+/** Public marketing landing — conversion-focused with private device-owned resume list. */
+export function MaturityAssessmentLanding() {
   return (
     <div className="bg-slate-950">
       <StickyScrollCTA />
@@ -120,19 +116,14 @@ export function MaturityAssessmentLanding({
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>
-                  {inProgressSurveys.length > 0 && (
-                    <Button
-                      asChild
-                      size="lg"
-                      variant="outline"
-                      className="h-12 rounded-xl border-white/15 bg-white/5 px-6 text-white hover:bg-white/10"
-                    >
-                      <a href="#in-progress">
-                        Resume in progress
-                        {inProgressSurveys.length > 1 ? ` (${inProgressSurveys.length})` : ""}
-                      </a>
-                    </Button>
-                  )}
+                  <Button
+                    asChild
+                    size="lg"
+                    variant="outline"
+                    className="h-12 rounded-xl border-white/15 bg-white/5 px-6 text-white hover:bg-white/10"
+                  >
+                    <a href="#in-progress">Resume saved progress</a>
+                  </Button>
                 </div>
                 <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
@@ -140,7 +131,7 @@ export function MaturityAssessmentLanding({
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Lock className="h-3.5 w-3.5" />
-                    Confidential
+                    Private to this device
                   </span>
                   <span className="flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -286,9 +277,7 @@ export function MaturityAssessmentLanding({
         </div>
       </ScrollSection>
 
-      {inProgressSurveys.length > 0 && (
-        <MaturitySurveyResumePanel surveys={inProgressSurveys} />
-      )}
+      <ClientOwnedSessionsPanel kind="maturity" />
 
       <SectionSeam from="light" to="dark" />
 

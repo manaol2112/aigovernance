@@ -8,6 +8,7 @@ import { GuidedWorkshopWizard } from "@/components/guided-workshop-wizard";
 import { PillarQuestionnaireWizard } from "@/components/pillar-questionnaire-wizard";
 import { isQuestionCatalogPack } from "@/lib/pillar-questionnaire";
 import { DatabaseSetupNotice } from "@/components/database-setup-notice";
+import { RememberClientOwnedSession } from "@/components/remember-client-owned-session";
 
 export const dynamic = "force-dynamic";
 
@@ -26,35 +27,41 @@ export default async function GuidedWorkshopSessionPage({ params }: PageProps) {
 
     if (isQuestionCatalogPack(bundle.workshop.questionCatalogSource)) {
       return (
-        <PillarQuestionnaireWizard
-          product="workshop"
-          sessionId={bundle.workshop.id}
-          title={bundle.workshop.title}
-          organizationName={bundle.workshop.organizationName}
-          packName={bundle.workshop.questionPack?.name ?? null}
-          snapshots={bundle.snapshots}
-          initialAnswers={bundle.packAnswers}
-          initialStepIndex={bundle.workshop.currentStepIndex}
-        />
+        <>
+          <RememberClientOwnedSession kind="workshop" id={bundle.workshop.id} />
+          <PillarQuestionnaireWizard
+            product="workshop"
+            sessionId={bundle.workshop.id}
+            title={bundle.workshop.title}
+            organizationName={bundle.workshop.organizationName}
+            packName={bundle.workshop.questionPack?.name ?? null}
+            snapshots={bundle.snapshots}
+            initialAnswers={bundle.packAnswers}
+            initialStepIndex={bundle.workshop.currentStepIndex}
+          />
+        </>
       );
     }
 
     return (
-      <GuidedWorkshopWizard
-        key={bundle.workshop.id}
-        initial={{
-          workshop: {
-            ...bundle.workshop,
-            responses: bundle.workshop.responses.map((r) => ({
-              controlId: r.controlId,
-              pillarId: r.pillarId,
-              maturity: r.maturity,
-              facilitatorNotes: r.facilitatorNotes,
-            })),
-          },
-          catalog: bundle.catalog,
-        }}
-      />
+      <>
+        <RememberClientOwnedSession kind="workshop" id={bundle.workshop.id} />
+        <GuidedWorkshopWizard
+          key={bundle.workshop.id}
+          initial={{
+            workshop: {
+              ...bundle.workshop,
+              responses: bundle.workshop.responses.map((r) => ({
+                controlId: r.controlId,
+                pillarId: r.pillarId,
+                maturity: r.maturity,
+                facilitatorNotes: r.facilitatorNotes,
+              })),
+            },
+            catalog: bundle.catalog,
+          }}
+        />
+      </>
     );
   } catch (error) {
     if (isGuidedWorkshopDbError(error)) {

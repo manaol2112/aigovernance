@@ -25,6 +25,7 @@ import {
 } from "@/lib/client-industries";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
+import { rememberClientOwnedSession } from "@/lib/client-owned-sessions";
 import { BrandLoadingOverlay } from "@/components/brand-page-loader";
 
 const ALL_FRAMEWORKS = [
@@ -116,6 +117,7 @@ export function NewGuidedWorkshopForm() {
         throw new Error((err as { error?: string }).error ?? "Failed to create workshop");
       }
       const data = await res.json();
+      rememberClientOwnedSession("workshop", data.id);
       toast("Workshop ready — you can begin.", { variant: "success" });
       router.push(`/guided-workshop/${data.id}`);
     } catch (e) {

@@ -24,16 +24,8 @@ function prismaErrorResponse(error: unknown) {
 }
 
 export async function GET() {
-  try {
-    assertGuidedWorkshopPrismaReady();
-    const workshops = await prisma.guidedWorkshop.findMany({
-      include: { _count: { select: { responses: true } } },
-      orderBy: { createdAt: "desc" },
-    });
-    return NextResponse.json(workshops);
-  } catch (error) {
-    return prismaErrorResponse(error);
-  }
+  // Public listing of all workshops is disabled — use /api/guided-workshops/owned?ids=...
+  return NextResponse.json([]);
 }
 
 export async function POST(request: Request) {
