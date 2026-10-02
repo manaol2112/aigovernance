@@ -218,7 +218,7 @@ export function MaturitySurveyBriefingPanel({
 
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]">
-      <div className="border-b border-slate-900/10 bg-[#0B1220] px-6 py-8 text-white sm:px-8">
+      <div className="brand-ink-surface border-b border-slate-900/10 bg-[#0B1220] px-6 py-8 text-white sm:px-8">
         <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300/90">
           <Sparkles className="h-3.5 w-3.5" />
           Step 3 of 3 · Before you begin

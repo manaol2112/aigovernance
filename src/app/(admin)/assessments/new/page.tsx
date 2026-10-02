@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { FrameworkScopeNotice } from "@/components/framework-scope-notice";
 import { SetupWizardStepper } from "@/components/setup-wizard-stepper";
 import { IndustrySelect } from "@/components/industry-select";
@@ -158,11 +159,12 @@ export default function NewAssessmentWizard() {
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
           <Link href="/assessments"><ArrowLeft className="mr-1 h-4 w-4" /> Assessments</Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">New Client Assessment</h1>
-        <p className="mt-2 text-slate-500">
-          Set up client scope, frameworks, and in-scope AI systems. Regulatory classification and ownership fields
-          drive automatic requirement scoping.
-        </p>
+        <AdminPageHeader
+          variant="hero"
+          eyebrow="Engagement setup"
+          title="New client assessment"
+          description="Set up client scope, frameworks, and in-scope AI systems. Regulatory classification and ownership fields drive automatic requirement scoping."
+        />
       </div>
 
       <SetupWizardStepper steps={[...WIZARD_STEPS]} currentStepId={step} />

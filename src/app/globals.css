@@ -7,6 +7,7 @@
 
   --theme-brand: #4f46e5;
   --theme-brand-hover: #4338ca;
+  --theme-brand-on: #ffffff; /* text/icons on brand fills */
   --theme-brand-muted: #eef2ff;
   --theme-brand-subtle: #e0e7ff;
   --theme-brand-ring: #c7d2fe;
@@ -17,7 +18,7 @@
   --theme-border: #e2e8f0;
   --theme-border-strong: #cbd5e1;
   --theme-text: #0f172a;
-  --theme-text-muted: #64748b;
+  --theme-text-muted: #475569; /* slate-600 — ≥4.5:1 on white */
   --theme-sidebar-bg: #020617;
   --theme-sidebar-fg: #f8fafc;
   --theme-hero-bg: #020617;
@@ -25,15 +26,19 @@
   --theme-shimmer-via: #e0e7ff;
   --theme-shimmer-to: #6ee7b7;
 
+  /* Remap muted slate text tokens to AA on light surfaces (borders stay on 200) */
+  --color-slate-400: #64748b; /* was #94a3b8 (~3:1 on white) */
+  --color-slate-500: #475569; /* was #64748b — stronger body muted */
+
   --color-indigo-50: #eef2ff;
   --color-indigo-100: #e0e7ff;
   --color-indigo-200: #c7d2fe;
   --color-indigo-300: #a5b4fc;
   --color-indigo-400: #818cf8;
-  --color-indigo-500: #6366f1;
-  --color-indigo-600: #4f46e5;
-  --color-indigo-700: #4338ca;
-  --color-indigo-800: #3730a3;
+  --color-indigo-500: #4f46e5; /* brand-aligned; readable as text on white */
+  --color-indigo-600: #4338ca;
+  --color-indigo-700: #3730a3;
+  --color-indigo-800: #312e81;
   --color-indigo-900: #312e81;
   --color-indigo-950: #1e1b4b;
 }
@@ -44,6 +49,7 @@
 
   --theme-brand: #818cf8;
   --theme-brand-hover: #a5b4fc;
+  --theme-brand-on: #0f172a; /* dark text on light indigo fills */
   --theme-brand-muted: #1e1b4b;
   --theme-brand-subtle: #312e81;
   --theme-brand-ring: #4338ca;
@@ -54,7 +60,7 @@
   --theme-border: #334155;
   --theme-border-strong: #475569;
   --theme-text: #f1f5f9;
-  --theme-text-muted: #94a3b8;
+  --theme-text-muted: #cbd5e1; /* ≥4.5:1 on card #1e293b */
   --theme-sidebar-bg: #020617;
   --theme-sidebar-fg: #f8fafc;
   --theme-hero-bg: #020617;
@@ -66,11 +72,11 @@
   --color-indigo-100: #312e81;
   --color-indigo-200: #3730a3;
   --color-indigo-300: #4338ca;
-  --color-indigo-400: #4f46e5;
-  --color-indigo-500: #6366f1;
-  --color-indigo-600: #818cf8;
-  --color-indigo-700: #a5b4fc;
-  --color-indigo-800: #c7d2fe;
+  --color-indigo-400: #6366f1;
+  --color-indigo-500: #818cf8;
+  --color-indigo-600: #a5b4fc;
+  --color-indigo-700: #c7d2fe;
+  --color-indigo-800: #e0e7ff;
   --color-indigo-900: #e0e7ff;
   --color-indigo-950: #eef2ff;
 
@@ -78,49 +84,92 @@
   --color-slate-100: #1e293b;
   --color-slate-200: #334155;
   --color-slate-300: #475569;
-  --color-slate-400: #64748b;
-  --color-slate-500: #94a3b8;
-  --color-slate-600: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #cbd5e1;
+  --color-slate-600: #e2e8f0;
   --color-slate-700: #e2e8f0;
   --color-slate-800: #f1f5f9;
   --color-slate-900: #f8fafc;
   --color-slate-950: #ffffff;
 }
 
-/* ── Deloitte brand theme ───────────────────────────────────────────────── */
+/* Defaults for action fills (overridden per theme) */
+:root,
+[data-theme="light"] {
+  --theme-action: var(--theme-brand);
+  --theme-action-hover: var(--theme-brand-hover);
+  --theme-action-on: var(--theme-brand-on, #fff);
+  --theme-link: var(--theme-brand);
+  --theme-link-hover: var(--theme-brand-hover);
+  --font-sans: var(--font-geist-sans);
+}
+
+[data-theme="dark"] {
+  --theme-action: var(--theme-brand);
+  --theme-action-hover: var(--theme-brand-hover);
+  --theme-action-on: var(--theme-brand-on, #0f172a);
+  --theme-link: var(--theme-brand);
+  --theme-link-hover: var(--theme-brand-hover);
+  --font-sans: var(--font-geist-sans);
+}
+
+/*
+  Deloitte-inspired theme (public brand cues — NOT Brandspace approval).
+  Pattern: black / white / green dot; Open Sans Light display; teal links;
+  black primary CTAs (green is accent, not button fill — matches deloitte.com).
+*/
 [data-theme="deloitte"] {
   color-scheme: light;
 
+  --font-sans: var(--font-deloitte-sans), "Open Sans", Aptos, Helvetica, Arial, sans-serif;
+
   --theme-brand: #86bc25;
   --theme-brand-hover: #6b9620;
-  --theme-brand-muted: #f3f9e8;
+  --theme-brand-on: #000000;
+  --theme-brand-muted: #eef7e0;
   --theme-brand-subtle: #e5f2d0;
-  --theme-brand-ring: #c5e39a;
-  --theme-page-bg: #fafafa;
+  --theme-brand-ring: #86bc25;
+
+  /* Primary actions: black (AA); green reserved for mark + accents */
+  --theme-action: #000000;
+  --theme-action-hover: #1a1a1a;
+  --theme-action-on: #ffffff;
+
+  /* Interactive links — digital teal used on deloitte.com */
+  --theme-link: #1076a8;
+  --theme-link-hover: #0c5d85;
+
+  --theme-page-bg: #ffffff;
   --theme-page-fg: #000000;
   --theme-card-bg: #ffffff;
   --theme-card-fg: #000000;
-  --theme-border: #e5e5e5;
-  --theme-border-strong: #d4d4d4;
+  --theme-border: #e3e3e3;
+  --theme-border-strong: #666666;
   --theme-text: #000000;
-  --theme-text-muted: #525252;
+  --theme-text-muted: #666666;
+  --color-slate-400: #666666;
+  --color-slate-500: #53565a;
   --theme-sidebar-bg: #000000;
   --theme-sidebar-fg: #ffffff;
   --theme-hero-bg: #000000;
-  --theme-shimmer-from: #a8d462;
+  --theme-shimmer-from: #86bc25;
   --theme-shimmer-via: #f5f5f5;
-  --theme-shimmer-to: #86bc25;
+  --theme-shimmer-to: #046a38;
 
-  --color-indigo-50: #f3f9e8;
+  --theme-radius-sm: 0.25rem;
+  --theme-radius-md: 0.5rem;
+  --theme-radius-lg: 0.75rem;
+
+  --color-indigo-50: #eef7e0;
   --color-indigo-100: #e5f2d0;
   --color-indigo-200: #cbe5a1;
   --color-indigo-300: #b0d872;
-  --color-indigo-400: #96cb43;
+  --color-indigo-400: #86bc25;
   --color-indigo-500: #86bc25;
-  --color-indigo-600: #86bc25;
-  --color-indigo-700: #6b9620;
-  --color-indigo-800: #507018;
-  --color-indigo-900: #364a10;
+  --color-indigo-600: #046a38;
+  --color-indigo-700: #2c5234;
+  --color-indigo-800: #2c5234;
+  --color-indigo-900: #1c2508;
   --color-indigo-950: #1c2508;
 
   --color-violet-300: #b0d872;
@@ -128,8 +177,152 @@
   --color-violet-600: #6b9620;
 }
 
+/* Deloitte typography — Open Sans Light for display (signature digital look) */
+[data-theme="deloitte"] h1 {
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+[data-theme="deloitte"] h2 {
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="deloitte"] h3,
+[data-theme="deloitte"] h4 {
+  font-weight: 600;
+}
+
+[data-theme="deloitte"] .font-bold {
+  font-weight: 600;
+}
+
+[data-theme="deloitte"] .font-semibold {
+  font-weight: 600;
+}
+
+/*
+  Deloitte surface system (match Frameworks):
+  - brand-canvas-shell → white page
+  - brand-ink-surface / admin-hero-header → black band only
+  Avoid full-page “dark mode” mixed with light catalog pages.
+*/
+[data-theme="deloitte"] .brand-canvas-shell {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+[data-theme="deloitte"] .brand-ink-surface,
+[data-theme="deloitte"] .admin-hero-header {
+  background-color: #000000 !important;
+  background-image: none !important;
+  border-color: #262626 !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+[data-theme="deloitte"] .admin-hero-header {
+  border-radius: var(--theme-radius-lg) !important;
+  position: relative;
+}
+
+[data-theme="deloitte"] .admin-hero-header::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 1.5rem;
+  bottom: 1.5rem;
+  width: 4px;
+  background: #86bc25;
+  border-radius: 0 2px 2px 0;
+}
+
+[data-theme="deloitte"] .admin-hero-header .text-indigo-200,
+[data-theme="deloitte"] .admin-hero-header .text-indigo-200\/80,
+[data-theme="deloitte"] .brand-ink-surface .text-indigo-200,
+[data-theme="deloitte"] .brand-ink-surface .text-indigo-300 {
+  color: #86bc25 !important;
+}
+
+[data-theme="deloitte"] .brand-ink-surface .text-slate-200,
+[data-theme="deloitte"] .brand-ink-surface .text-slate-300,
+[data-theme="deloitte"] .admin-hero-header .text-slate-200,
+[data-theme="deloitte"] .admin-hero-header .text-slate-300 {
+  color: #d4d4d4 !important;
+}
+
+[data-theme="deloitte"] .brand-ink-surface .text-slate-400,
+[data-theme="deloitte"] .admin-hero-header .text-slate-400 {
+  color: #a3a3a3 !important;
+}
+
+/* Service / glass cards on light canvas under Deloitte */
+[data-theme="deloitte"] .brand-elevated-card {
+  background-color: #ffffff !important;
+  border-color: #e3e3e3 !important;
+  color: #000000 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="deloitte"] .brand-elevated-card h2,
+[data-theme="deloitte"] .brand-elevated-card .text-white {
+  color: #000000 !important;
+}
+
+[data-theme="deloitte"] .brand-elevated-card .text-slate-200,
+[data-theme="deloitte"] .brand-elevated-card .text-slate-300,
+[data-theme="deloitte"] .brand-elevated-card .text-slate-400 {
+  color: #525252 !important;
+}
+
+[data-theme="deloitte"] .brand-elevated-card .border-white\/10,
+[data-theme="deloitte"] .brand-elevated-card .bg-white\/5,
+[data-theme="deloitte"] .brand-elevated-card .bg-white\/\[0\.06\] {
+  border-color: #e3e3e3 !important;
+  background-color: #f5f5f5 !important;
+}
+
+[data-theme="deloitte"] .rounded-xl {
+  border-radius: var(--theme-radius-md);
+}
+
+[data-theme="deloitte"] .rounded-2xl,
+[data-theme="deloitte"] .rounded-\[28px\] {
+  border-radius: var(--theme-radius-lg);
+}
+
+[data-theme="deloitte"] .rounded-full {
+  border-radius: 9999px;
+}
+
+/* Solid indigo utility fills → black CTAs under Deloitte theme */
+[data-theme="deloitte"] .bg-indigo-600,
+[data-theme="deloitte"] .bg-indigo-700 {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="deloitte"] .bg-indigo-500 {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+[data-theme="deloitte"] .hover\:bg-indigo-700:hover {
+  background-color: #1a1a1a !important;
+}
+
+[data-theme="deloitte"] .text-indigo-600,
+[data-theme="deloitte"] .text-indigo-700 {
+  color: #046a38 !important;
+}
+
+[data-theme="deloitte"] a.text-indigo-700,
+[data-theme="deloitte"] a.text-indigo-600 {
+  color: #1076a8 !important;
+}
+
 @theme inline {
-  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --color-brand: var(--theme-brand);
   --color-brand-hover: var(--theme-brand-hover);
@@ -139,9 +332,43 @@
 }
 
 body {
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans), var(--font-geist-sans), system-ui, sans-serif;
   background-color: var(--theme-page-bg);
   color: var(--theme-page-fg);
+  line-height: 1.5;
+}
+
+/* Links: visible affordance beyond color alone (1.4.1 / 2.4.7) */
+a:not([class]) {
+  color: var(--theme-link, var(--theme-brand));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:not([class]):hover {
+  color: var(--theme-link-hover, var(--theme-brand-hover));
+}
+
+/* Native form controls — AA contrast + visible focus */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+select,
+textarea {
+  color: var(--theme-text);
+  background-color: var(--theme-card-bg);
+  border: 1px solid var(--theme-border-strong);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--theme-text-muted);
+  opacity: 1;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /* Semantic utilities for theme-aware components */
@@ -190,6 +417,12 @@ body {
   color: #cbd5e1 !important;
 }
 [data-theme="dark"] .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+[data-theme="dark"] .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+[data-theme="dark"] .text-slate-400 {
   color: #94a3b8 !important;
 }
 [data-theme="dark"] .border-slate-200,
@@ -198,10 +431,32 @@ body {
   border-color: var(--theme-border) !important;
 }
 
+/*
+  Dark theme remaps indigo-* for readable *text*, but solid fills must stay
+  dark enough for white label text (AA).
+*/
+[data-theme="dark"] .bg-indigo-600,
+[data-theme="dark"] .bg-indigo-700 {
+  background-color: #4338ca !important;
+  color: #ffffff !important;
+}
+[data-theme="dark"] .bg-indigo-500 {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+[data-theme="dark"] .text-white {
+  color: #ffffff !important;
+}
+
 /* Deloitte: sidebar + portal chrome */
 [data-theme="deloitte"] aside.border-r {
   background-color: var(--theme-sidebar-bg) !important;
   border-color: #262626 !important;
+}
+
+[data-theme="deloitte"] .bg-theme-brand {
+  background-color: var(--theme-action) !important;
+  color: var(--theme-action-on) !important;
 }
 
 .line-clamp-2 {
@@ -346,7 +601,61 @@ body {
   animation: maturity-typewriter-line 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* ── Accessibility foundations (WCAG 2.2 AA) ─────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--theme-brand-ring);
+  outline-offset: 2px;
+}
+
+/* Floor for tiny labels — never render body UI below ~10px */
+.text-\[9px\],
+.text-\[8px\] {
+  font-size: 0.625rem; /* 10px */
+  line-height: 1.4;
+}
+
+.skip-to-content {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  border-radius: 0.5rem;
+  background: var(--theme-brand);
+  color: var(--theme-brand-on, #fff);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.skip-to-content:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--theme-text);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   .animate-maturity-float,
   .animate-maturity-float-delayed,
   .animate-maturity-shimmer,
@@ -355,7 +664,11 @@ body {
   .animate-maturity-fade-in-up,
   .animate-maturity-report-progress,
   .animate-maturity-heatmap-pulse,
-  .animate-maturity-typewriter-line {
+  .animate-maturity-typewriter-line,
+  .animate-spin,
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce {
     animation: none !important;
   }
 }

@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { AdminPageHeader, AdminPageHeaderStat } from "@/components/admin-page-header";
+import { Button } from "@/components/ui/button";
 import { RiskTaxonomyExplorer } from "@/components/risk-taxonomy-explorer";
 import { buildRiskTaxonomy } from "@/lib/risk-taxonomy";
 import { Layers3, ShieldAlert, ShieldCheck } from "lucide-react";
@@ -27,44 +30,43 @@ export default async function RiskTaxonomyPage() {
 
   return (
     <div className="space-y-8">
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-2xl shadow-slate-300/30 lg:px-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-200/80">
-          Canonical risk library
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight lg:text-4xl">Risk taxonomy</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">
-          The authoritative catalog of AI risk statements that anchor control workplans, workshop
-          facilitation, and cross-framework coverage analysis. Browse by pillar, review potential harms,
-          and trace each risk to its mitigating controls.
-        </p>
+      <AdminPageHeader
+        variant="hero"
+        eyebrow="Canonical risk library"
+        title="Risk taxonomy"
+        description="The authoritative catalog of AI risk statements that anchor control workplans, workshop facilitation, and cross-framework coverage analysis. Browse by pillar, review potential harms, and trace each risk to its mitigating controls."
+        actions={
+          <>
+            <Button asChild size="sm" className="bg-white text-slate-900 hover:bg-slate-100">
+              <Link href="/matrix">Risk matrix</Link>
+            </Button>
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            >
+              <Link href="/controls">Control workplans</Link>
+            </Button>
+          </>
+        }
+      >
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <HeroStat icon={ShieldAlert} label="Risk statements" value={summary.totalRisks} />
-          <HeroStat icon={Layers3} label="Risk pillars" value={summary.pillarCount} />
-          <HeroStat icon={ShieldCheck} label="Mitigation coverage" value={`${coveragePct}%`} />
+          <AdminPageHeaderStat icon={ShieldAlert} label="Risk statements" value={summary.totalRisks} />
+          <AdminPageHeaderStat icon={Layers3} label="Risk pillars" value={summary.pillarCount} />
+          <AdminPageHeaderStat icon={ShieldCheck} label="Mitigation coverage" value={`${coveragePct}%`} />
         </div>
-      </div>
+      </AdminPageHeader>
 
-      <RiskTaxonomyExplorer groups={riskTaxonomy.groups} summary={riskTaxonomy.summary} />
-    </div>
-  );
-}
-
-function HeroStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof ShieldAlert;
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
-      <div className="flex items-center gap-2 text-slate-300">
-        <Icon className="h-4 w-4" />
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em]">{label}</p>
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">Risk catalog</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Explore statements by pillar and follow each risk to its mitigating controls.
+          </p>
+        </div>
+        <RiskTaxonomyExplorer groups={riskTaxonomy.groups} summary={riskTaxonomy.summary} />
       </div>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
 }

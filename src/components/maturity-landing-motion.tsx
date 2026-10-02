@@ -432,7 +432,13 @@ export function FilmGrain() {
 }
 
 /** Floating CTA after scrolling past hero. */
-export function StickyScrollCTA() {
+export function StickyScrollCTA({
+  href = "/maturity-assessment/new",
+  label = "Start your maturity diagnostic",
+}: {
+  href?: string;
+  label?: string;
+} = {}) {
   const [visible, setVisible] = useState(false);
   const reduced = usePrefersReducedMotion();
 
@@ -452,10 +458,10 @@ export function StickyScrollCTA() {
       style={{ transitionTimingFunction: EASE_PREMIUM }}
     >
       <Link
-        href="/maturity-assessment/new"
-        className="group flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/90 px-5 py-2.5 text-sm font-semibold text-white shadow-2xl shadow-indigo-500/25 backdrop-blur-md transition-transform hover:scale-[1.03]"
+        href={href}
+        className="group flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/90 px-5 py-2.5 text-sm font-semibold text-white shadow-2xl shadow-black/30 backdrop-blur-md transition-transform hover:scale-[1.03]"
       >
-        Start your maturity diagnostic
+        {label}
         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
       </Link>
     </div>

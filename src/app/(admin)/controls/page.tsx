@@ -2,8 +2,10 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { titleCase } from "@/lib/utils";
+import { AdminPageHeader, AdminPageHeaderStat } from "@/components/admin-page-header";
 import { ArrowRight, ClipboardCheck, FileCheck, HelpCircle, ListChecks } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -18,27 +20,49 @@ export default async function ControlsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-2xl shadow-slate-300/30 lg:px-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-200/80">
-          Canonical control library
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight lg:text-4xl">Control workplans</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">
-          Enterprise-grade assessment workplans for every canonical control — test procedures, required
-          evidence, and workshop facilitation questions mapped to framework obligations.
-        </p>
+      <AdminPageHeader
+        variant="hero"
+        eyebrow="Canonical control library"
+        title="Control workplans"
+        description="Enterprise-grade assessment workplans for every canonical control — test procedures, required evidence, and workshop facilitation questions mapped to framework obligations."
+        actions={
+          <>
+            <Button asChild size="sm" className="bg-white text-slate-900 hover:bg-slate-100">
+              <Link href="/frameworks">Framework library</Link>
+            </Button>
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            >
+              <Link href="/risk-taxonomy">Risk taxonomy</Link>
+            </Button>
+          </>
+        }
+      >
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <HeroStat icon={ListChecks} label="Controls cataloged" value={controls.length} />
-          <HeroStat icon={FileCheck} label="Evidence definitions" value={controls.reduce((n, c) => n + c._count.evidences, 0)} />
-          <HeroStat icon={HelpCircle} label="Framework links" value={controls.reduce((n, c) => n + c._count.requirementLinks, 0)} />
+          <AdminPageHeaderStat icon={ListChecks} label="Controls cataloged" value={controls.length} />
+          <AdminPageHeaderStat
+            icon={FileCheck}
+            label="Evidence definitions"
+            value={controls.reduce((n, c) => n + c._count.evidences, 0)}
+          />
+          <AdminPageHeaderStat
+            icon={HelpCircle}
+            label="Framework links"
+            value={controls.reduce((n, c) => n + c._count.requirementLinks, 0)}
+          />
         </div>
-      </div>
+      </AdminPageHeader>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">{controls.length} control workplans</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="text-xl font-semibold text-slate-900">
+              {controls.length} control workplans
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
               Open any control to review its assessment execution plan.
             </p>
           </div>
@@ -88,26 +112,6 @@ export default async function ControlsPage() {
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function HeroStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof ListChecks;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
-      <div className="flex items-center gap-2 text-slate-300">
-        <Icon className="h-4 w-4" />
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em]">{label}</p>
-      </div>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
 }

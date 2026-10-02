@@ -156,12 +156,23 @@ export function AdminThemeSettings() {
       </div>
 
       <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-6">
-        <h2 className="text-sm font-bold text-[var(--theme-text)]">Deloitte brand notes</h2>
+        <h2 className="text-sm font-semibold text-[var(--theme-text)]">Deloitte brand notes</h2>
         <p className="mt-2 text-sm leading-relaxed text-[var(--theme-text-muted)]">
-          The Deloitte theme uses official brand green{" "}
-          <code className="rounded bg-black/5 px-1.5 py-0.5 text-xs">#86BC25</code> as the primary
-          accent, replacing indigo throughout the UI. Sidebar and hero surfaces use Deloitte black
-          for a consulting-grade look.
+          Inspired by public Deloitte digital cues: Open Sans (light display), black/white canvas,
+          green <code className="rounded bg-black/5 px-1.5 py-0.5 text-xs">#86BC25</code> used as
+          the signature accent (not the default button fill), black primary actions, and teal links.
+          This is <strong className="font-semibold text-[var(--theme-text)]">not</strong> Brandspace
+          approval — route official logo/asset questions to{" "}
+          <a
+            href="https://brandspace.deloitte.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2"
+            style={{ color: "var(--theme-link)" }}
+          >
+            brandspace.deloitte.com
+          </a>
+          .
         </p>
       </div>
     </div>

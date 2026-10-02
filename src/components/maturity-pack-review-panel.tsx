@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, ChevronRight, MessageSquare, Pencil } from "lucide-react";
+import { ArrowRight, Check, MessageSquare, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { buildPackPillarGroups } from "@/components/maturity-pack-question-chrome";
+import { MaturityPackPillarSectionHeader } from "@/components/maturity-pack-pillar-section-header";
 import { cn } from "@/lib/utils";
 import {
   PILLAR_QUESTION_ANSWER_META,
@@ -10,22 +11,7 @@ import {
   type PackSnapshot,
   type PillarQuestionAnswer,
 } from "@/lib/pillar-questionnaire";
-import { formatUnitCount } from "@/lib/format-unit-count";
 import { getPackClientCopy, type PackClientCopy } from "@/lib/maturity-client-copy";
-
-const ANSWER_BADGE: Record<PillarQuestionAnswer, "success" | "warning" | "danger" | "secondary"> = {
-  yes: "success",
-  partial: "warning",
-  no: "danger",
-  dont_know: "secondary",
-};
-
-const ANSWER_DOT: Record<PillarQuestionAnswer, string> = {
-  yes: "#059669",
-  partial: "#d97706",
-  no: "#dc2626",
-  dont_know: "#94a3b8",
-};
 
 type Props = {
   product?: "maturity" | "workshop";
@@ -35,7 +21,26 @@ type Props = {
   submitting?: boolean;
   onEditStep: (index: number) => void;
   onSubmit: () => void;
+  onBackToQuestions?: () => void;
 };
+
+function AnswerChip({ answer }: { answer: PillarQuestionAnswer | undefined }) {
+  if (!answer) {
+    return (
+      <span className="inline-flex items-center rounded-md border border-dashed border-slate-300 px-2.5 py-1.5 text-[11px] font-semibold text-slate-400">
+        Unanswered
+      </span>
+    );
+  }
+
+  return (
+    <span className="relative inline-flex items-center gap-1 overflow-hidden rounded-md border border-slate-900 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm ring-1 ring-slate-900/10">
+      <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-[var(--theme-brand)]" />
+      <span className="pl-1">{PILLAR_QUESTION_ANSWER_META[answer].label}</span>
+      <Check className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+    </span>
+  );
+}
 
 export function MaturityPackReviewPanel({
   product = "maturity",
@@ -45,168 +50,149 @@ export function MaturityPackReviewPanel({
   submitting = false,
   onEditStep,
   onSubmit,
+  onBackToQuestions,
 }: Props) {
   const copy: PackClientCopy = getPackClientCopy(product);
-  const isWorkshop = product === "workshop";
   const answeredCount = snapshots.filter((snapshot) => answersById.has(snapshot.id)).length;
   const notesCount = snapshots.filter((snapshot) =>
     Boolean(answersById.get(snapshot.id)?.notes?.trim())
   ).length;
+  const progressPct =
+    snapshots.length > 0 ? Math.round((answeredCount / snapshots.length) * 100) : 0;
+  const pillarGroups = buildPackPillarGroups(snapshots, answersById);
+  const canSubmit = answeredCount >= snapshots.length;
 
   return (
     <div className="pb-28">
-      <div
-        className={cn(
-          "relative overflow-hidden rounded-2xl border px-6 py-8 text-white shadow-xl sm:px-8",
-          isWorkshop
-            ? "border-emerald-400/20 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 shadow-emerald-950/20"
-            : "border-indigo-200/80 bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-900 shadow-indigo-900/20"
-        )}
-      >
-        <div
-          className={cn(
-            "pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl",
-            isWorkshop ? "bg-emerald-400/20" : "bg-indigo-400/20"
-          )}
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative">
-          <p
-            className={cn(
-              "text-[10px] font-semibold uppercase tracking-[0.2em]",
-              isWorkshop ? "text-emerald-300" : "text-indigo-300"
-            )}
-          >
-            Final review
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{copy.reviewTitle}</h1>
-          <p
-            className={cn(
-              "mt-3 max-w-xl text-sm leading-relaxed",
-              isWorkshop ? "text-emerald-100/90" : "text-indigo-100/90"
-            )}
-          >
-            {isWorkshop ? (
-              copy.reviewDescription
-            ) : (
-              <>
-                You&apos;ve answered every question for{" "}
-                <span className="font-medium text-white">
-                  {organizationName?.trim() || "your organization"}
-                </span>
-                . {copy.reviewDescription}
-              </>
-            )}
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 backdrop-blur-sm">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-indigo-200">
-                Questions answered
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_-28px_rgba(0,0,0,0.28)]">
+        <header className="brand-ink-surface relative bg-black px-6 py-6 text-white sm:px-8 sm:py-7">
+          <span
+            aria-hidden
+            className="absolute bottom-4 left-0 top-4 w-1 rounded-r-full bg-[var(--theme-brand)]"
+          />
+          <div className="flex flex-wrap items-end justify-between gap-4 pl-2">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-indigo-300">
+                {copy.modeLabel} · Review
               </p>
-              <p className="mt-0.5 text-lg font-semibold tabular-nums">
-                {answeredCount}
-                <span className="text-sm font-normal text-indigo-200"> / {snapshots.length}</span>
+              <h1 className="mt-2 text-xl font-light tracking-tight sm:text-2xl">
+                {copy.reviewTitle}
+              </h1>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-400">
+                {organizationName?.trim()
+                  ? `${organizationName.trim()} — ${copy.reviewDescription}`
+                  : copy.reviewDescription}
               </p>
             </div>
-            {notesCount > 0 && (
-              <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 backdrop-blur-sm">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-indigo-200">
-                  With context notes
+            <div className="text-right">
+              <p className="text-3xl font-light tabular-nums tracking-tight">{progressPct}%</p>
+              <p className="mt-0.5 text-xs tabular-nums text-slate-400">
+                {answeredCount} of {snapshots.length} confirmed
+              </p>
+              {notesCount > 0 && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {notesCount} with notes
                 </p>
-                <p className="mt-0.5 text-lg font-semibold tabular-nums">{notesCount}</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+          <div className="mt-5 h-0.5 overflow-hidden bg-white/15">
+            <div
+              className="h-full bg-[var(--theme-brand)] transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </header>
+
+        <div>
+          {pillarGroups.map((group, groupIndex) => (
+            <section key={group.pillarId} className="border-t border-slate-200 first:border-t-0">
+              <MaturityPackPillarSectionHeader
+                index={groupIndex}
+                totalAreas={pillarGroups.length}
+                pillarId={group.pillarId}
+                pillarLabel={group.pillarLabel}
+                answeredCount={group.answeredCount}
+                totalCount={group.totalCount}
+              />
+
+              <ul className="divide-y divide-slate-100">
+                {group.questionIndices.map((index) => {
+                  const snapshot = snapshots[index];
+                  if (!snapshot) return null;
+                  const record = answersById.get(snapshot.id);
+                  const answer = record?.answer;
+                  const hasNotes = Boolean(record?.notes?.trim());
+                  const displayNumber = index + 1;
+
+                  return (
+                    <li key={snapshot.id} className="relative">
+                      {answer && (
+                        <span
+                          aria-hidden
+                          className="absolute bottom-3 left-0 top-3 w-0.5 bg-[var(--theme-brand)]"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onEditStep(index)}
+                        className="group grid w-full gap-4 px-6 py-5 text-left transition-colors hover:bg-slate-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900/15 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-8 sm:px-8 sm:py-5"
+                      >
+                        <div className="flex min-w-0 gap-3.5">
+                          <span
+                            className={cn(
+                              "mt-0.5 w-8 shrink-0 text-[11px] font-semibold tabular-nums",
+                              answer ? "text-slate-700" : "text-slate-400"
+                            )}
+                          >
+                            {String(displayNumber).padStart(2, "0")}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[15px] font-medium leading-snug tracking-tight text-slate-900">
+                              {snapshot.prompt}
+                            </p>
+                            {hasNotes && (
+                              <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-slate-500">
+                                <MessageSquare className="mt-0.5 h-3 w-3 shrink-0" />
+                                <span className="line-clamp-2">{record?.notes}</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 sm:justify-end">
+                          <AnswerChip answer={answer} />
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                            <Pencil className="h-3 w-3" />
+                            Edit
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
         </div>
       </div>
 
-      <div className="mt-6 space-y-3">
-        {snapshots.map((snapshot, index) => {
-          const answerRecord = answersById.get(snapshot.id);
-          const answer = answerRecord?.answer;
-          const meta = answer ? PILLAR_QUESTION_ANSWER_META[answer] : null;
-          const hasNotes = Boolean(answerRecord?.notes?.trim());
-
-          return (
-            <button
-              key={snapshot.id}
-              type="button"
-              onClick={() => onEditStep(index)}
-              className={cn(
-                "group flex w-full items-start gap-4 rounded-2xl border bg-white p-4 text-left shadow-sm transition-all",
-                "border-slate-200/90 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-500/5",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-              )}
-            >
-              <div
-                className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm"
-                style={{ backgroundColor: `${answer ? ANSWER_DOT[answer] : "#94a3b8"}22` }}
-                aria-hidden
-              >
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: answer ? ANSWER_DOT[answer] : "#94a3b8" }}
-                />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-900">{snapshot.pillarLabel}</p>
-                  {answer && (
-                    <Badge variant={ANSWER_BADGE[answer]} className="text-[10px]">
-                      {meta?.label ?? answer}
-                    </Badge>
-                  )}
-                  {hasNotes && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400">
-                      <MessageSquare className="h-3 w-3" />
-                      Notes
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">
-                  {snapshot.prompt}
-                </p>
-              </div>
-
-              <span className="mt-1 flex shrink-0 items-center gap-1 text-xs font-medium text-indigo-600 opacity-0 transition-opacity group-hover:opacity-100">
-                <Pencil className="h-3.5 w-3.5" />
-                Edit
-                <ChevronRight className="h-3.5 w-3.5" />
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-6 flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3.5">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-        <p className="text-sm leading-relaxed text-emerald-900">
-          {formatUnitCount(snapshots.length, "question", "questions")} captured across governance
-          pillars.{" "}
-          {isWorkshop
-            ? "Finalize when the session is complete — your client summary will highlight strengths, improvement areas, and follow-ups."
-            : "Submit when you're satisfied — your report will highlight strengths, improvement areas, and recommended follow-ups."}
-        </p>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <p className="hidden text-xs text-slate-500 sm:block">
-            Tap any question above to change your answer
-          </p>
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/92 px-4 py-4 shadow-[0_-8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+          {onBackToQuestions ? (
+            <Button type="button" variant="ghost" onClick={onBackToQuestions} className="text-slate-600">
+              Back to questions
+            </Button>
+          ) : (
+            <p className="hidden text-xs text-slate-500 sm:block">
+              Select any row to edit an answer
+            </p>
+          )}
           <Button
             type="button"
-            disabled={submitting || answeredCount < snapshots.length}
+            disabled={submitting || !canSubmit}
             onClick={onSubmit}
-            className={cn(
-              "ml-auto gap-1.5",
-              isWorkshop ? "shadow-lg shadow-emerald-500/20" : "shadow-lg shadow-indigo-500/20"
-            )}
+            className="ml-auto gap-1.5 shadow-lg shadow-slate-900/10"
             size="lg"
           >
             {submitting ? (

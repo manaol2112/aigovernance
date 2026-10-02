@@ -18,7 +18,6 @@ import {
   Loader2,
   Maximize2,
   MessageCircle,
-  Presentation,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -737,104 +736,94 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-                  {([
-                    ["pillar", "By pillar", Layers],
-                    ["department", "By department", Users],
-                  ] as const).map(([mode, label, Icon]) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => {
-                        setRunbookMode(mode);
-                        setActiveSubPillarId(null);
-                      }}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                        runbookMode === mode
-                          ? "bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200"
-                          : "text-slate-600 hover:bg-slate-50"
-                      )}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {departmentOptions.length > 0 && (
-                  <select
-                    id="workshop-scope"
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm"
-                    value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
-                    title="Data scope"
-                  >
-                    <option value={ALL_DEPARTMENTS}>All organization</option>
-                    {departmentOptions.some((d) => d.fromScopedControls) && (
-                      <optgroup label="In scope">
-                        {departmentOptions
-                          .filter((d) => d.fromScopedControls)
-                          .map((dept) => (
-                            <option key={dept.id} value={dept.label}>
-                              {dept.label}
-                            </option>
-                          ))}
-                      </optgroup>
-                    )}
-                    <optgroup label="Stakeholders">
-                      {departmentOptions
-                        .filter((d) => !d.fromScopedControls)
-                        .map((dept) => (
-                          <option key={dept.id} value={dept.label}>
-                            {dept.label}
-                          </option>
-                        ))}
-                    </optgroup>
-                  </select>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm">
-                  <span className="font-semibold text-slate-900">{stats.confirmed}</span>
-                  <span className="text-slate-400">/</span>
-                  <span>{stats.total} validated</span>
-                  <div className="ml-1 h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full bg-indigo-600 transition-all"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
             </header>
 
             <div className="min-h-0 flex-1 overflow-hidden p-5 sm:p-6">
               <div className="flex h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-                <aside className="flex w-[17rem] shrink-0 flex-col border-r border-slate-200/80 bg-white">
-                  <div className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-indigo-50/40 to-white px-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
-                        <Presentation className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-600">
-                          {runbookMode === "pillar" ? "Risk pillars" : "Stakeholders"}
-                        </p>
-                        <p className="text-xs font-medium text-slate-700">
-                          {runbookMode === "pillar"
-                            ? `${pillars.length} in scope`
-                            : `${departmentOptions.length} groups`}
-                        </p>
+                <aside className="flex w-[17rem] shrink-0 flex-col border-r border-slate-200 bg-[#f8fafc]">
+                  <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-3">
+                    <div
+                      className="inline-flex w-full rounded-xl border border-slate-200 bg-slate-50 p-1"
+                      role="group"
+                      aria-label="Workshop navigation mode"
+                    >
+                      {([
+                        ["pillar", "Pillars", Layers],
+                        ["department", "Stakeholders", Users],
+                      ] as const).map(([mode, label, Icon]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => {
+                            setRunbookMode(mode);
+                            setActiveSubPillarId(null);
+                          }}
+                          className={cn(
+                            "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                            runbookMode === mode
+                              ? "bg-white text-indigo-900 shadow-sm ring-1 ring-indigo-200"
+                              : "text-slate-600 hover:text-slate-900"
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2.5 px-0.5 text-[11px] leading-relaxed text-slate-600">
+                      {runbookMode === "pillar"
+                        ? `${pillars.length} pillars in scope — pick one to open the runbook.`
+                        : `${departmentOptions.length} stakeholder groups — pick one for targeted questions.`}
+                    </p>
+                    {departmentOptions.length > 0 && (
+                      <label className="mt-3 block">
+                        <span className="mb-1 block text-[11px] font-medium text-slate-600">Data scope</span>
+                        <select
+                          id="workshop-scope"
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                          value={selectedDepartment}
+                          onChange={(e) => setSelectedDepartment(e.target.value)}
+                        >
+                          <option value={ALL_DEPARTMENTS}>All organization</option>
+                          {departmentOptions.some((d) => d.fromScopedControls) && (
+                            <optgroup label="In scope">
+                              {departmentOptions
+                                .filter((d) => d.fromScopedControls)
+                                .map((dept) => (
+                                  <option key={dept.id} value={dept.label}>
+                                    {dept.label}
+                                  </option>
+                                ))}
+                            </optgroup>
+                          )}
+                          <optgroup label="Stakeholders">
+                            {departmentOptions
+                              .filter((d) => !d.fromScopedControls)
+                              .map((dept) => (
+                                <option key={dept.id} value={dept.label}>
+                                  {dept.label}
+                                </option>
+                              ))}
+                          </optgroup>
+                        </select>
+                      </label>
+                    )}
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
+                      <span className="font-semibold text-slate-900">{stats.confirmed}</span>
+                      <span>/</span>
+                      <span>{stats.total} validated</span>
+                      <div className="ml-auto h-1.5 w-14 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-indigo-600 transition-all"
+                          style={{ width: `${progressPct}%` }}
+                        />
                       </div>
                     </div>
-                    <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                      {runbookMode === "pillar"
-                        ? "Select a pillar to open its facilitation runbook."
-                        : "Select a department for targeted questions."}
-                    </p>
                   </div>
-                  <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50/30 p-3 [scrollbar-width:thin]">
+                  <nav
+                    className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#f1f5f9] p-3 [scrollbar-width:thin]"
+                    aria-label={runbookMode === "pillar" ? "Risk pillars" : "Stakeholders"}
+                  >
                     {runbookMode === "pillar"
                       ? pillars.map((pillar, idx) => {
                           const active = activePillarId === pillar.pillarId;
@@ -844,10 +833,10 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
                               type="button"
                               onClick={() => selectPillar(pillar.pillarId)}
                               className={cn(
-                                "relative flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-all",
+                                "relative flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
                                 active
                                   ? "border-indigo-200 bg-white shadow-sm ring-1 ring-indigo-100"
-                                  : "border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-sm"
+                                  : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
                               )}
                             >
                               {active && (
@@ -886,10 +875,10 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
                                 setActiveSubPillarId(null);
                               }}
                               className={cn(
-                                "relative w-full rounded-xl border px-3 py-3 text-left text-xs font-semibold leading-snug transition-all",
+                                "relative w-full rounded-xl border px-3 py-3 text-left text-xs font-semibold leading-snug transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
                                 active
                                   ? "border-indigo-200 bg-white text-indigo-950 shadow-sm ring-1 ring-indigo-100"
-                                  : "border-slate-200/80 bg-white text-slate-700 hover:border-slate-300 hover:shadow-sm"
+                                  : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:shadow-sm"
                               )}
                               title={dept.description}
                             >

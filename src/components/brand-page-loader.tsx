@@ -41,7 +41,7 @@ export function BrandPageLoader({
       aria-live="polite"
       aria-busy="true"
       className={cn(
-        "flex h-full min-h-[70vh] w-full flex-col items-center justify-center bg-slate-950 px-6",
+        "brand-ink-surface flex h-full min-h-[70vh] w-full flex-col items-center justify-center bg-slate-950 px-6",
         className
       )}
     >

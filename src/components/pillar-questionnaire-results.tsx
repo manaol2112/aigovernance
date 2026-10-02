@@ -16,8 +16,8 @@ export function PillarQuestionnaireResults({
   backLabel: string;
 }) {
   return (
-    <div className="min-h-full bg-slate-950 text-white print:bg-white print:text-slate-900">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/90 backdrop-blur print:hidden">
+    <div className="brand-ink-surface min-h-full bg-slate-950 text-white print:bg-white print:text-slate-900">
+      <header className="brand-ink-surface sticky top-0 z-40 border-b border-white/10 bg-slate-950/90 backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={backHref} className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white">
             <ArrowLeft className="h-4 w-4" />

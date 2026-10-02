@@ -76,20 +76,15 @@ export function MaturityPackQuestionChrome({
   return (
     <div
       className={cn(
-        "border-b border-slate-100/80 px-6 py-6 text-white sm:px-8 sm:py-7",
+        "brand-ink-surface border-b border-slate-100/80 px-6 py-6 text-white sm:px-8 sm:py-7",
         isWorkshop
           ? "bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950"
-          : "bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"
+          : "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800"
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <p
-            className={cn(
-              "text-[10px] font-semibold uppercase tracking-[0.22em]",
-              isWorkshop ? "text-emerald-300" : "text-indigo-300"
-            )}
-          >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-indigo-300">
             {copy.modeLabel}
           </p>
           <p className="mt-1 truncate text-sm text-slate-400">
@@ -133,7 +128,11 @@ export function MaturityPackQuestionChrome({
               <span
                 className={cn(
                   "absolute inset-y-0 left-0 rounded-full transition-all duration-500",
-                  complete ? "bg-emerald-400" : started ? (isWorkshop ? "bg-emerald-400" : "bg-indigo-400") : "bg-transparent"
+                  complete
+                    ? "bg-emerald-400"
+                    : started
+                      ? "bg-[var(--theme-brand)]"
+                      : "bg-transparent"
                 )}
                 style={{ width: `${fill}%` }}
               />
@@ -146,12 +145,7 @@ export function MaturityPackQuestionChrome({
       </div>
 
       <div className="mt-6">
-        <p
-          className={cn(
-            "text-[11px] font-semibold uppercase tracking-[0.18em]",
-            isWorkshop ? "text-emerald-300/90" : "text-indigo-300/90"
-          )}
-        >
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-300/90">
           Area {currentGroupIndex + 1} of {pillarGroups.length}
         </p>
         <h2 className="mt-1.5 text-xl font-semibold tracking-tight sm:text-2xl">

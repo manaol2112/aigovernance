@@ -59,15 +59,15 @@ export const PACK_POSTURE_STEPS: Array<{
   label: string;
   color: string;
 }> = [
-  { tone: "critical", shortLabel: "Early", label: "Early stage", color: "#f87171" },
-  { tone: "developing", shortLabel: "Building", label: "Building foundation", color: "#fb923c" },
-  { tone: "defined", shortLabel: "Established", label: "Established baseline", color: "#facc15" },
-  { tone: "leading", shortLabel: "Strong", label: "Strong posture", color: "#34d399" },
+  { tone: "critical", shortLabel: "Early", label: "Early stage", color: "#DA291C" },
+  { tone: "developing", shortLabel: "Building", label: "Building foundation", color: "#ED8B00" },
+  { tone: "defined", shortLabel: "Established", label: "Established baseline", color: "#53565A" },
+  { tone: "leading", shortLabel: "Strong", label: "Strong posture", color: "#86BC25" },
 ];
 
 export function scoreBandLabel(scorePct: number | null): { label: string; tone: PackPostureTone; shortLabel: string } {
   if (scorePct == null) {
-    return { label: "To confirm", tone: "critical", shortLabel: "To confirm" };
+    return { label: "Unresolved", tone: "critical", shortLabel: "Unresolved" };
   }
   if (scorePct >= 76) return { label: "Strong posture", tone: "leading", shortLabel: "Strong" };
   if (scorePct >= 51) return { label: "Established baseline", tone: "defined", shortLabel: "Established" };
@@ -258,6 +258,269 @@ export function scorePillarAnswers(answers: PillarQuestionAnswer[]): number | nu
     .filter((score): score is number => score != null);
   if (scored.length === 0) return null;
   return Math.round(scored.reduce((sum, score) => sum + score, 0) / scored.length);
+}
+
+export type PackPillarBriefing = {
+  readingTitle: string;
+  reading: string;
+  nextLevelLabel: string | null;
+  nextLevelGuidance: string;
+};
+
+type PillarPathCopy = {
+  /** First credible operating foothold */
+  toBuilding: string;
+  /** From patchy progress to a dependable baseline */
+  toEstablished: string;
+  /** From baseline to assurance leadership can rely on */
+  toStrong: string;
+  /** Protect a mature posture */
+  sustain: string;
+  /** When answers are mostly unresolved */
+  confirm: string;
+};
+
+const DEFAULT_PILLAR_PATH: PillarPathCopy = {
+  toBuilding:
+    "Name an accountable owner, pick the two or three practices that most reduce exposure, and stand them up in a visible pilot — even if coverage is still incomplete.",
+  toEstablished:
+    "Finish the work already in flight: close the remaining gaps, document who owns each practice, and make sure leadership can see evidence without chasing teams.",
+  toStrong:
+    "Shift from “mostly in place” to proven rhythm — recurring review, exception handling, and evidence that holds up when AI scope or vendors change.",
+  sustain:
+    "Protect the operating baseline: keep evidence current, watch for silent drift, and re-test when products, partners, or regulations shift.",
+  confirm:
+    "Before maturity language is useful, confirm what actually exists today — replace unresolved answers with a clear operating picture and named owners.",
+};
+
+/** Domain-specific “how we move up” cues for professional stakeholders. */
+const PILLAR_PATH_BY_ID: Record<string, PillarPathCopy> = {
+  governance: {
+    toBuilding:
+      "Stand up a clear AI decision forum (or extend an existing risk committee), publish who owns risk appetite and escalation, and put a lightweight policy set in front of the highest-risk use cases.",
+    toEstablished:
+      "Make oversight routine: calendar board/exec updates, map roles to real decision rights, and close gaps where policy exists on paper but not in day-to-day delivery.",
+    toStrong:
+      "Prove the governance loop under pressure — exceptions are escalated, appetite is applied to new use cases, and minutes/evidence show oversight is active, not ceremonial.",
+    sustain:
+      "Keep the charter, owners, and reporting cadence current as the AI portfolio grows; refresh risk appetite when material new use cases or regulations appear.",
+    confirm:
+      "Confirm whether board/exec oversight, policy ownership, and escalation paths actually exist today — then name the accountable leads before speaking to maturity.",
+  },
+  compliance: {
+    toBuilding:
+      "Create a minimum documentation pack for priority systems (purpose, data, model, owners) and a simple logging expectation so reviews are not starting from a blank page.",
+    toEstablished:
+      "Bring documentation and traceability up to a consistent standard across the active AI estate; close gaps where records are incomplete, stale, or owned by no one.",
+    toStrong:
+      "Tie documentation to change control and audit readiness — updates happen with releases, retention is clear, and traceability can be demonstrated on demand.",
+    sustain:
+      "Treat documentation as a living control: re-check after material model or vendor changes, and retire stale packs before they become a false sense of comfort.",
+    confirm:
+      "Confirm which systems already have usable documentation and logs versus which are unknown — clarity on the record set is the first step.",
+  },
+  "safety-reliability": {
+    toBuilding:
+      "Define the failure modes that matter for your top AI use cases, put basic testing/monitoring in place, and agree who can pause or roll back a system that misbehaves.",
+    toEstablished:
+      "Extend robustness checks and operational monitoring beyond the pilot set; close gaps where accuracy, security, or resilience are assumed rather than evidenced.",
+    toStrong:
+      "Demonstrate that safety controls hold in production — incidents are detected, contained, and learned from, with clear thresholds for intervention.",
+    sustain:
+      "Re-validate safety assumptions when models, data, or threat conditions change; keep rollback and incident playbooks exercised, not shelfware.",
+    confirm:
+      "Confirm whether safety testing, monitoring, and stop/rollback authority exist for systems already in use — unknowns here are a leadership issue, not a paperwork issue.",
+  },
+  oversight: {
+    toBuilding:
+      "Identify where human review or override is required, assign trained operators, and make sure there is a practical way to intervene when the system is wrong.",
+    toEstablished:
+      "Operationalize oversight across the estate: clear handoffs, monitoring of override rates/quality, and coverage for after-hours or high-volume scenarios.",
+    toStrong:
+      "Show that oversight works at scale — humans can effectively challenge the system, escalations are timely, and incident response is rehearsed.",
+    sustain:
+      "Keep operator training and playbooks current; revisit human-in-the-loop design whenever automation expands or decision stakes rise.",
+    confirm:
+      "Confirm who can intervene today, on which systems, and with what authority — unresolved oversight answers leave leadership without an operational safety net.",
+  },
+  systemic: {
+    toBuilding:
+      "Inventory general-purpose / high-impact AI exposure, define which use cases need heightened scrutiny, and assign ownership for systemic-risk review.",
+    toEstablished:
+      "Put repeatable assessment and monitoring around GPAI and systemic use cases; close gaps where impact is acknowledged but not governed.",
+    toStrong:
+      "Demonstrate that systemic risk is actively managed — thresholds, escalation to senior leaders, and evidence that large-scale harm scenarios are considered before scale-up.",
+    sustain:
+      "Reassess when new foundation models, partners, or deployment patterns change the systemic footprint; keep leadership briefed on material shifts.",
+    confirm:
+      "Confirm whether systemic / GPAI exposure is even known today — without that inventory, maturity claims in this area are premature.",
+  },
+  "supply-chain": {
+    toBuilding:
+      "List critical AI vendors and components, add AI-specific diligence questions, and set a clear owner for third-party AI risk.",
+    toEstablished:
+      "Embed vendor AI controls into onboarding and renewals; close gaps where partners process data or influence decisions without contractual or assurance cover.",
+    toStrong:
+      "Show continuous third-party assurance — tiering, evidence reviews, and exit/contingency plans for material AI dependencies.",
+    sustain:
+      "Refresh diligence when vendors change models or subprocessors; watch concentration risk as the ecosystem footprint grows.",
+    confirm:
+      "Confirm which AI vendors and components are in the critical path today, and who owns them — ambiguity here is a supply-chain blind spot.",
+  },
+  transparency: {
+    toBuilding:
+      "Define what users and operators must be told for priority AI decisions, and ship a first disclosure / explainability standard for those use cases.",
+    toEstablished:
+      "Apply disclosure and explainability consistently; close gaps where people cannot understand or contest AI-influenced outcomes.",
+    toStrong:
+      "Prove transparency under real use — explanations are usable, disclosures stay accurate as models change, and contested decisions have a clear path.",
+    sustain:
+      "Update disclosures when model behavior or purpose changes; spot-check that explanations still match how the system actually decides.",
+    confirm:
+      "Confirm what is disclosed today versus what stakeholders assume — unresolved transparency items usually mean messaging and product reality are out of sync.",
+  },
+  fairness: {
+    toBuilding:
+      "Identify high-stakes use cases affecting people, run an initial bias/rights impact review, and assign ownership for remediation decisions.",
+    toEstablished:
+      "Make fairness review a gate for material launches; close gaps where disparate impact is possible but unmeasured or unowned.",
+    toStrong:
+      "Demonstrate ongoing monitoring and remediation — metrics, appeal paths, and evidence that rights impacts are revisited after deployment.",
+    sustain:
+      "Re-test when populations, features, or models change; keep leadership visibility on residual fairness risk that cannot be fully eliminated.",
+    confirm:
+      "Confirm which people-impacting AI uses exist and whether any fairness or rights review has been done — silence here is not a clean bill of health.",
+  },
+  "privacy-data": {
+    toBuilding:
+      "Map personal data flowing into priority AI systems, confirm lawful basis and retention, and assign data-steward ownership for those pipelines.",
+    toEstablished:
+      "Bring data quality, provenance, and privacy controls to a consistent standard; close gaps in consent, minimization, or training/inference data handling.",
+    toStrong:
+      "Show privacy-by-design in operation — DPIA-quality thinking where needed, monitored data lineage, and rapid response to access or deletion obligations.",
+    sustain:
+      "Revisit data maps when new sources or vendors appear; keep retention and access controls aligned with how models are actually trained and served.",
+    confirm:
+      "Confirm what personal data AI systems touch today and who owns those flows — unresolved privacy answers block any credible maturity claim.",
+  },
+  workforce: {
+    toBuilding:
+      "Define the roles that need AI literacy or specialist skill, launch a focused enablement path for those cohorts, and clarify decision rights between humans and tools.",
+    toEstablished:
+      "Scale training and role design beyond early adopters; close gaps where people are accountable for AI outcomes without the skills or mandate to succeed.",
+    toStrong:
+      "Show a sustainable talent model — competencies mapped to roles, hiring/upskilling pipelines, and managers who can oversee AI-assisted work.",
+    sustain:
+      "Refresh skill expectations as tools evolve; watch burnout and role ambiguity where AI changes workload without changing accountability.",
+    confirm:
+      "Confirm who is expected to use, oversee, or challenge AI today — and whether they have been prepared. Unresolved workforce items are readiness gaps, not HR trivia.",
+  },
+  "financial-resilience": {
+    toBuilding:
+      "Quantify concentration and outage exposure for critical AI-supported processes, and put a basic continuity / cost-risk view in front of owners.",
+    toEstablished:
+      "Integrate AI into operational resilience planning; close gaps where financial or continuity impact is known informally but not controlled.",
+    toStrong:
+      "Demonstrate resilience under stress — tested failover, cost controls, and clear escalation when AI disruption threatens service or financial commitments.",
+    sustain:
+      "Re-run resilience scenarios when dependencies or volumes change; keep finance and operations aligned on residual AI-related exposure.",
+    confirm:
+      "Confirm which AI services sit on the critical path for revenue or operations — without that map, resilience maturity cannot be assessed honestly.",
+  },
+};
+
+function pillarPathCopy(pillarId: string | undefined): PillarPathCopy {
+  if (!pillarId) return DEFAULT_PILLAR_PATH;
+  return PILLAR_PATH_BY_ID[pillarId] ?? DEFAULT_PILLAR_PATH;
+}
+
+/**
+ * Stakeholder briefing for a pillar: what the posture means in operating terms,
+ * and a concrete path to the next level — without score arithmetic.
+ */
+export function describePackPillarBriefing(
+  pillar: Pick<
+    PackPillarScore,
+    | "pillarId"
+    | "pillarLabel"
+    | "alignmentPct"
+    | "yesCount"
+    | "partialCount"
+    | "noCount"
+    | "dontKnowCount"
+    | "scoredCount"
+  >
+): PackPillarBriefing {
+  const area = pillar.pillarLabel;
+  const band = scoreBandLabel(pillar.alignmentPct);
+  const path = pillarPathCopy(pillar.pillarId);
+  const hasOpenGaps = pillar.noCount + pillar.partialCount > 0;
+  const hasUncertainty = pillar.dontKnowCount > 0;
+
+  if (pillar.alignmentPct == null) {
+    return {
+      readingTitle: "What this means",
+      reading: `${area} cannot yet be briefed with confidence. Responses in this area were largely unresolved, so leadership should treat the current state as unconfirmed — not as a clean bill of health, and not as a proven gap — until owners can say what is actually operating.`,
+      nextLevelLabel: "a confirmed baseline",
+      nextLevelGuidance: path.confirm,
+    };
+  }
+
+  let reading: string;
+  if (pillar.alignmentPct < 26) {
+    reading = hasOpenGaps
+      ? `In ${area}, leadership does not yet have a dependable operating picture. Core practices appear missing or only lightly started, which usually means limited assurance if something goes wrong — this is a foundation issue, not a fine-tuning exercise.`
+      : `In ${area}, the assessment does not yet support a confident operating view. Treat the area as early-stage until practices are confirmed and owned.`;
+  } else if (pillar.alignmentPct < 51) {
+    reading = `In ${area}, progress is visible but uneven. Some practices are underway while others remain incomplete, so assurance is still patchy — suitable for directed investment, not for assuming the area is under control.`;
+  } else if (pillar.alignmentPct < 76) {
+    reading = `In ${area}, most of the expected practices appear to be operating. Residual gaps remain, so the leadership question shifts from “do we have anything?” to “is this reliable, evidenced, and ready under pressure?”`;
+  } else if (pillar.alignmentPct < 100) {
+    reading = `In ${area}, the posture looks comparatively mature, with only limited residual work. Leadership can lean on this area more than most — provided evidence stays current and the last gaps are closed before scale increases.`;
+  } else {
+    reading = `In ${area}, the practices covered here are reported as operating. Treat that as a baseline to protect: keep evidence fresh and re-test when AI scope, vendors, or regulations change.`;
+  }
+
+  if (hasUncertainty && pillar.alignmentPct < 100) {
+    reading +=
+      pillar.dontKnowCount === 1
+        ? " One response still needs confirmation before this picture should be treated as closed."
+        : " A few responses still need confirmation before this picture should be treated as closed.";
+  }
+
+  if (band.tone === "critical") {
+    return {
+      readingTitle: "What this means",
+      reading,
+      nextLevelLabel: "Building",
+      nextLevelGuidance: path.toBuilding,
+    };
+  }
+
+  if (band.tone === "developing") {
+    return {
+      readingTitle: "What this means",
+      reading,
+      nextLevelLabel: "Established",
+      nextLevelGuidance: path.toEstablished,
+    };
+  }
+
+  if (band.tone === "defined") {
+    return {
+      readingTitle: "What this means",
+      reading,
+      nextLevelLabel: "Strong",
+      nextLevelGuidance: path.toStrong,
+    };
+  }
+
+  return {
+    readingTitle: "What this means",
+    reading,
+    nextLevelLabel: null,
+    nextLevelGuidance: path.sustain,
+  };
 }
 
 function toFinding(snapshot: PackSnapshot, answer: PillarQuestionAnswer): PackFinding {

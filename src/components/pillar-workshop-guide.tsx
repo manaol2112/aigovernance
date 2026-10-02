@@ -68,32 +68,38 @@ function GuideStateCard({
   );
 }
 
-function TopicChip({
-  label,
-  selected,
-  onClick,
-  emphasis,
+function TopicFilterSelect({
+  topics,
+  activeSubPillarId,
+  onSubPillarSelect,
+  id = "runbook-topic-filter",
 }: {
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-  emphasis?: "primary" | "secondary";
+  topics: Array<{ id: string; label: string; relevance?: "primary" | "secondary" }>;
+  activeSubPillarId?: string | null;
+  onSubPillarSelect?: (subPillarId: string | null) => void;
+  id?: string;
 }) {
+  if (topics.length <= 1 || !onSubPillarSelect) return null;
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
-        selected
-          ? "border-indigo-200 bg-indigo-600 text-white shadow-sm"
-          : emphasis === "primary"
-            ? "border-indigo-100 bg-white text-indigo-800 hover:border-indigo-200 hover:bg-indigo-50/60"
-            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-      )}
-    >
-      {label}
-    </button>
+    <div className="mt-3 flex min-w-0 items-center gap-2">
+      <label htmlFor={id} className="shrink-0 text-[11px] font-medium text-slate-500">
+        Topic
+      </label>
+      <select
+        id={id}
+        value={activeSubPillarId ?? ""}
+        onChange={(e) => onSubPillarSelect(e.target.value || null)}
+        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+      >
+        <option value="">All topics</option>
+        {topics.map((topic) => (
+          <option key={topic.id} value={topic.id}>
+            {topic.relevance === "secondary" ? `${topic.label} (supporting)` : topic.label}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 
@@ -117,7 +123,7 @@ function GuideStickyHeader({
   if (variant === "presentation") return null;
 
   return (
-    <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-5 py-4 shadow-sm backdrop-blur-sm">
+    <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-5 py-3 shadow-sm backdrop-blur-sm">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600">Runbook</p>
         <span className="text-slate-300">·</span>
@@ -126,20 +132,11 @@ function GuideStickyHeader({
         <span className="text-[11px] text-slate-500">{meta}</span>
         {badge}
       </div>
-      {topics.length > 1 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <TopicChip label="All topics" selected={!activeSubPillarId} onClick={() => onSubPillarSelect?.(null)} />
-          {topics.map((topic) => (
-            <TopicChip
-              key={topic.id}
-              label={topic.label}
-              selected={activeSubPillarId === topic.id}
-              emphasis={topic.relevance}
-              onClick={() => onSubPillarSelect?.(topic.id)}
-            />
-          ))}
-        </div>
-      )}
+      <TopicFilterSelect
+        topics={topics}
+        activeSubPillarId={activeSubPillarId}
+        onSubPillarSelect={onSubPillarSelect}
+      />
     </div>
   );
 }

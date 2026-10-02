@@ -1064,7 +1064,7 @@ export function GuidedWorkshopResults({ report }: { report: GuidedWorkshopReport
     return (
       <div
         data-maturity-scroll
-        className="h-full min-h-0 overflow-y-auto bg-slate-950 print:h-auto print:overflow-visible print:bg-white"
+        className="brand-ink-surface h-full min-h-0 overflow-y-auto bg-slate-950 print:h-auto print:overflow-visible print:bg-white"
       />
     );
   }
@@ -1072,7 +1072,7 @@ export function GuidedWorkshopResults({ report }: { report: GuidedWorkshopReport
   return (
     <div
       data-maturity-scroll
-      className="h-full min-h-0 overflow-y-auto scroll-smooth bg-slate-950 print:h-auto print:overflow-visible print:bg-white"
+      className="brand-ink-surface h-full min-h-0 overflow-y-auto scroll-smooth bg-slate-950 print:h-auto print:overflow-visible print:bg-white"
     >
       <ScrollProgressBar />
 

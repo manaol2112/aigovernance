@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useId, useState } from "react";
+import { Maximize2, Minimize2, X } from "lucide-react";
 import {
   PACK_POSTURE_STEPS,
   type PackPillarScore,
@@ -8,18 +10,19 @@ import {
 import { PACK_ASSESSMENT_COPY } from "@/lib/maturity-client-copy";
 import { cn } from "@/lib/utils";
 
+/** Deloitte-aligned functional palette (green / amber / red / gray). */
 const ANSWER_COLORS = {
-  yes: "#2d6a4f",
-  partial: "#b08968",
-  no: "#9b4a43",
-  dontKnow: "#9aa1ab",
+  yes: "#046A38",
+  partial: "#ED8B00",
+  no: "#DA291C",
+  dontKnow: "#767676",
 } as const;
 
 const MIX_SEGMENTS = [
-  { key: "yes" as const, label: "In place", color: ANSWER_COLORS.yes },
-  { key: "partial" as const, label: "Underway", color: ANSWER_COLORS.partial },
-  { key: "no" as const, label: "Not yet in place", color: ANSWER_COLORS.no },
-  { key: "dontKnow" as const, label: "To confirm", color: ANSWER_COLORS.dontKnow },
+  { key: "yes" as const, label: "Operating", color: ANSWER_COLORS.yes },
+  { key: "partial" as const, label: "In progress", color: ANSWER_COLORS.partial },
+  { key: "no" as const, label: "Open gap", color: ANSWER_COLORS.no },
+  { key: "dontKnow" as const, label: "Unresolved", color: ANSWER_COLORS.dontKnow },
 ];
 
 const CRITICALITY_WEIGHT: Record<string, number> = { critical: 3, high: 2, medium: 1 };
@@ -143,13 +146,30 @@ export function PackPostureLegend({ className }: { className?: string }) {
 /** Spider chart — same dark maturity web as the framework-driven results. */
 export function PackPillarRadarChart({
   pillars,
-  accent = "indigo",
+  accent = "brand",
 }: {
   pillars: PackPillarScore[];
-  /** `brand` uses Deloitte green accents for workshop client reports. */
+  /** Prefer `brand` (Deloitte green). `indigo` kept for legacy call sites. */
   accent?: "indigo" | "brand";
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const titleId = useId();
   const active = pillars.filter((pillar) => pillar.scoredCount > 0);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [expanded]);
+
   if (active.length < 3) {
     return (
       <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-sm text-slate-500">
@@ -158,13 +178,11 @@ export function PackPillarRadarChart({
     );
   }
 
-  const isBrand = accent === "brand";
-  const fillColor = isBrand ? "rgba(134,188,37,0.32)" : "rgba(99,102,241,0.35)";
+  const isBrand = accent !== "indigo";
+  const fillColor = isBrand ? "rgba(134,188,37,0.28)" : "rgba(99,102,241,0.35)";
   const strokeColor = isBrand ? "#86bc25" : "#818cf8";
-  const labelAccent = isBrand ? "text-[var(--theme-shimmer-from)]" : "text-indigo-300";
-  const shellBg = isBrand
-    ? "border-slate-700/80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
-    : "border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950";
+  const labelAccent = "text-indigo-300";
+  const shellBg = "brand-ink-surface border-slate-700/80 bg-black";
 
   const cx = 200;
   const cy = 200;
@@ -177,100 +195,193 @@ export function PackPillarRadarChart({
   );
   const step = (2 * Math.PI) / active.length;
   const start = -Math.PI / 2;
+  const weighted = weightedPackAlignment(active);
 
-  return (
-    <div className={cn("relative overflow-hidden rounded-2xl border p-4 shadow-lg", shellBg)}>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
-        <p className={cn("text-[11px] font-semibold uppercase tracking-wider", labelAccent)}>
-          Governance maturity web
-        </p>
-        <div className="flex gap-3 text-[10px] text-slate-300">
-          <span className="flex items-center gap-1.5">
-            <span
-              className="h-0.5 w-4 rounded bg-indigo-400"
-              style={isBrand ? { backgroundColor: strokeColor } : undefined}
-            />
-            Posture
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded border border-dashed border-emerald-400" />
-            Answered
-          </span>
-        </div>
-      </div>
-      <svg
-        viewBox="0 0 400 400"
-        className="mx-auto h-auto w-full max-w-md"
-        role="img"
-        aria-label="Governance posture by pillar"
-      >
-        {[25, 50, 75, 100].map((ring) => (
-          <circle
-            key={ring}
-            cx={cx}
-            cy={cy}
-            r={(ring / 100) * maxR}
-            fill="none"
-            stroke="rgba(148,163,184,0.2)"
+  const legend = (
+    <div className="flex gap-3 text-[10px] text-slate-300">
+      <span className="flex items-center gap-1.5">
+        <span
+          className="h-0.5 w-4 rounded bg-indigo-400"
+          style={isBrand ? { backgroundColor: strokeColor } : undefined}
+        />
+        Posture
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-0.5 w-4 rounded border border-dashed border-white/50" />
+        Answered
+      </span>
+    </div>
+  );
+
+  const chartSvg = (size: "default" | "large") => (
+    <svg
+      viewBox="0 0 400 400"
+      className={cn(
+        "mx-auto h-auto w-full",
+        size === "large" ? "max-w-3xl" : "max-w-md"
+      )}
+      role="img"
+      aria-label="Governance posture by pillar"
+    >
+      {[25, 50, 75, 100].map((ring) => (
+        <circle
+          key={ring}
+          cx={cx}
+          cy={cy}
+          r={(ring / 100) * maxR}
+          fill="none"
+          stroke="rgba(148,163,184,0.2)"
+          strokeWidth={1}
+        />
+      ))}
+      {active.map((_, index) => {
+        const angle = start + index * step;
+        const outer = polar(cx, cy, maxR, angle, 100);
+        return (
+          <line
+            key={index}
+            x1={cx}
+            y1={cy}
+            x2={outer.x}
+            y2={outer.y}
+            stroke="rgba(148,163,184,0.25)"
             strokeWidth={1}
           />
-        ))}
-        {active.map((_, index) => {
-          const angle = start + index * step;
-          const outer = polar(cx, cy, maxR, angle, 100);
-          return (
-            <line
-              key={index}
-              x1={cx}
-              y1={cy}
-              x2={outer.x}
-              y2={outer.y}
-              stroke="rgba(148,163,184,0.25)"
-              strokeWidth={1}
-            />
-          );
-        })}
-        <polygon
-          points={polygonPoints(cx, cy, maxR, coverage, start)}
-          fill="none"
-          stroke="#34d399"
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          opacity={0.85}
-        />
-        <polygon
-          points={polygonPoints(cx, cy, maxR, alignment, start)}
-          fill={fillColor}
-          stroke={strokeColor}
-          strokeWidth={2.5}
-        />
-        {active.map((pillar, index) => {
-          const angle = start + index * step;
-          const pt = polar(cx, cy, maxR + 22, angle, 100);
-          const anchor =
-            Math.cos(angle) > 0.1 ? "start" : Math.cos(angle) < -0.1 ? "end" : "middle";
-          return (
-            <text
-              key={pillar.pillarId}
-              x={pt.x}
-              y={pt.y}
-              textAnchor={anchor}
-              dominantBaseline="middle"
-              className="fill-slate-300 text-[9px] font-medium"
+        );
+      })}
+      <polygon
+        points={polygonPoints(cx, cy, maxR, coverage, start)}
+        fill="none"
+        stroke="#86bc25"
+        strokeWidth={2}
+        strokeDasharray="6 4"
+        opacity={0.85}
+      />
+      <polygon
+        points={polygonPoints(cx, cy, maxR, alignment, start)}
+        fill={fillColor}
+        stroke={strokeColor}
+        strokeWidth={2.5}
+      />
+      {active.map((pillar, index) => {
+        const angle = start + index * step;
+        const pt = polar(cx, cy, maxR + 22, angle, 100);
+        const anchor =
+          Math.cos(angle) > 0.1 ? "start" : Math.cos(angle) < -0.1 ? "end" : "middle";
+        return (
+          <text
+            key={pillar.pillarId}
+            x={pt.x}
+            y={pt.y}
+            textAnchor={anchor}
+            dominantBaseline="middle"
+            className={cn(
+              "fill-slate-300 font-medium",
+              size === "large" ? "text-[11px]" : "text-[9px]"
+            )}
+          >
+            <title>{pillar.pillarLabel}</title>
+            {shortPillarLabel(pillar.pillarLabel)}
+          </text>
+        );
+      })}
+      <text
+        x={cx}
+        y={cy - 6}
+        textAnchor="middle"
+        className={cn("fill-white font-bold", size === "large" ? "text-[28px]" : "text-[22px]")}
+      >
+        {weighted}%
+      </text>
+      <text x={cx} y={cy + 12} textAnchor="middle" className="fill-slate-400 text-[9px]">
+        weighted posture
+      </text>
+    </svg>
+  );
+
+  return (
+    <>
+      <div className={cn("relative overflow-hidden rounded-2xl border p-4 shadow-lg", shellBg)}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
+          <p className={cn("text-[11px] font-semibold uppercase tracking-wider", labelAccent)}>
+            Governance maturity web
+          </p>
+          <div className="flex items-center gap-3">
+            {legend}
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-slate-200 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+              aria-expanded={expanded}
             >
-              <title>{pillar.pillarLabel}</title>
-              {shortPillarLabel(pillar.pillarLabel)}
-            </text>
-          );
-        })}
-        <text x={cx} y={cy - 6} textAnchor="middle" className="fill-white text-[22px] font-bold">
-          {weightedPackAlignment(active)}%
-        </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" className="fill-slate-400 text-[9px]">
-          weighted posture
-        </text>
-      </svg>
-    </div>
+              <Maximize2 className="h-3.5 w-3.5" />
+              Expand
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="group block w-full rounded-lg text-left transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-brand)] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          aria-label="Expand governance maturity web"
+        >
+          {chartSvg("default")}
+          <span className="mt-2 block text-center text-[11px] text-slate-500 group-hover:text-slate-300">
+            Click to enlarge
+          </span>
+        </button>
+      </div>
+
+      {expanded && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm print:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          onClick={() => setExpanded(false)}
+        >
+          <div
+            className={cn(
+              "relative max-h-[92vh] w-full max-w-4xl overflow-auto rounded-2xl border p-5 shadow-2xl sm:p-8",
+              shellBg
+            )}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p
+                  id={titleId}
+                  className={cn("text-[11px] font-semibold uppercase tracking-wider", labelAccent)}
+                >
+                  Governance maturity web
+                </p>
+                <p className="mt-1 text-sm text-slate-400">Expanded view</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {legend}
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/[0.06] px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+                >
+                  <Minimize2 className="h-3.5 w-3.5" />
+                  Original size
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/[0.06] text-slate-200 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="Close expanded chart"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            {chartSvg("large")}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -325,18 +436,22 @@ export function PackScoreHero({
   const active = PACK_POSTURE_STEPS.find((step) => step.tone === scoreTone);
 
   return (
-    <div className="w-full max-w-[16rem] rounded-2xl border border-white/10 bg-white/[0.06] p-5 text-center shadow-lg shadow-black/20 backdrop-blur-sm print:border-slate-200 print:bg-slate-50 print:shadow-none">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+    <div className="relative w-full max-w-[16rem] overflow-hidden rounded-xl border border-white/15 bg-white/[0.04] p-5 text-center print:border-slate-200 print:bg-slate-50">
+      <span
+        aria-hidden
+        className="absolute bottom-4 left-0 top-4 w-0.5 rounded-r-full bg-[var(--theme-brand)]"
+      />
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-300">
         Overall posture
       </p>
       <div className="mt-4 flex flex-col items-center">
         <span
-          className="flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-md print:shadow-none"
-          style={{ backgroundColor: active?.color ?? "#94a3b8" }}
+          className="flex h-12 w-12 items-center justify-center rounded-md text-sm font-semibold text-white"
+          style={{ backgroundColor: active?.color ?? "#53565A" }}
         >
           {active?.shortLabel.slice(0, 1) ?? "—"}
         </span>
-        <p className="mt-3 text-lg font-bold tracking-tight text-white print:text-slate-900">
+        <p className="mt-3 text-lg font-light tracking-tight text-white print:text-slate-900">
           {scoreLabel}
         </p>
         <p className="mt-2 text-xs leading-relaxed text-slate-400 print:text-slate-600">

@@ -86,8 +86,8 @@ const SEVERITY_ORDER: Record<SurveyGapItem["severity"], number> = {
 };
 
 const SECTION_NAV = [
-  { id: "profile", label: "Profile" },
-  { id: "gaps", label: "Gaps" },
+  { id: "profile", label: "Posture" },
+  { id: "gaps", label: "Open gaps" },
   { id: "roadmap", label: "Roadmap" },
   { id: "deep-dive", label: "Deep dive" },
 ] as const;
@@ -714,7 +714,7 @@ export function MaturitySurveyResults({
   const hasStrengths = report.executiveSummary.strengths.length > 0;
 
   return (
-    <div className="bg-slate-950 print:bg-white">
+    <div className="brand-ink-surface bg-slate-950 print:bg-white">
       {/* ── VERDICT ── */}
       <ScrollSection glow="indigo" className="text-white print:bg-white print:text-slate-900">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_100%_0%,rgba(99,102,241,0.4),transparent)]" />

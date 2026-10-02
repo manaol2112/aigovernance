@@ -6,13 +6,16 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   Building2,
   Check,
   ChevronRight,
   Clock,
+  FileText,
   Lock,
   Shield,
   Sparkles,
+  Target,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +36,7 @@ import {
   resolveClientIndustry,
 } from "@/lib/client-industries";
 import { FRAMEWORK_SCOPE } from "@/lib/framework-scope";
-import { FRAMEWORK_COLUMNS, RISK_PILLARS } from "@/lib/risk-pillars";
+import { FRAMEWORK_COLUMNS } from "@/lib/risk-pillars";
 import { getSurveyModeMeta, SURVEY_MODE_META, type SurveyMode } from "@/lib/maturity-survey-mode";
 import { MaturitySurveyBriefingPanel } from "@/components/maturity-survey-briefing";
 import {
@@ -66,16 +69,21 @@ const WIZARD_STEPS = [
 type WizardStepId = (typeof WIZARD_STEPS)[number]["id"];
 
 const INPUT_CLASS =
-  "mt-2 w-full rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10";
+  "mt-2 w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-[var(--theme-brand)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--theme-brand)_12%,transparent)]";
 
 const SECTION_CARD =
-  "overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]";
+  "brand-elevated-card overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]";
+
+const SETUP_OUTCOMES = [
+  { icon: BarChart3, label: "Pillar posture scores" },
+  { icon: Target, label: "Priority improvements" },
+  { icon: FileText, label: "Executive-ready summary" },
+] as const;
 
 function SectionHeader({
   icon: Icon,
   title,
   description,
-  accent = "indigo",
   badge,
 }: {
   icon: typeof Building2;
@@ -84,27 +92,20 @@ function SectionHeader({
   accent?: "indigo" | "emerald" | "violet";
   badge?: string;
 }) {
-  const accents = {
-    indigo: "bg-indigo-50 text-indigo-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    violet: "bg-violet-50 text-violet-600",
-  };
-
   return (
-    <div className="flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white px-6 py-5">
-      <div
-        className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-          accents[accent]
-        )}
-      >
+    <div className="relative flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r from-[var(--theme-brand-muted)]/40 via-white to-white px-6 py-5 sm:px-7">
+      <span
+        aria-hidden
+        className="absolute bottom-3 left-0 top-3 w-1 rounded-r-full bg-[var(--theme-brand)]"
+      />
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-theme-brand-muted text-theme-brand">
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-base font-bold tracking-tight text-slate-900">{title}</h2>
           {badge && (
-            <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">
+            <span className="rounded-full bg-[var(--theme-brand-muted)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-theme-brand">
               {badge}
             </span>
           )}
@@ -358,16 +359,17 @@ export function NewMaturitySurveyForm() {
   const briefingQuestionCount = briefing ? getBriefingQuestionCount(briefing) : null;
 
   return (
-    <div className="bg-slate-950">
+    <div className="brand-canvas-shell bg-slate-950">
       <BrandLoadingOverlay show={loading} label="Opening your assessment" />
-      <ScrollSection glow="indigo" className="text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_80%_0%,rgba(99,102,241,0.35),transparent)]" />
+      <ScrollSection glow="indigo" className="brand-ink-surface text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_75%_-10%,rgba(134,188,37,0.18),transparent)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_0%_90%,rgba(16,118,168,0.12),transparent)]" />
         <FilmGrain />
-        <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-60">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-50">
           <HeroAmbientOrbs />
         </div>
 
-        <div className="relative mx-auto max-w-3xl px-4 pb-14 pt-10 sm:px-6 sm:pb-16 sm:pt-12 lg:px-8">
+        <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6 sm:pb-20 sm:pt-12 lg:px-8">
           <MountReveal delay={0}>
             <Link
               href="/maturity-assessment"
@@ -378,214 +380,292 @@ export function NewMaturitySurveyForm() {
             </Link>
           </MountReveal>
 
-          <MountReveal delay={60}>
-            <p className="mt-6 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              Configure your assessment
-            </p>
-          </MountReveal>
+          <div className="mt-8 grid items-end gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-14">
+            <div>
+              <MountReveal delay={60}>
+                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-indigo-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI governance diagnostic
+                </p>
+              </MountReveal>
 
-          <MountReveal delay={120}>
-            <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-              Set up your{" "}
-              <ShimmerGradientText>maturity baseline</ShimmerGradientText>
-            </h1>
-          </MountReveal>
+              <MountReveal delay={120}>
+                <h1 className="mt-4 text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl xl:text-[2.75rem]">
+                  Configure your <ShimmerGradientText>maturity baseline</ShimmerGradientText>
+                </h1>
+              </MountReveal>
 
-          <MountReveal delay={180}>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-400">
-              Three quick steps — organization, framework scope, then a coverage overview before
-              you begin the baseline scan.
-            </p>
-          </MountReveal>
+              <MountReveal delay={180}>
+                <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-400 sm:text-lg">
+                  Organization, framework scope, then a coverage brief — so the baseline only scores
+                  standards you choose.
+                </p>
+              </MountReveal>
 
-          <MountReveal delay={240}>
-            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-indigo-400" />
-                {getSurveyModeMeta("quick").duration} for baseline scan
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-indigo-400" />
-                Confidential to your organization
-              </span>
+              <MountReveal delay={240}>
+                <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-indigo-300" />
+                    {getSurveyModeMeta("quick").duration} for baseline scan
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5 text-indigo-300" />
+                    Confidential engagement
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-indigo-300" />
+                    Framework-scoped
+                  </span>
+                </div>
+              </MountReveal>
             </div>
-          </MountReveal>
+
+            <MountReveal delay={200}>
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-2xl shadow-black/30 backdrop-blur-sm">
+                <span
+                  aria-hidden
+                  className="absolute bottom-4 left-0 top-4 w-1 rounded-r-full bg-[var(--theme-brand)]"
+                />
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300">
+                  What you will get
+                </p>
+                <ul className="mt-5 space-y-3">
+                  {SETUP_OUTCOMES.map(({ icon: Icon, label }) => (
+                    <li key={label} className="flex items-center gap-3 text-sm text-slate-200">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-indigo-300">
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-5 border-t border-white/10 pt-4 text-xs leading-relaxed text-slate-400">
+                  Select only the standards that apply — we will not invent coverage you did not
+                  choose.
+                </p>
+              </div>
+            </MountReveal>
+          </div>
         </div>
       </ScrollSection>
 
       <SectionSeam from="dark" to="light" />
 
-      <ScrollSection data-header-theme="light" glow="none" className="bg-slate-50 pb-32 pt-10 sm:pb-36 sm:pt-12">
-        <form onSubmit={handleSubmit} className={cn(
-          "mx-auto px-4 sm:px-6 lg:px-8",
-          step === "overview" ? "max-w-5xl" : "max-w-2xl"
-        )}>
+      <ScrollSection
+        data-header-theme="light"
+        glow="none"
+        className="brand-canvas-shell bg-slate-50 pb-32 pt-10 sm:pb-36 sm:pt-12"
+      >
+        <form onSubmit={handleSubmit} className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <ScrollReveal variant="premium" className="mb-8">
             <SetupWizardStepper steps={[...WIZARD_STEPS]} currentStepId={step} />
           </ScrollReveal>
 
-          {step === "organization" && (
-            <>
-              <ScrollReveal variant="premium" delay={40}>
-                <section className={cn(SECTION_CARD, "overflow-hidden")}>
-                  <div className="border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-white px-6 py-5">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/30">
-                        <Zap className="h-5 w-5" />
+          <div
+            className={cn(
+              "grid gap-8 lg:items-start lg:gap-10",
+              step === "overview"
+                ? "lg:grid-cols-1"
+                : "lg:grid-cols-[minmax(0,1fr)_300px]"
+            )}
+          >
+            <div className="min-w-0">
+              {step === "organization" && (
+                <>
+                  <ScrollReveal variant="premium" delay={40}>
+                    <section className={cn(SECTION_CARD, "overflow-hidden")}>
+                      <div className="relative border-b border-slate-100 bg-gradient-to-r from-[var(--theme-brand-muted)]/50 via-white to-white px-6 py-5 sm:px-7">
+                        <span
+                          aria-hidden
+                          className="absolute bottom-3 left-0 top-3 w-1 rounded-r-full bg-[var(--theme-brand)]"
+                        />
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--theme-action,var(--theme-brand))] text-[var(--theme-action-on,#fff)] shadow-md shadow-slate-900/15">
+                            <Zap className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-brand">
+                              Step 1 of 3
+                            </p>
+                            <h2 className="mt-1 text-base font-bold text-slate-900">
+                              {SURVEY_MODE_META.quick.label}
+                            </h2>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {SURVEY_MODE_META.quick.description}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-600">
-                          Step 1 of 3
-                        </p>
-                        <h2 className="mt-1 text-base font-bold text-slate-900">
-                          {SURVEY_MODE_META.quick.label}
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-600">
-                          {SURVEY_MODE_META.quick.description}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              </ScrollReveal>
+                    </section>
+                  </ScrollReveal>
 
-              <ScrollReveal variant="premium" delay={80} className="mt-8">
-                <section className={SECTION_CARD}>
-                  <SectionHeader
-                    icon={Building2}
-                    title="Organization details"
-                    description="Used on your executive summary and results export."
-                    accent="indigo"
-                  />
-                  <div className="space-y-5 p-6">
-                    <div>
-                      <label className="text-sm font-semibold text-slate-700">
-                        Organization name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        className={INPUT_CLASS}
-                        value={form.organizationName}
-                        onChange={(e) => setForm({ ...form, organizationName: e.target.value })}
-                        placeholder="Your organization name"
+                  <ScrollReveal variant="premium" delay={80} className="mt-6">
+                    <section className={SECTION_CARD}>
+                      <SectionHeader
+                        icon={Building2}
+                        title="Organization details"
+                        description="Used on your executive summary and results export."
                       />
-                    </div>
-                    <IndustrySelect
-                      selection={industrySelection}
-                      customValue={customIndustry}
-                      onSelectionChange={setIndustrySelection}
-                      onCustomChange={setCustomIndustry}
-                      className="[&_label]:text-sm [&_label]:font-semibold [&_label]:text-slate-700 [&_select]:mt-2 [&_select]:rounded-xl [&_select]:border-slate-200/90 [&_select]:px-4 [&_select]:py-2.5 [&_select]:shadow-sm [&_select]:focus:border-indigo-400 [&_select]:focus:ring-4 [&_select]:focus:ring-indigo-500/10 [&_input]:rounded-xl [&_input]:border-slate-200/90 [&_input]:px-4 [&_input]:py-2.5 [&_input]:shadow-sm [&_input]:focus:border-indigo-400 [&_input]:focus:ring-4 [&_input]:focus:ring-indigo-500/10"
+                      <div className="space-y-5 p-6 sm:p-7">
+                        <div>
+                          <label className="text-sm font-semibold text-slate-700">
+                            Organization name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            required
+                            className={INPUT_CLASS}
+                            value={form.organizationName}
+                            onChange={(e) => setForm({ ...form, organizationName: e.target.value })}
+                            placeholder="Your organization name"
+                          />
+                        </div>
+                        <IndustrySelect
+                          selection={industrySelection}
+                          customValue={customIndustry}
+                          onSelectionChange={setIndustrySelection}
+                          onCustomChange={setCustomIndustry}
+                          className="[&_label]:text-sm [&_label]:font-semibold [&_label]:text-slate-700 [&_select]:mt-2 [&_select]:rounded-xl [&_select]:border-slate-200/90 [&_select]:px-4 [&_select]:py-3 [&_select]:shadow-sm [&_select]:focus:border-[var(--theme-brand)] [&_select]:focus:ring-4 [&_select]:focus:ring-[color-mix(in_srgb,var(--theme-brand)_12%,transparent)] [&_input]:rounded-xl [&_input]:border-slate-200/90 [&_input]:px-4 [&_input]:py-3 [&_input]:shadow-sm [&_input]:focus:border-[var(--theme-brand)] [&_input]:focus:ring-4 [&_input]:focus:ring-[color-mix(in_srgb,var(--theme-brand)_12%,transparent)]"
+                        />
+                        <div>
+                          <label className="text-sm font-semibold text-slate-700">Report title</label>
+                          <input
+                            className={INPUT_CLASS}
+                            value={form.title}
+                            onChange={(e) => setForm({ ...form, title: e.target.value })}
+                            placeholder="Optional — auto-generated if blank"
+                          />
+                        </div>
+                        <div className="grid gap-5 sm:grid-cols-2">
+                          <div>
+                            <label className="text-sm font-semibold text-slate-700">Your name</label>
+                            <input
+                              className={INPUT_CLASS}
+                              value={form.respondentName}
+                              onChange={(e) =>
+                                setForm({ ...form, respondentName: e.target.value })
+                              }
+                              placeholder="Optional — appears on your report"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-semibold text-slate-700">Your role</label>
+                            <input
+                              className={INPUT_CLASS}
+                              value={form.respondentRole}
+                              onChange={(e) => setForm({ ...form, respondentRole: e.target.value })}
+                              placeholder="e.g. Chief Risk Officer"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  </ScrollReveal>
+                </>
+              )}
+
+              {step === "frameworks" && (
+                <ScrollReveal variant="premium" delay={40}>
+                  <section ref={frameworksRef} className={SECTION_CARD}>
+                    <SectionHeader
+                      icon={Shield}
+                      title="Which frameworks apply to you?"
+                      description="Select every standard your organization needs to align with. We won't assume coverage you haven't chosen."
+                      badge="Required"
                     />
-                    <div>
-                      <label className="text-sm font-semibold text-slate-700">Report title</label>
-                      <input
-                        className={INPUT_CLASS}
-                        value={form.title}
-                        onChange={(e) => setForm({ ...form, title: e.target.value })}
-                        placeholder="Optional — auto-generated if blank"
-                      />
-                    </div>
-                    <div className="grid gap-5 sm:grid-cols-2">
-                      <div>
-                        <label className="text-sm font-semibold text-slate-700">Your name</label>
-                        <input
-                          className={INPUT_CLASS}
-                          value={form.respondentName}
-                          onChange={(e) => setForm({ ...form, respondentName: e.target.value })}
-                          placeholder="Optional — appears on your report"
-                        />
+                    <div className="space-y-4 p-6 sm:p-7">
+                      <div className="flex items-start gap-3 rounded-xl border border-[color-mix(in_srgb,var(--theme-brand)_25%,white)] bg-gradient-to-r from-[var(--theme-brand-muted)]/70 to-white px-4 py-3.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+                          <Building2 className="h-4 w-4 text-theme-brand" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-800">
+                            Assessing {form.organizationName.trim() || "your organization"}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            Tap each framework that applies — baseline questions and gap analysis
+                            map only to these standards.
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-sm font-semibold text-slate-700">Your role</label>
-                        <input
-                          className={INPUT_CLASS}
-                          value={form.respondentRole}
-                          onChange={(e) => setForm({ ...form, respondentRole: e.target.value })}
-                          placeholder="e.g. Chief Risk Officer"
-                        />
+
+                      <div className="grid gap-3">
+                        {ALL_FRAMEWORKS.map((fw) => (
+                          <FrameworkSelectCard
+                            key={fw.code}
+                            code={fw.code}
+                            name={fw.name}
+                            tagline={fw.tagline}
+                            selected={frameworkCodes.includes(fw.code)}
+                            emphasize={emphasizeFrameworks && !frameworksComplete}
+                            onToggle={() => toggleFramework(fw.code)}
+                          />
+                        ))}
                       </div>
-                    </div>
-                  </div>
-                </section>
-              </ScrollReveal>
-            </>
-          )}
 
-          {step === "frameworks" && (
-            <ScrollReveal variant="premium" delay={40}>
-              <section ref={frameworksRef} className={SECTION_CARD}>
-                <SectionHeader
-                  icon={Shield}
-                  title="Which frameworks apply to you?"
-                  description="Select every standard your organization needs to align with. We won't assume coverage you haven't chosen."
-                  accent="violet"
-                  badge="Required"
-                />
-                <div className="space-y-4 p-6">
-                  <div className="flex items-start gap-3 rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50 to-indigo-50/50 px-4 py-3.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
-                      <Building2 className="h-4 w-4 text-indigo-600" />
+                      {frameworkCodes.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-[color-mix(in_srgb,var(--theme-brand)_35%,white)] bg-[var(--theme-brand-muted)]/40 px-5 py-4 text-center">
+                          <p className="text-sm font-semibold text-slate-900">
+                            Choose at least one framework to continue
+                          </p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            Most organizations select 2–3 standards — for example NIST AI RMF plus
+                            EU AI Act if you operate in Europe.
+                          </p>
+                        </div>
+                      ) : (
+                        <FrameworkScopeNotice codes={frameworkCodes} variant="panel" />
+                      )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-slate-800">
-                        Assessing {form.organizationName.trim()}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">
-                        Tap each framework that applies — your baseline questions and gap analysis
-                        will only map to these standards.
-                      </p>
-                    </div>
-                  </div>
+                  </section>
+                </ScrollReveal>
+              )}
 
-                  <div className="grid gap-3">
-                    {ALL_FRAMEWORKS.map((fw) => (
-                      <FrameworkSelectCard
-                        key={fw.code}
-                        code={fw.code}
-                        name={fw.name}
-                        tagline={fw.tagline}
-                        selected={frameworkCodes.includes(fw.code)}
-                        emphasize={emphasizeFrameworks && !frameworksComplete}
-                        onToggle={() => toggleFramework(fw.code)}
-                      />
+              {step === "overview" && (
+                <ScrollReveal variant="premium" delay={40}>
+                  <MaturitySurveyBriefingPanel
+                    briefing={briefing}
+                    organizationName={form.organizationName}
+                    loading={briefingLoading}
+                  />
+                </ScrollReveal>
+              )}
+            </div>
+
+            {step !== "overview" && (
+              <aside className="hidden space-y-4 lg:sticky lg:top-6 lg:block">
+                <div className="brand-elevated-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/[0.04]">
+                  <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-brand">
+                      Engagement brief
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {form.organizationName.trim() || "Your organization"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {step === "organization"
+                        ? "Confirm who this baseline is for."
+                        : frameworksComplete
+                          ? formatBriefingFrameworksInScope(frameworkCodes.length)
+                          : "Select the standards in scope."}
+                    </p>
+                  </div>
+                  <ul className="space-y-2.5 px-5 py-5">
+                    {SETUP_OUTCOMES.map(({ icon: Icon, label }) => (
+                      <li key={label} className="flex items-center gap-2.5 text-sm text-slate-600">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--theme-brand-muted)] text-theme-brand">
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                        {label}
+                      </li>
                     ))}
-                  </div>
-
-                  {frameworkCodes.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-violet-300/80 bg-violet-50/40 px-5 py-4 text-center">
-                      <p className="text-sm font-semibold text-violet-900">
-                        Choose at least one framework to continue
-                      </p>
-                      <p className="mt-1 text-xs text-violet-700/80">
-                        Most organizations select 2–3 standards — for example NIST AI RMF plus EU AI
-                        Act if you operate in Europe.
-                      </p>
-                    </div>
-                  ) : (
-                    <FrameworkScopeNotice codes={frameworkCodes} variant="panel" />
-                  )}
+                  </ul>
                 </div>
-              </section>
-            </ScrollReveal>
-          )}
+              </aside>
+            )}
+          </div>
 
-          {step === "overview" && (
-            <ScrollReveal variant="premium" delay={40}>
-              <MaturitySurveyBriefingPanel
-                briefing={briefing}
-                organizationName={form.organizationName}
-                loading={briefingLoading}
-              />
-            </ScrollReveal>
-          )}
-
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/90 backdrop-blur-xl">
-            <div className={cn(
-              "pointer-events-auto mx-auto flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8",
-              step === "overview" ? "max-w-5xl" : "max-w-2xl"
-            )}>
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/92 shadow-[0_-8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+            <div className="pointer-events-auto mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
               <div className="min-w-0">
                 {step === "organization" && (
                   <>
@@ -596,7 +676,9 @@ export function NewMaturitySurveyForm() {
                 {step === "frameworks" && (
                   <>
                     <p className="text-sm font-bold text-slate-900">
-                      {frameworksComplete ? "Next: review your overview" : "Select frameworks to continue"}
+                      {frameworksComplete
+                        ? "Next: review your overview"
+                        : "Select frameworks to continue"}
                     </p>
                     <p className="text-xs text-slate-500">
                       Step 2 of 3 ·{" "}
@@ -642,7 +724,7 @@ export function NewMaturitySurveyForm() {
                     (step === "frameworks" && !frameworksComplete) ||
                     (step === "overview" && !canStart)
                   }
-                  className="group h-11 gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold shadow-lg shadow-indigo-500/25 hover:bg-indigo-500 sm:min-w-[200px]"
+                  className="group h-11 gap-2 rounded-xl px-6 text-sm font-semibold shadow-lg shadow-slate-900/10 sm:min-w-[200px]"
                 >
                   {loading
                     ? "Starting…"

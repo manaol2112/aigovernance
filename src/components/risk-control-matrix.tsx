@@ -204,8 +204,8 @@ export function RiskControlMatrixTable({ rows }: { rows: PillarMatrixRow[] }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[960px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-950 text-white">
-              <th className="sticky left-0 z-20 bg-slate-950 px-4 py-4 text-left font-semibold">
+            <tr className="brand-ink-surface border-b border-slate-200 bg-slate-950 text-white">
+              <th className="brand-ink-surface sticky left-0 z-20 bg-slate-950 px-4 py-4 text-left font-semibold">
                 Risk Pillar
               </th>
               {FRAMEWORK_COLUMNS.map((fw) => (

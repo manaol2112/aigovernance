@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ClipboardList, Palette } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminThemeSettings } from "@/components/admin-theme-settings";
 import { AdminQuestionnaires } from "@/components/admin-questionnaires";
 import { cn } from "@/lib/utils";
@@ -26,16 +27,12 @@ export function AdminSettingsShell() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8">
-      <header className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-2xl shadow-slate-300/30 sm:px-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-200/80">
-          Workspace settings
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight lg:text-4xl">Admin</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
-          Configure pillar questionnaires for maturity assessment and guided workshop, then tune
-          appearance for the whole workspace.
-        </p>
-
+      <AdminPageHeader
+        variant="hero"
+        eyebrow="Workspace settings"
+        title="Admin"
+        description="Configure pillar questionnaires for maturity assessment and guided workshop, then tune appearance for the whole workspace."
+      >
         <div className="mt-6 inline-flex rounded-2xl border border-white/10 bg-white/5 p-1 backdrop-blur-sm">
           {TABS.map((item) => {
             const Icon = item.icon;
@@ -46,7 +43,7 @@ export function AdminSettingsShell() {
                 type="button"
                 onClick={() => setTab(item.id)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-left transition-all",
+                  "flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
                   active
                     ? "bg-white text-slate-900 shadow-lg"
                     : "text-slate-300 hover:bg-white/10 hover:text-white"
@@ -68,7 +65,7 @@ export function AdminSettingsShell() {
             );
           })}
         </div>
-      </header>
+      </AdminPageHeader>
 
       <div className="min-w-0">
         {tab === "questionnaires" ? <AdminQuestionnaires /> : <AdminThemeSettings />}

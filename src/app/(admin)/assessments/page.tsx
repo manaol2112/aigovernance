@@ -131,15 +131,11 @@ export default async function AssessmentsPage() {
           />
 
           <section className="space-y-4">
-            <div className="flex items-end justify-between gap-4 px-1">
-              <div>
-                <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  All engagements
-                </h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  {items.length} assessment{items.length === 1 ? "" : "s"} sorted by most recent activity
-                </p>
-              </div>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">All engagements</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {items.length} assessment{items.length === 1 ? "" : "s"} sorted by most recent activity
+              </p>
             </div>
 
             <div className="grid gap-5 xl:grid-cols-2">

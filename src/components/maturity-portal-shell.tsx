@@ -5,6 +5,7 @@ import { Shield } from "lucide-react";
 import { createContext, useContext, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { PACK_ASSESSMENT_COPY } from "@/lib/maturity-client-copy";
+import { useColorTheme } from "@/components/theme-provider";
 import { MountReveal, ScrollProgressBar, useLightHeaderZone, useScrolledPast } from "@/components/maturity-landing-motion";
 
 export type MaturityPortalFooterMode = "framework" | "pack" | "hidden";
@@ -56,6 +57,8 @@ export function MaturityPortalShell({
   className?: string;
 }) {
   const [footerMode, setFooterMode] = useState<MaturityPortalFooterMode>("framework");
+  const { theme } = useColorTheme();
+  const isDeloitte = theme === "deloitte";
   const scrolled = useScrolledPast(32);
   const lightZone = useLightHeaderZone();
   const lightHeader = scrolled && lightZone;
@@ -66,6 +69,9 @@ export function MaturityPortalShell({
       data-maturity-scroll
       className={cn("h-full min-h-0 overflow-y-auto scroll-smooth bg-theme-page", className)}
     >
+      <a href="#portal-main" className="skip-to-content">
+        Skip to content
+      </a>
       <ScrollProgressBar />
       <header
         className={cn(
@@ -91,25 +97,41 @@ export function MaturityPortalShell({
           >
             <div
               className={cn(
-                "flex items-center justify-center rounded-lg text-white shadow-sm transition-all duration-500",
-                lightHeader ? "h-8 w-8 bg-slate-900" : "h-9 w-9 bg-indigo-600 shadow-indigo-500/30"
+                "flex items-center justify-center rounded-md text-white shadow-sm transition-all duration-500",
+                isDeloitte
+                  ? lightHeader
+                    ? "h-8 w-8 bg-black"
+                    : "h-9 w-9 bg-black ring-1 ring-white/10"
+                  : lightHeader
+                    ? "h-8 w-8 bg-slate-900"
+                    : "h-9 w-9 bg-indigo-600 shadow-indigo-500/30"
               )}
             >
-              <Shield className="h-4 w-4" />
+              {isDeloitte ? (
+                <span className="h-2.5 w-2.5 rounded-full bg-[#86BC25]" aria-hidden />
+              ) : (
+                <Shield className="h-4 w-4" />
+              )}
             </div>
             <div className="leading-tight">
               <p
                 className={cn(
-                  "text-sm font-semibold transition-colors duration-500",
+                  "text-sm transition-colors duration-500",
+                  isDeloitte ? "font-light tracking-tight" : "font-semibold",
                   lightHeader ? "text-slate-900" : "text-white"
                 )}
               >
                 AI Assurance Hub
+                {isDeloitte && (
+                  <span className="text-[#86BC25]" aria-hidden>
+                    .
+                  </span>
+                )}
               </p>
               <p
                 className={cn(
                   "text-[10px] font-medium uppercase tracking-wider transition-colors duration-500",
-                  scrolled ? "text-slate-400" : "text-slate-400"
+                  lightHeader ? "text-slate-600" : "text-slate-300"
                 )}
               >
                 Maturity Assessment
@@ -118,7 +140,9 @@ export function MaturityPortalShell({
           </Link>
         </MountReveal>
       </header>
-      {children}
+      <div id="portal-main" tabIndex={-1} className="outline-none">
+        {children}
+      </div>
       <PortalFooter mode={footerMode} />
     </div>
     </MaturityPortalFooterContext.Provider>

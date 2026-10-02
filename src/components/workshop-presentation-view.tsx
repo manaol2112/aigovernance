@@ -13,6 +13,7 @@ import type { PillarWorkshopGuide } from "@/lib/pillar-workshop-guide";
 import type { DepartmentWorkshopGuide } from "@/lib/department-workshop-guide";
 import { ALL_DEPARTMENTS } from "@/lib/workshop-department";
 import type { WorkshopDepartmentOption } from "@/lib/workshop-departments";
+import { cn } from "@/lib/utils";
 
 type PillarNav = {
   pillarId: string;
@@ -179,33 +180,6 @@ export function WorkshopPresentationView({ assessmentId }: Props) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <div className="hidden rounded-lg border border-slate-200 bg-slate-50 p-0.5 sm:inline-flex">
-            <button
-              type="button"
-              onClick={() => {
-                setRunbookMode("pillar");
-                setActiveSubPillarId(null);
-              }}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                runbookMode === "pillar" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"
-              }`}
-            >
-              Pillar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRunbookMode("department");
-                setActiveSubPillarId(null);
-              }}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                runbookMode === "department" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"
-              }`}
-            >
-              Department
-            </button>
-          </div>
-
           <Button type="button" variant="outline" size="sm" className="h-8" onClick={toggleFullscreen}>
             {isFullscreen ? (
               <Minimize2 className="h-3.5 w-3.5" />
@@ -229,46 +203,52 @@ export function WorkshopPresentationView({ assessmentId }: Props) {
             className="h-8 w-8 p-0"
             onClick={() => window.close()}
             title="Close window"
+            aria-label="Close window"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
       </header>
 
-      {topicOptions.length > 1 && (
-        <div className="flex shrink-0 flex-wrap gap-1 border-b border-slate-100 bg-slate-50 px-4 py-2">
-          <button
-            type="button"
-            onClick={() => selectSubPillar(null)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-              !activeSubPillarId ? "bg-indigo-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"
-            }`}
-          >
-            All topics
-          </button>
-          {topicOptions.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => selectSubPillar(t.id)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                activeSubPillarId === t.id
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
-
+      {/* Single rail: mode → list → topic → content */}
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-52 shrink-0 flex-col border-r border-slate-100 bg-slate-50/80 md:flex">
-          <p className="shrink-0 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            {runbookMode === "pillar" ? "Risk pillars" : "Departments"}
-          </p>
-          <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+        <aside className="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-[#f1f5f9]">
+          <div
+            className="shrink-0 border-b border-slate-200 bg-white p-2"
+            role="group"
+            aria-label="Workshop navigation mode"
+          >
+            <div className="inline-flex w-full rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+              {(
+                [
+                  ["pillar", "Pillars"],
+                  ["department", "Stakeholders"],
+                ] as const
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setRunbookMode(mode);
+                    setActiveSubPillarId(null);
+                  }}
+                  className={cn(
+                    "flex-1 rounded-md px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                    runbookMode === mode
+                      ? "bg-white text-indigo-800 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <nav
+            className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2"
+            aria-label={runbookMode === "pillar" ? "Risk pillars" : "Stakeholders"}
+          >
             {runbookMode === "pillar"
               ? pillars.map((pillar) => (
                   <button
@@ -278,11 +258,12 @@ export function WorkshopPresentationView({ assessmentId }: Props) {
                       setActivePillarId(pillar.pillarId);
                       setActiveSubPillarId(null);
                     }}
-                    className={`w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold leading-snug transition-colors ${
+                    className={cn(
+                      "w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold leading-snug transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
                       activePillarId === pillar.pillarId
                         ? "bg-indigo-600 text-white"
-                        : "text-slate-700 hover:bg-white"
-                    }`}
+                        : "text-slate-800 hover:bg-white"
+                    )}
                   >
                     {pillar.pillarLabel}
                   </button>
@@ -295,21 +276,46 @@ export function WorkshopPresentationView({ assessmentId }: Props) {
                       setFacilitatorDepartment(dept.label);
                       setActiveSubPillarId(null);
                     }}
-                    className={`w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold leading-snug transition-colors ${
+                    className={cn(
+                      "w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold leading-snug transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
                       facilitatorDepartment === dept.label
                         ? "bg-indigo-600 text-white"
-                        : "text-slate-700 hover:bg-white"
-                    }`}
+                        : "text-slate-800 hover:bg-white"
+                    )}
                   >
                     {dept.label}
                   </button>
                 ))}
           </nav>
+
+          {topicOptions.length > 1 && (
+            <div className="shrink-0 border-t border-slate-200 bg-white p-2">
+              <label
+                htmlFor="presenter-topic-filter"
+                className="mb-1 block text-[11px] font-medium text-slate-600"
+              >
+                Topic
+              </label>
+              <select
+                id="presenter-topic-filter"
+                value={activeSubPillarId ?? ""}
+                onChange={(e) => selectSubPillar(e.target.value || null)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                <option value="">All topics</option>
+                {topicOptions.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </aside>
 
-        <main className="min-h-0 flex-1 overflow-y-auto bg-white">
+        <main id="presenter-content" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto bg-white outline-none">
           {guideLoading ? (
-            <div className="flex items-center justify-center gap-2 py-20 text-sm text-slate-400">
+            <div className="flex items-center justify-center gap-2 py-20 text-sm text-slate-600">
               <Loader2 className="h-5 w-5 animate-spin" />
               Loading questions…
             </div>

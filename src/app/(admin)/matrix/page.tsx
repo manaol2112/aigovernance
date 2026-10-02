@@ -1,7 +1,11 @@
+import Link from "next/link";
 import { buildRiskControlMatrix, getMatrixSummary } from "@/lib/risk-control-matrix";
+import { AdminPageHeader, AdminPageHeaderStat } from "@/components/admin-page-header";
 import { RiskControlMatrixTable, MatrixHeatmapLegend } from "@/components/risk-control-matrix";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Layers3, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -20,48 +24,41 @@ export default async function RiskControlMatrixPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Risk & Control Matrix
-        </h1>
-        <p className="mt-2 max-w-3xl text-slate-500">
-          Critical risk pillars mapped across NIST AI RMF, ISO 42001, EU AI Act, OECD AI Principles,
-          and COSO ERM — with deduplicated canonical controls for each pillar.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Risk Pillars</CardDescription>
-            <CardTitle className="text-3xl">{summary.pillarCount}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Critical Pillars</CardDescription>
-            <CardTitle className="text-3xl">{summary.criticalPillars}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>4+ Framework Coverage</CardDescription>
-            <CardTitle className="text-3xl">{summary.fullyCrossed}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Canonical Controls</CardDescription>
-            <CardTitle className="text-3xl">{summary.totalControls}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+      <AdminPageHeader
+        variant="hero"
+        eyebrow="Coverage matrix"
+        title="Risk & control matrix"
+        description="Critical risk pillars mapped across NIST AI RMF, ISO 42001, EU AI Act, OECD AI Principles, and COSO ERM — with deduplicated canonical controls for each pillar."
+        actions={
+          <>
+            <Button asChild size="sm" className="bg-white text-slate-900 hover:bg-slate-100">
+              <Link href="/risk-taxonomy">Risk taxonomy</Link>
+            </Button>
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            >
+              <Link href="/crosswalk">Open crosswalk</Link>
+            </Button>
+          </>
+        }
+      >
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminPageHeaderStat icon={Layers3} label="Risk pillars" value={summary.pillarCount} />
+          <AdminPageHeaderStat icon={ShieldAlert} label="Critical pillars" value={summary.criticalPillars} />
+          <AdminPageHeaderStat icon={ShieldCheck} label="4+ framework coverage" value={summary.fullyCrossed} />
+          <AdminPageHeaderStat icon={Shield} label="Canonical controls" value={summary.totalControls} />
+        </div>
+      </AdminPageHeader>
 
       <Card>
         <CardHeader>
-          <CardTitle>Framework Legend</CardTitle>
+          <CardTitle>Framework legend</CardTitle>
           <CardDescription>
-            Each column shows how many framework requirements map to the pillar via crosswalk-linked controls.
+            Each column shows how many framework requirements map to the pillar via crosswalk-linked
+            controls.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -69,10 +66,17 @@ export default async function RiskControlMatrixPage() {
         </CardContent>
       </Card>
 
-      <div>
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-semibold text-slate-900">Cross-Framework Matrix</h2>
-          <Badge variant="success">Sorted by cross-framework coverage</Badge>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Cross-framework matrix</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Sorted by cross-framework coverage — higher scores mean stronger alignment.
+            </p>
+          </div>
+          <Badge variant="success" className="ml-auto">
+            Sorted by coverage
+          </Badge>
         </div>
         <RiskControlMatrixTable rows={sortedMatrix} />
       </div>
@@ -96,8 +100,9 @@ export default async function RiskControlMatrixPage() {
             obligations across multiple frameworks simultaneously.
           </p>
           <p>
-            <strong>Cross-framework score</strong> indicates how many of the five frameworks have
-            at least one mapped requirement for that pillar — higher scores mean stronger crosswalk alignment.
+            <strong>Cross-framework score</strong> indicates how many of the five frameworks have at
+            least one mapped requirement for that pillar — higher scores mean stronger crosswalk
+            alignment.
           </p>
         </CardContent>
       </Card>

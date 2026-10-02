@@ -4,16 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./utils";
 
 const badgeVariants = cva(
+  // text-xs (12px) meets WCAG minimum size; contrast tuned for light surfaces
   "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-slate-900 text-slate-50",
-        secondary: "border-transparent bg-slate-100 text-slate-900",
-        success: "border-transparent bg-emerald-100 text-emerald-800",
-        warning: "border-transparent bg-amber-100 text-amber-800",
-        danger: "border-transparent bg-red-100 text-red-800",
-        outline: "text-slate-700",
+        default: "border-transparent bg-slate-900 text-white",
+        secondary: "border-transparent bg-slate-200 text-slate-900",
+        success: "border-transparent bg-emerald-200 text-emerald-950",
+        warning: "border-transparent bg-amber-200 text-amber-950",
+        danger: "border-transparent bg-red-200 text-red-950",
+        outline: "border-slate-400 bg-white text-slate-900",
       },
     },
     defaultVariants: { variant: "default" },

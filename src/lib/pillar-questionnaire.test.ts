@@ -9,7 +9,15 @@ import {
   questionPackProductFromRoute,
 } from "./pillar-questionnaire";
 import { parseQuestionPackCsv, questionPackCsvTemplate } from "./question-pack-csv";
-import { buildPackReport, buildPackRoadmap, derivePackExecutiveSummary, groupPackRoadmapByPhase, scoreBandLabel, scorePillarAnswers } from "./pillar-questionnaire-scoring";
+import {
+  buildPackReport,
+  buildPackRoadmap,
+  derivePackExecutiveSummary,
+  describePackPillarBriefing,
+  groupPackRoadmapByPhase,
+  scoreBandLabel,
+  scorePillarAnswers,
+} from "./pillar-questionnaire-scoring";
 
 describe("isQuestionPackProduct", () => {
   it("accepts product tags", () => {
@@ -72,6 +80,42 @@ describe("pack scoring", () => {
   it("excludes don't know from the pillar percentage", () => {
     expect(scorePillarAnswers(["yes", "no", "dont_know"])).toBe(50);
     expect(scorePillarAnswers(["dont_know"])).toBeNull();
+  });
+
+  it("briefs a 0% pillar for stakeholders without score arithmetic", () => {
+    const briefing = describePackPillarBriefing({
+      pillarId: "governance",
+      pillarLabel: "Governance & Accountability",
+      alignmentPct: 0,
+      yesCount: 0,
+      partialCount: 0,
+      noCount: 2,
+      dontKnowCount: 1,
+      scoredCount: 2,
+    });
+    expect(briefing.readingTitle).toBe("What this means");
+    expect(briefing.reading).toMatch(/Governance/);
+    expect(briefing.reading).toMatch(/dependable operating picture|foundation/i);
+    expect(briefing.reading).not.toMatch(/÷|×|=|100|50 pts|Yes \+|scored as/i);
+    expect(briefing.nextLevelLabel).toBe("Building");
+    expect(briefing.nextLevelGuidance).toMatch(/decision forum|risk committee|policy/i);
+    expect(briefing.nextLevelGuidance.length).toBeGreaterThan(40);
+  });
+
+  it("gives pillar-specific path copy when moving toward Established", () => {
+    const briefing = describePackPillarBriefing({
+      pillarId: "privacy-data",
+      pillarLabel: "Privacy & Data Governance",
+      alignmentPct: 40,
+      yesCount: 1,
+      partialCount: 1,
+      noCount: 1,
+      dontKnowCount: 0,
+      scoredCount: 3,
+    });
+    expect(briefing.nextLevelLabel).toBe("Established");
+    expect(briefing.nextLevelGuidance).toMatch(/data quality|provenance|privacy/i);
+    expect(briefing.reading).not.toMatch(/%|points|equation/i);
   });
 
   it("snapshots freeze prompt text independently of later pack edits", () => {

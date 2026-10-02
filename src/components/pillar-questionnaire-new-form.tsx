@@ -6,12 +6,15 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   Building2,
   CheckCircle2,
   ClipboardList,
   Clock,
+  FileText,
   Lock,
   Sparkles,
+  Target,
   Users,
   Zap,
 } from "lucide-react";
@@ -48,14 +51,23 @@ type Props = {
 
 type SetupStepId = "organization" | "overview";
 
-const MATURITY_INPUT_CLASS =
-  "mt-2 w-full rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10";
-
-const WORKSHOP_INPUT_CLASS =
-  "mt-2 w-full rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-[var(--theme-brand)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--theme-brand)_10%,transparent)]";
+const INPUT_CLASS =
+  "mt-2 w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-[var(--theme-brand)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--theme-brand)_12%,transparent)]";
 
 const SECTION_CARD =
-  "overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]";
+  "brand-elevated-card overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]";
+
+const MATURITY_SETUP_OUTCOMES = [
+  { icon: BarChart3, label: "Pillar posture scores" },
+  { icon: Target, label: "Priority improvements" },
+  { icon: FileText, label: "Executive-ready summary" },
+] as const;
+
+const WORKSHOP_SETUP_OUTCOMES = [
+  { icon: Users, label: "Facilitated live capture" },
+  { icon: BarChart3, label: "Pillar posture scores" },
+  { icon: FileText, label: "Client workshop summary" },
+] as const;
 
 function OrganizationFields({
   product,
@@ -91,25 +103,15 @@ function OrganizationFields({
   setCustomIndustry: (value: string) => void;
 }) {
   const copy = getPackClientCopy(product);
-  const inputClass = product === "workshop" ? WORKSHOP_INPUT_CLASS : MATURITY_INPUT_CLASS;
-  const iconWrap =
-    product === "workshop"
-      ? "bg-theme-brand-muted text-theme-brand"
-      : "bg-indigo-50 text-indigo-600";
-  const headerGradient =
-    product === "workshop"
-      ? "from-[var(--theme-brand-muted)]/80 to-white"
-      : "from-slate-50/80 to-white";
 
   return (
     <section className={SECTION_CARD}>
-      <div
-        className={cn(
-          "flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r px-6 py-5",
-          headerGradient
-        )}
-      >
-        <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", iconWrap)}>
+      <div className="relative flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r from-[var(--theme-brand-muted)]/40 via-white to-white px-6 py-5 sm:px-7">
+        <span
+          aria-hidden
+          className="absolute bottom-3 left-0 top-3 w-1 rounded-r-full bg-[var(--theme-brand)]"
+        />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-theme-brand-muted text-theme-brand">
           <Building2 className="h-5 w-5" />
         </div>
         <div>
@@ -117,19 +119,19 @@ function OrganizationFields({
           <p className="mt-0.5 text-sm text-slate-500">{copy.orgSectionDescription}</p>
         </div>
       </div>
-      <div className="space-y-5 p-6">
+      <div className="space-y-5 p-6 sm:p-7">
         <div>
           <label className="text-sm font-semibold text-slate-700">
             {copy.orgNameLabel} <span className="text-red-500">*</span>
           </label>
           <input
             required
-            className={inputClass}
+            className={INPUT_CLASS}
             value={form.organizationName}
             onChange={(event) =>
               setForm((current) => ({ ...current, organizationName: event.target.value }))
             }
-            placeholder={product === "workshop" ? "Enter organisation name" : "Your organization name"}
+            placeholder={product === "workshop" ? "Client organization name" : "Your organization name"}
           />
         </div>
 
@@ -139,13 +141,14 @@ function OrganizationFields({
             customValue={customIndustry}
             onSelectionChange={setIndustrySelection}
             onCustomChange={setCustomIndustry}
+            className="[&_label]:text-sm [&_label]:font-semibold [&_label]:text-slate-700 [&_select]:mt-2 [&_select]:rounded-xl [&_select]:border-slate-200/90 [&_select]:px-4 [&_select]:py-3 [&_select]:shadow-sm [&_select]:focus:border-[var(--theme-brand)] [&_select]:focus:ring-4 [&_select]:focus:ring-[color-mix(in_srgb,var(--theme-brand)_12%,transparent)] [&_input]:rounded-xl [&_input]:border-slate-200/90 [&_input]:px-4 [&_input]:py-3 [&_input]:shadow-sm [&_input]:focus:border-[var(--theme-brand)] [&_input]:focus:ring-4 [&_input]:focus:ring-[color-mix(in_srgb,var(--theme-brand)_12%,transparent)]"
           />
         )}
 
         <div>
           <label className="text-sm font-semibold text-slate-700">{copy.sessionTitleLabel}</label>
           <input
-            className={inputClass}
+            className={INPUT_CLASS}
             value={form.title}
             onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
             placeholder={copy.sessionTitlePlaceholder}
@@ -156,7 +159,7 @@ function OrganizationFields({
           <div>
             <label className="text-sm font-semibold text-slate-700">{copy.leadNameLabel}</label>
             <input
-              className={inputClass}
+              className={INPUT_CLASS}
               value={form.leadName}
               onChange={(event) => setForm((current) => ({ ...current, leadName: event.target.value }))}
               placeholder="Optional"
@@ -165,7 +168,7 @@ function OrganizationFields({
           <div>
             <label className="text-sm font-semibold text-slate-700">{copy.leadRoleLabel}</label>
             <input
-              className={inputClass}
+              className={INPUT_CLASS}
               value={form.leadRole}
               onChange={(event) => setForm((current) => ({ ...current, leadRole: event.target.value }))}
               placeholder="Optional"
@@ -180,7 +183,7 @@ function OrganizationFields({
                 {PACK_WORKSHOP_COPY.clientContactNameLabel}
               </label>
               <input
-                className={inputClass}
+                className={INPUT_CLASS}
                 value={form.clientContactName}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, clientContactName: event.target.value }))
@@ -193,7 +196,7 @@ function OrganizationFields({
                 {PACK_WORKSHOP_COPY.clientContactRoleLabel}
               </label>
               <input
-                className={inputClass}
+                className={INPUT_CLASS}
                 value={form.clientContactRole}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, clientContactRole: event.target.value }))
@@ -211,37 +214,41 @@ function OrganizationFields({
 function OverviewPanel({ product }: { product: "maturity" | "workshop" }) {
   const copy = getPackClientCopy(product);
   const modeHeader =
-    product === "workshop"
-      ? "border-[color-mix(in_srgb,var(--theme-brand)_20%,white)] bg-gradient-to-r from-[var(--theme-brand-muted)]/60 to-white"
-      : "border-indigo-100 bg-gradient-to-r from-indigo-50 to-white";
+    "relative border-[color-mix(in_srgb,var(--theme-brand)_18%,white)] bg-gradient-to-r from-[var(--theme-brand-muted)]/55 via-white to-white";
   const modeIcon =
-    product === "workshop"
-      ? "bg-theme-brand text-white shadow-md shadow-[color-mix(in_srgb,var(--theme-brand)_30%,transparent)]"
-      : "bg-indigo-600 text-white shadow-md shadow-indigo-500/30";
-  const stepAccent = product === "workshop" ? "text-theme-brand" : "text-indigo-600";
+    "bg-[var(--theme-action,var(--theme-brand))] text-[var(--theme-action-on,#fff)] shadow-md shadow-slate-900/10";
 
   return (
     <section className={SECTION_CARD}>
-      <div className={cn("border-b px-6 py-5", modeHeader)}>
+      <div className={cn("border-b px-6 py-5 sm:px-7", modeHeader)}>
+        <span
+          aria-hidden
+          className="absolute bottom-3 left-0 top-3 w-1 rounded-r-full bg-[var(--theme-brand)]"
+        />
         <div className="flex items-start gap-4">
           <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", modeIcon)}>
             <ClipboardList className="h-5 w-5" />
           </div>
           <div>
-            <p className={cn("text-[10px] font-bold uppercase tracking-[0.18em]", stepAccent)}>Step 2 of 2</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-brand">
+              Step 2 of 2
+            </p>
             <h2 className="mt-1 text-base font-bold text-slate-900">{copy.overviewTitle}</h2>
             <p className="mt-1 text-sm text-slate-600">{copy.overviewSubtitle}</p>
           </div>
         </div>
       </div>
 
-      <div className="space-y-6 p-6">
+      <div className="space-y-8 p-6 sm:p-7">
         <div>
           <p className="text-sm font-semibold text-slate-900">{copy.howToAnswerTitle}</p>
-          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+          <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
             {copy.howToAnswer.map((line) => (
-              <li key={line} className="flex gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <li
+                key={line}
+                className="flex gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 px-3.5 py-3 text-sm text-slate-600"
+              >
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-theme-brand" />
                 {line}
               </li>
             ))}
@@ -249,21 +256,110 @@ function OverviewPanel({ product }: { product: "maturity" | "workshop" }) {
         </div>
 
         <div>
-          <p className="text-sm font-semibold text-slate-900">{copy.pillarsHeading}</p>
-          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-            {RISK_PILLARS.map((pillar) => (
+          <div className="flex items-end justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-900">{copy.pillarsHeading}</p>
+            <p className="text-[11px] font-medium tabular-nums text-slate-500">
+              {RISK_PILLARS.length} pillars
+            </p>
+          </div>
+          <div className="mt-3 grid max-h-80 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+            {RISK_PILLARS.map((pillar, index) => (
               <div
                 key={pillar.id}
-                className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2.5"
+                className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-3 shadow-sm shadow-slate-900/[0.02]"
               >
-                <p className="text-sm font-medium text-slate-900">{pillar.label}</p>
-                <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{pillar.description}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-theme-brand">
+                  {String(index + 1).padStart(2, "0")}
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-900">{pillar.label}</p>
+                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-500">
+                  {pillar.description}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function PackSetupAside({
+  product,
+  step,
+  questionCount,
+  organizationName,
+}: {
+  product: "maturity" | "workshop";
+  step: SetupStepId;
+  questionCount: number;
+  organizationName: string;
+}) {
+  const outcomes = product === "workshop" ? WORKSHOP_SETUP_OUTCOMES : MATURITY_SETUP_OUTCOMES;
+  const orgLabel =
+    organizationName.trim() || (product === "workshop" ? "Your client" : "Your organization");
+  const stepHint =
+    step === "organization"
+      ? product === "workshop"
+        ? "Confirm who this workshop is for."
+        : "Confirm who this baseline is for."
+      : product === "workshop"
+        ? "Review coverage, then open the session."
+        : "Review coverage, then open the diagnostic.";
+
+  return (
+    <aside className="space-y-4 lg:sticky lg:top-6">
+      <div className="brand-elevated-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/[0.04]">
+        <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-brand">
+            Engagement brief
+          </p>
+          <p className="mt-1 text-sm font-semibold text-slate-900">{orgLabel}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{stepHint}</p>
+        </div>
+        <div className="space-y-4 px-5 py-5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-slate-50 px-3 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Questions
+              </p>
+              <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-slate-900">
+                {questionCount}
+              </p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-3 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Pillars
+              </p>
+              <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-slate-900">
+                {RISK_PILLARS.length}
+              </p>
+            </div>
+          </div>
+          <ul className="space-y-2.5">
+            {outcomes.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-2.5 text-sm text-slate-600">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--theme-brand-muted)] text-theme-brand">
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 px-5 py-4">
+        <p className="flex items-center gap-2 text-xs font-medium text-slate-600">
+          <Lock className="h-3.5 w-3.5 text-theme-brand" />
+          {product === "workshop" ? "Confidential to this client" : "Confidential to your organization"}
+        </p>
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+          {product === "workshop"
+            ? "Session answers stay on this engagement — built for client leadership review, not public sharing."
+            : "Responses stay on this engagement — built for leadership review, not public sharing."}
+        </p>
+      </div>
+    </aside>
   );
 }
 
@@ -365,155 +461,81 @@ function PackNewForm({
     }
   }
 
+  const setupOutcomes = product === "workshop" ? WORKSHOP_SETUP_OUTCOMES : MATURITY_SETUP_OUTCOMES;
+
   const footerBar = (
-    <div
-      className={cn(
-        "fixed bottom-0 left-0 right-0 z-30 border-t px-4 py-4 backdrop-blur-sm",
-        product === "workshop"
-          ? "border-slate-200 bg-white/95"
-          : "border-slate-200 bg-white/95"
-      )}
-    >
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-        {step === "overview" ? (
-          <Button type="button" variant="outline" onClick={() => setStep("organization")}>
-            Back
-          </Button>
-        ) : (
-          <span />
-        )}
-        {step === "organization" ? (
-          <Button
-            type="button"
-            size="lg"
-            disabled={!orgComplete}
-            onClick={() => setStep("overview")}
-            className="ml-auto gap-1.5"
-          >
-            Continue
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            size="lg"
-            disabled={loading}
-            onClick={() => void handleStart()}
-            className={cn(
-              "ml-auto gap-1.5",
-              product === "maturity" && "shadow-lg shadow-indigo-500/20"
-            )}
-          >
-            {copy.startButton}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        )}
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/92 shadow-[0_-8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+      <div className="pointer-events-auto mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-slate-900">
+            {step === "organization"
+              ? orgComplete
+                ? "Next: review coverage"
+                : product === "workshop"
+                  ? "Client organization name required"
+                  : "Organization name required"
+              : product === "workshop"
+                ? "Ready to open the workshop"
+                : "Ready to open the baseline"}
+          </p>
+          <p className="text-xs text-slate-500">
+            {step === "organization"
+              ? `Step 1 of 2 · ${formatUnitCount(pack.questionCount, "question", "questions")} across ${RISK_PILLARS.length} pillars`
+              : `Step 2 of 2 · ${copy.modeLabel}`}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          {step === "overview" && (
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setStep("organization")}
+            >
+              Back
+            </Button>
+          )}
+          {step === "organization" ? (
+            <Button
+              type="button"
+              size="lg"
+              disabled={!orgComplete}
+              onClick={() => setStep("overview")}
+              className="group h-11 gap-2 rounded-xl px-6 text-sm font-semibold sm:min-w-[180px]"
+            >
+              Continue
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="lg"
+              disabled={loading}
+              onClick={() => void handleStart()}
+              className="group h-11 gap-2 rounded-xl px-6 text-sm font-semibold shadow-lg shadow-slate-900/10 sm:min-w-[200px]"
+            >
+              {copy.startButton}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
 
-  if (product === "workshop") {
-    return (
-      <div className="bg-gradient-to-b from-slate-50 via-white to-[var(--theme-brand-muted)]/30 pb-32">
-        <MaturityPortalFooterMode mode="pack" />
-        <BrandLoadingOverlay show={loading} label={copy.loadingLabel} />
-
-        <div className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-          <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-4 sm:px-6">
-            <Link
-              href={copy.backHref}
-              className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {copy.backLink}
-            </Link>
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-theme-brand" />
-              <span className="text-sm font-semibold text-slate-900">New guided workshop</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-          <div className="mb-8 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-theme-brand">
-              {copy.heroEyebrow}
-            </p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Configure your{" "}
-              <span className="bg-gradient-to-r from-[var(--theme-brand)] to-[var(--theme-shimmer-from)] bg-clip-text text-transparent">
-                {copy.heroTitleAccent}
-              </span>
-            </h1>
-            <p className="mx-auto mt-3 max-w-lg text-sm text-slate-600">{copy.heroSubtitle}</p>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-theme-brand" />
-                {formatUnitCount(pack.questionCount, "question", "questions")} across governance pillars
-              </span>
-            </div>
-          </div>
-
-          <SetupWizardStepper steps={setupSteps} currentStepId={step} className="mb-8" />
-
-          {step === "organization" && (
-            <>
-              <section className={cn(SECTION_CARD, "mb-8 overflow-hidden")}>
-                <div className="border-b border-[color-mix(in_srgb,var(--theme-brand)_15%,white)] bg-gradient-to-r from-[var(--theme-brand-muted)]/80 to-white px-6 py-5">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-theme-brand text-white shadow-md">
-                      <Zap className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-brand">
-                        Step 1 of 2
-                      </p>
-                      <h2 className="mt-1 text-base font-bold text-slate-900">{copy.modeLabel}</h2>
-                      <p className="mt-1 text-sm text-slate-600">{copy.modeDescription}</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-              <OrganizationFields
-                product={product}
-                form={form}
-                setForm={setForm}
-                industrySelection={industrySelection}
-                setIndustrySelection={setIndustrySelection}
-                customIndustry={customIndustry}
-                setCustomIndustry={setCustomIndustry}
-              />
-            </>
-          )}
-
-          {step === "overview" && <OverviewPanel product={product} />}
-
-          {allowOverride && (
-            <p className="mt-6 text-center text-sm text-slate-500">
-              <Link href={copy.overrideHref} className="font-medium text-slate-800 underline">
-                {copy.overrideLink}
-              </Link>
-            </p>
-          )}
-        </div>
-
-        {footerBar}
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-slate-950">
+    <div className="brand-canvas-shell bg-slate-950">
       <MaturityPortalFooterMode mode="pack" />
       <BrandLoadingOverlay show={loading} label={copy.loadingLabel} />
-      <ScrollSection glow="indigo" className="text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_80%_0%,rgba(99,102,241,0.35),transparent)]" />
+      <ScrollSection glow="indigo" className="brand-ink-surface text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_75%_-10%,rgba(134,188,37,0.18),transparent)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_0%_90%,rgba(16,118,168,0.12),transparent)]" />
         <FilmGrain />
-        <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-60">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-50">
           <HeroAmbientOrbs />
         </div>
 
-        <div className="relative mx-auto max-w-3xl px-4 pb-14 pt-10 sm:px-6 sm:pb-16 sm:pt-12 lg:px-8">
+        <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6 sm:pb-20 sm:pt-12 lg:px-8">
           <MountReveal delay={0}>
             <Link
               href={copy.backHref}
@@ -524,94 +546,174 @@ function PackNewForm({
             </Link>
           </MountReveal>
 
-          <MountReveal delay={60}>
-            <p className="mt-6 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              {copy.heroEyebrow}
-            </p>
-          </MountReveal>
+          <div className="mt-8 grid items-end gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-14">
+            <div>
+              <MountReveal delay={60}>
+                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-indigo-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {copy.heroEyebrow}
+                </p>
+              </MountReveal>
 
-          <MountReveal delay={120}>
-            <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-              Set up your <ShimmerGradientText>{copy.heroTitleAccent}</ShimmerGradientText>
-            </h1>
-          </MountReveal>
+              <MountReveal delay={120}>
+                <h1 className="mt-4 text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl xl:text-[2.75rem]">
+                  Configure your{" "}
+                  <ShimmerGradientText>{copy.heroTitleAccent}</ShimmerGradientText>
+                </h1>
+              </MountReveal>
 
-          <MountReveal delay={180}>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-400">{copy.heroSubtitle}</p>
-          </MountReveal>
+              <MountReveal delay={180}>
+                <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-400 sm:text-lg">
+                  {copy.heroSubtitle}
+                </p>
+              </MountReveal>
 
-          <MountReveal delay={240}>
-            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-indigo-400" />
-                {formatUnitCount(pack.questionCount, "question", "questions")} across your governance pillars
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-indigo-400" />
-                Confidential to your organization
-              </span>
+              <MountReveal delay={240}>
+                <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-indigo-300" />
+                    {formatUnitCount(pack.questionCount, "question", "questions")} · ~
+                    {RISK_PILLARS.length} minutes
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5 text-indigo-300" />
+                    Confidential engagement
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-indigo-300" />
+                    Board-ready output
+                  </span>
+                </div>
+              </MountReveal>
             </div>
-          </MountReveal>
+
+            <MountReveal delay={200}>
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-2xl shadow-black/30 backdrop-blur-sm">
+                <span
+                  aria-hidden
+                  className="absolute bottom-4 left-0 top-4 w-1 rounded-r-full bg-[var(--theme-brand)]"
+                />
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300">
+                  {product === "workshop" ? "Workshop scope" : "Assessment scope"}
+                </p>
+                <p className="mt-3 text-3xl font-light tracking-tight text-white">
+                  {pack.questionCount}
+                  <span className="ml-2 text-base font-normal text-slate-400">questions</span>
+                </p>
+                <p className="mt-1 text-sm text-slate-400">
+                  Across {RISK_PILLARS.length} governance pillars
+                </p>
+                <div className="mt-5 flex flex-wrap gap-1.5">
+                  {RISK_PILLARS.slice(0, 6).map((pillar) => (
+                    <span
+                      key={pillar.id}
+                      className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-medium text-slate-300"
+                    >
+                      {pillar.label.split("&")[0]?.trim() ?? pillar.label}
+                    </span>
+                  ))}
+                  {RISK_PILLARS.length > 6 && (
+                    <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-medium text-slate-400">
+                      +{RISK_PILLARS.length - 6} more
+                    </span>
+                  )}
+                </div>
+                <ul className="mt-6 space-y-2.5 border-t border-white/10 pt-5">
+                  {setupOutcomes.map(({ icon: Icon, label }) => (
+                    <li key={label} className="flex items-center gap-2.5 text-sm text-slate-300">
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-indigo-300" />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </MountReveal>
+          </div>
         </div>
       </ScrollSection>
 
       <SectionSeam from="dark" to="light" />
 
-      <ScrollSection data-header-theme="light" glow="none" className="bg-slate-50 pb-32 pt-10 sm:pb-36 sm:pt-12">
-        <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
-          <ScrollReveal variant="premium" className="mb-8">
-            <SetupWizardStepper steps={setupSteps} currentStepId={step} />
-          </ScrollReveal>
-
-          {step === "organization" && (
-            <>
-              <ScrollReveal variant="premium" delay={40}>
-                <section className={cn(SECTION_CARD, "overflow-hidden")}>
-                  <div className="border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-white px-6 py-5">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/30">
-                        <Zap className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-600">
-                          Step 1 of 2
-                        </p>
-                        <h2 className="mt-1 text-base font-bold text-slate-900">{copy.modeLabel}</h2>
-                        <p className="mt-1 text-sm text-slate-600">{copy.modeDescription}</p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+      <ScrollSection
+        data-header-theme="light"
+        glow="none"
+        className="brand-canvas-shell bg-slate-50 pb-32 pt-10 sm:pb-36 sm:pt-12"
+      >
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10">
+            <div className="min-w-0">
+              <ScrollReveal variant="premium" className="mb-8">
+                <SetupWizardStepper steps={setupSteps} currentStepId={step} />
               </ScrollReveal>
 
-              <ScrollReveal variant="premium" delay={80} className="mt-8">
-                <OrganizationFields
-                  product={product}
-                  form={form}
-                  setForm={setForm}
-                  industrySelection={industrySelection}
-                  setIndustrySelection={setIndustrySelection}
-                  customIndustry={customIndustry}
-                  setCustomIndustry={setCustomIndustry}
-                />
-              </ScrollReveal>
-            </>
-          )}
+              {step === "organization" && (
+                <>
+                  <ScrollReveal variant="premium" delay={40}>
+                    <section className={cn(SECTION_CARD, "overflow-hidden")}>
+                      <div className="relative border-b border-slate-100 bg-gradient-to-r from-[var(--theme-brand-muted)]/50 via-white to-white px-6 py-5 sm:px-7">
+                        <span
+                          aria-hidden
+                          className="absolute bottom-3 left-0 top-3 w-1 rounded-r-full bg-[var(--theme-brand)]"
+                        />
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--theme-action,var(--theme-brand))] text-[var(--theme-action-on,#fff)] shadow-md shadow-slate-900/15">
+                            <Zap className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-theme-brand">
+                              Step 1 of 2
+                            </p>
+                            <h2 className="mt-1 text-base font-bold text-slate-900">
+                              {copy.modeLabel}
+                            </h2>
+                            <p className="mt-1 text-sm text-slate-600">{copy.modeDescription}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  </ScrollReveal>
 
-          {step === "overview" && (
-            <ScrollReveal variant="premium" delay={40}>
-              <OverviewPanel product={product} />
+                  <ScrollReveal variant="premium" delay={80} className="mt-6">
+                    <OrganizationFields
+                      product={product}
+                      form={form}
+                      setForm={setForm}
+                      industrySelection={industrySelection}
+                      setIndustrySelection={setIndustrySelection}
+                      customIndustry={customIndustry}
+                      setCustomIndustry={setCustomIndustry}
+                    />
+                  </ScrollReveal>
+                </>
+              )}
+
+              {step === "overview" && (
+                <ScrollReveal variant="premium" delay={40}>
+                  <OverviewPanel product={product} />
+                </ScrollReveal>
+              )}
+
+              {allowOverride && (
+                <p className="mt-8 text-center text-sm text-slate-500 lg:text-left">
+                  <Link
+                    href={copy.overrideHref}
+                    className="font-medium text-slate-800 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-600"
+                  >
+                    {copy.overrideLink}
+                  </Link>
+                </p>
+              )}
+            </div>
+
+            <ScrollReveal variant="premium" delay={100} className="hidden lg:block">
+              <PackSetupAside
+                product={product}
+                step={step}
+                questionCount={pack.questionCount}
+                organizationName={form.organizationName}
+              />
             </ScrollReveal>
-          )}
-
-          {allowOverride && (
-            <p className="mt-6 text-center text-sm text-slate-500">
-              <Link href={copy.overrideHref} className="font-medium text-slate-800 underline">
-                {copy.overrideLink}
-              </Link>
-            </p>
-          )}
+          </div>
         </div>
 
         {footerBar}

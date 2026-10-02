@@ -45,11 +45,12 @@ export const COLOR_THEME_META: Record<ColorThemeId, ColorThemeMeta> = {
   },
   deloitte: {
     id: "deloitte",
-    label: "Deloitte brand",
-    description: "Deloitte green (#86BC25) on black and white — professional consulting aesthetic.",
+    label: "Deloitte",
+    description:
+      "Open Sans, black/white canvas, green dot accents, teal links — consulting-grade digital feel.",
     preview: {
       primary: "#86BC25",
-      surface: "#fafafa",
+      surface: "#ffffff",
       accent: "#000000",
       text: "#000000",
     },

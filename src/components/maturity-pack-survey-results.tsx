@@ -14,7 +14,6 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import {
   PackAnswerStackedChart,
   PackPillarRadarChart,
@@ -27,7 +26,6 @@ import {
   ScrollReveal,
   ScrollSection,
   SectionSeam,
-  ShimmerGradientText,
   handleMaturitySectionNav,
 } from "@/components/maturity-landing-motion";
 import { MaturityPortalFooterMode } from "@/components/maturity-portal-shell";
@@ -36,6 +34,7 @@ import { MaturityReportSharePanel } from "@/components/maturity-report-share-pan
 import {
   buildPackRoadmap,
   derivePackExecutiveSummary,
+  describePackPillarBriefing,
   groupPackRoadmapByPhase,
   scoreBandLabel,
   type PackPillarScore,
@@ -56,19 +55,19 @@ const ROADMAP_PHASE_META: Record<
   immediate: {
     label: "0–90 days",
     subtitle: "Priority improvements",
-    style: "border-rose-200/80 bg-rose-50/50",
+    style: "border-slate-200 bg-white",
     icon: AlertTriangle,
   },
   short_term: {
     label: "3–6 months",
     subtitle: "Areas underway",
-    style: "border-amber-200/80 bg-amber-50/50",
+    style: "border-slate-200 bg-white",
     icon: TrendingUp,
   },
   medium_term: {
     label: "6–12 months",
     subtitle: "Items to confirm",
-    style: "border-slate-200/80 bg-slate-50/70",
+    style: "border-slate-200 bg-white",
     icon: Compass,
   },
 };
@@ -85,11 +84,17 @@ function SectionHeading({
   className?: string;
 }) {
   return (
-    <div className={cn("mb-6", className)}>
+    <div className={cn("relative mb-6 pl-3", className)}>
+      <span
+        aria-hidden
+        className="absolute bottom-1 left-0 top-1 w-0.5 rounded-full bg-[var(--theme-brand)]"
+      />
       {eyebrow && (
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{eyebrow}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-theme-brand">
+          {eyebrow}
+        </p>
       )}
-      <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h2>
+      <h2 className="mt-1 text-xl font-light tracking-tight text-slate-900 sm:text-2xl">{title}</h2>
       {description && <p className="mt-1.5 max-w-2xl text-sm text-slate-500">{description}</p>}
     </div>
   );
@@ -105,28 +110,28 @@ const PILLAR_FACT_STATUS: Record<
   { label: string; short: string; row: string; mark: string }
 > = {
   no: {
-    label: "Not in place",
+    label: "Outstanding",
     short: "No",
-    row: "text-rose-800",
-    mark: "bg-rose-500",
+    row: "text-slate-800",
+    mark: "bg-[#DA291C]",
   },
   partial: {
-    label: "Underway",
+    label: "In progress",
     short: "Partial",
-    row: "text-amber-800",
-    mark: "bg-amber-500",
+    row: "text-slate-800",
+    mark: "bg-[#ED8B00]",
   },
   dont_know: {
-    label: "To confirm",
-    short: "Unknown",
+    label: "Unresolved",
+    short: "Don’t know",
     row: "text-slate-600",
-    mark: "bg-slate-400",
+    mark: "bg-[#767676]",
   },
   yes: {
-    label: "In place",
+    label: "Operating",
     short: "Yes",
-    row: "text-emerald-800",
-    mark: "bg-emerald-500",
+    row: "text-slate-800",
+    mark: "bg-[#046A38]",
   },
 };
 
@@ -141,13 +146,13 @@ function postureLabelClass(tone: ReturnType<typeof scoreBandLabel>["tone"] | nul
   if (unknown) return "text-slate-500";
   switch (tone) {
     case "critical":
-      return "text-rose-700";
+      return "text-[#DA291C]";
     case "developing":
-      return "text-amber-700";
+      return "text-[#ED8B00]";
     case "defined":
-      return "text-amber-600";
+      return "text-[#53565A]";
     case "leading":
-      return "text-emerald-700";
+      return "text-[#046A38]";
     default:
       return "text-slate-700";
   }
@@ -165,27 +170,8 @@ function PackPillarScoreRow({
   const [open, setOpen] = useState(false);
   const posture = scoreBandLabel(pillar.alignmentPct);
   const unknown = pillar.alignmentPct == null;
-  const ratingLabel = unknown ? "To confirm" : posture.shortLabel;
-
-  const counts = [
-    pillar.noCount > 0
-      ? { key: "no", count: pillar.noCount, label: "Not in place", className: "bg-rose-50 text-rose-800" }
-      : null,
-    pillar.partialCount > 0
-      ? { key: "partial", count: pillar.partialCount, label: "Underway", className: "bg-amber-50 text-amber-900" }
-      : null,
-    pillar.dontKnowCount > 0
-      ? {
-          key: "dont_know",
-          count: pillar.dontKnowCount,
-          label: "To confirm",
-          className: "bg-slate-100 text-slate-700",
-        }
-      : null,
-    pillar.yesCount > 0
-      ? { key: "yes", count: pillar.yesCount, label: "In place", className: "bg-emerald-50 text-emerald-900" }
-      : null,
-  ].filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const ratingLabel = unknown ? "Unresolved" : posture.shortLabel;
+  const briefing = describePackPillarBriefing(pillar);
 
   return (
     <div
@@ -246,58 +232,68 @@ function PackPillarScoreRow({
       </button>
 
       {open && (
-        <div className="px-5 pb-4 pt-0">
-          {counts.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {counts.map((item) => (
-                <span
-                  key={item.key}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]",
-                    item.className
-                  )}
-                >
-                  <span className="tabular-nums">{item.count}</span>
-                  {item.label}
-                </span>
-              ))}
-            </div>
-          )}
+        <div className="space-y-3 px-5 pb-5 pt-0">
+          <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3.5">
+            <span
+              aria-hidden
+              className="absolute bottom-3 left-0 top-3 w-0.5 rounded-r-full bg-[var(--theme-brand)]"
+            />
+            <p className="pl-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-theme-brand">
+              {briefing.readingTitle}
+            </p>
+            <p className="mt-1.5 pl-2 text-sm leading-relaxed text-slate-700">{briefing.reading}</p>
+          </div>
+
+          <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-[#fafafa] px-4 py-3.5">
+            <span
+              aria-hidden
+              className="absolute bottom-3 left-0 top-3 w-0.5 rounded-r-full bg-slate-900"
+            />
+            <p className="pl-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {briefing.nextLevelLabel
+                ? `Path to ${briefing.nextLevelLabel}`
+                : "How to hold this level"}
+            </p>
+            <p className="mt-1.5 pl-2 text-sm leading-relaxed text-slate-700">
+              {briefing.nextLevelGuidance}
+            </p>
+          </div>
 
           {facts.length === 0 ? (
             <p className="text-sm text-slate-500">No answers recorded for this pillar yet.</p>
           ) : (
-            <ul className="overflow-hidden rounded-xl border border-slate-200/90 bg-white">
-              {facts.map((fact, index) => {
-                const status = PILLAR_FACT_STATUS[fact.status];
-                return (
-                  <li
-                    key={`${fact.status}-${index}`}
-                    className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-3 last:border-b-0"
-                  >
-                    <span
-                      className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", status.mark)}
-                      aria-hidden
-                    />
-                    <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-slate-700">
-                      {displaySurveyPrompt(fact.prompt)}
-                    </p>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em]",
-                        status.row,
-                        fact.status === "no" && "bg-rose-50",
-                        fact.status === "partial" && "bg-amber-50",
-                        fact.status === "dont_know" && "bg-slate-50",
-                        fact.status === "yes" && "bg-emerald-50"
-                      )}
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Supporting responses
+              </p>
+              <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                {facts.map((fact, index) => {
+                  const status = PILLAR_FACT_STATUS[fact.status];
+                  return (
+                    <li
+                      key={`${fact.status}-${index}`}
+                      className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-3 last:border-b-0"
                     >
-                      {status.short}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+                      <span
+                        className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", status.mark)}
+                        aria-hidden
+                      />
+                      <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-slate-700">
+                        {displaySurveyPrompt(fact.prompt)}
+                      </p>
+                      <span
+                        className={cn(
+                          "shrink-0 text-[10px] font-semibold uppercase tracking-[0.1em]",
+                          status.row
+                        )}
+                      >
+                        {status.short}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
         </div>
       )}
@@ -320,92 +316,52 @@ function FindingCard({
   rank: number;
   variant?: "gap" | "partial" | "follow" | "strength";
 }) {
-  const tone =
+  const accent =
     variant === "gap"
-      ? {
-          shell: "border-rose-200/80 bg-gradient-to-br from-white via-white to-rose-50/40",
-          rank: "bg-rose-600 text-white",
-          label: "Why it matters",
-          actionLabel: "Recommended move",
-          action: "border-rose-100 bg-rose-50/80 text-rose-950",
-        }
+      ? "bg-[#DA291C]"
       : variant === "partial"
-        ? {
-            shell: "border-amber-200/80 bg-gradient-to-br from-white via-white to-amber-50/40",
-            rank: "bg-amber-500 text-white",
-            label: "Why finish this",
-            actionLabel: "Recommended move",
-            action: "border-amber-100 bg-amber-50/80 text-amber-950",
-          }
+        ? "bg-[#ED8B00]"
+        : variant === "strength"
+          ? "bg-[var(--theme-brand)]"
+          : "bg-slate-400";
+  const label =
+    variant === "gap"
+      ? "Why this area matters"
+      : variant === "partial"
+        ? "Why finish this"
         : variant === "follow"
-          ? {
-              shell: "border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50",
-              rank: "bg-slate-700 text-white",
-              label: "Why confirm this",
-              actionLabel: "Recommended move",
-              action: "border-slate-200 bg-slate-50 text-slate-800",
-            }
-          : {
-              shell: "border-emerald-200/80 bg-gradient-to-br from-white via-white to-emerald-50/40",
-              rank: "bg-emerald-600 text-white",
-              label: "Why this matters",
-              actionLabel: "Protect it",
-              action: "border-emerald-100 bg-emerald-50/80 text-emerald-950",
-            };
+          ? "Why confirm this"
+          : "What you reported";
+  const showRecommendation = variant === "partial" || variant === "follow";
 
   return (
-    <article
-      className={cn(
-        "rounded-2xl border p-5 shadow-sm print:break-inside-avoid print:shadow-none",
-        tone.shell
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <span
-          className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums",
-            tone.rank
-          )}
-        >
+    <article className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:shadow-none">
+      <span aria-hidden className={cn("absolute bottom-4 left-0 top-4 w-0.5 rounded-r-full", accent)} />
+      <div className="flex items-start gap-3 pl-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-900 text-[11px] font-semibold tabular-nums text-white">
           {rank}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">
-              {item.pillarLabel}
-            </p>
-            {variant === "gap" && item.severity && (
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                  item.severity === "critical"
-                    ? "bg-rose-100 text-rose-800"
-                    : item.severity === "high"
-                      ? "bg-orange-100 text-orange-800"
-                      : "bg-slate-100 text-slate-600"
-                )}
-              >
-                {item.severity === "critical"
-                  ? "Critical pillar"
-                  : item.severity === "high"
-                    ? "High priority"
-                    : "Medium priority"}
-              </span>
-            )}
-          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            {item.pillarLabel}
+          </p>
           <p className="mt-2 text-base font-semibold leading-snug tracking-tight text-slate-900">
             {item.summary}
           </p>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">
-            <span className="font-semibold text-slate-800">{tone.label}. </span>
+            <span className="font-semibold text-slate-800">{label}. </span>
             {item.insight}
           </p>
-          <div className={cn("mt-4 rounded-xl border px-3.5 py-3", tone.action)}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">
-              {tone.actionLabel}
-            </p>
-            <p className="mt-1 text-sm font-medium leading-relaxed">{item.recommendation}</p>
-          </div>
+          {showRecommendation && (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Recommended move
+              </p>
+              <p className="mt-1 text-sm font-medium leading-relaxed text-slate-800">
+                {item.recommendation}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -424,24 +380,28 @@ function PackRoadmapPhaseColumn({
   if (steps.length === 0) return null;
 
   return (
-    <div className={cn("rounded-2xl border p-5 shadow-sm", meta.style)}>
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 shadow-sm">
-          <Icon className="h-4 w-4 text-slate-700" />
+    <div className={cn("relative overflow-hidden rounded-xl border p-5 shadow-sm", meta.style)}>
+      <span
+        aria-hidden
+        className="absolute bottom-4 left-0 top-4 w-0.5 rounded-r-full bg-[var(--theme-brand)]"
+      />
+      <div className="flex items-center gap-2 pl-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-white">
+          <Icon className="h-4 w-4" />
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
           <p className="text-[11px] text-slate-500">{meta.subtitle}</p>
         </div>
       </div>
-      <ol className="mt-4 space-y-3">
+      <ol className="mt-4 space-y-3 pl-2">
         {steps.map((step, index) => (
           <li
             key={`${phase}-${step.priority}-${index}`}
-            className="rounded-xl border border-white/60 bg-white/80 p-3.5 shadow-sm"
+            className="rounded-lg border border-slate-200 bg-[#fafafa] p-3.5"
           >
             <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-900 text-[10px] font-semibold text-white">
                 {step.priority}
               </span>
               <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
@@ -479,7 +439,6 @@ export function MaturityPackSurveyResults({
       ? `/api/maturity-surveys/${sessionId}/export`
       : `/api/guided-workshops/${sessionId}/export`;
   const exportFilenamePrefix = product === "maturity" ? "maturity-report" : "workshop-report";
-  const isWorkshop = product === "workshop";
   const summary = useMemo(() => derivePackExecutiveSummary(report), [report]);
   const roadmap = useMemo(() => buildPackRoadmap(report), [report]);
   const roadmapByPhase = useMemo(() => groupPackRoadmapByPhase(roadmap), [roadmap]);
@@ -527,28 +486,21 @@ export function MaturityPackSurveyResults({
 
   const sectionNav = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [
-      { id: "profile", label: "Profile" },
+      { id: "profile", label: "Posture" },
     ];
-    if (hasStrengths) items.push({ id: "strengths", label: "Strengths" });
-    items.push({ id: "gaps", label: "Priorities" });
-    items.push({ id: "partials", label: "Underway" });
-    items.push({ id: "follow-ups", label: "To confirm" });
+    if (hasStrengths) items.push({ id: "strengths", label: "Operating" });
+    items.push({ id: "gaps", label: "Open gaps" });
+    items.push({ id: "partials", label: "In progress" });
+    items.push({ id: "follow-ups", label: "Unresolved" });
     if (hasRoadmap) items.push({ id: "roadmap", label: "Next steps" });
     return items;
   }, [hasRoadmap, hasStrengths]);
 
   return (
-    <div className="bg-slate-950 print:bg-white">
+    <div className="brand-ink-surface bg-black print:bg-white">
       <MaturityPortalFooterMode mode="hidden" />
-      <ScrollSection glow={isWorkshop ? "emerald" : "indigo"} className="text-white print:bg-white print:text-slate-900">
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-0",
-            isWorkshop
-              ? "bg-[radial-gradient(ellipse_70%_60%_at_100%_0%,rgba(134,188,37,0.35),transparent)]"
-              : "bg-[radial-gradient(ellipse_70%_60%_at_100%_0%,rgba(99,102,241,0.4),transparent)]"
-          )}
-        />
+      <ScrollSection glow="emerald" className="brand-ink-surface text-white print:bg-white print:text-slate-900">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_100%_0%,rgba(134,188,37,0.22),transparent)]" />
         <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
           <MountReveal delay={0}>
             <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
@@ -571,46 +523,42 @@ export function MaturityPackSurveyResults({
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
               {copy.printTitle}
             </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{report.organizationName}</p>
+            <p className="mt-1 text-2xl font-light text-slate-900">{report.organizationName}</p>
             {report.title && <p className="mt-1 text-sm text-slate-600">{report.title}</p>}
             <p className="mt-2 text-xs text-slate-500">
               Generated {formatDate(new Date(report.generatedAt))}
             </p>
           </div>
 
-          <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between print:mt-4">
-            <div className="max-w-2xl">
+          <div className="relative mt-8 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between print:mt-4">
+            <span
+              aria-hidden
+              className="absolute bottom-0 left-0 top-0 hidden w-0.5 rounded-r-full bg-[var(--theme-brand)] lg:block"
+            />
+            <div className="max-w-2xl lg:pl-4">
               <MountReveal delay={60}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    className={cn(
-                      isWorkshop
-                        ? "border-emerald-400/30 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/20"
-                        : "border-indigo-400/30 bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500/20"
-                    )}
-                  >
-                    {copy.reportBadge}
-                  </Badge>
-                  {report.organizationName && (
-                    <span className="text-xs text-slate-400">{report.organizationName}</span>
-                  )}
-                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-indigo-300">
+                  {copy.reportBadge}
+                  {report.organizationName ? ` · ${report.organizationName}` : ""}
+                </p>
               </MountReveal>
 
               <MountReveal delay={120}>
-                <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+                <h1 className="mt-4 text-3xl font-light leading-tight tracking-tight sm:text-4xl">
                   {report.organizationName ? (
                     <>
                       {report.organizationName}
-                      <span className="mt-2 block text-2xl font-semibold sm:text-3xl">
-                        <ShimmerGradientText>{summary.scoreLabel}</ShimmerGradientText>
+                      <span className="mt-2 block text-2xl font-light text-white sm:text-3xl">
+                        <span className="text-[var(--theme-brand)]">{summary.scoreLabel}</span>
                         <span className="text-slate-300"> {copy.heroPostureSuffix}</span>
                       </span>
                     </>
                   ) : (
                     <>
                       Your{" "}
-                      <ShimmerGradientText>{summary.scoreLabel.toLowerCase()}</ShimmerGradientText>{" "}
+                      <span className="text-[var(--theme-brand)]">
+                        {summary.scoreLabel.toLowerCase()}
+                      </span>{" "}
                       {copy.heroPostureSuffix}
                     </>
                   )}
@@ -627,23 +575,23 @@ export function MaturityPackSurveyResults({
               </MountReveal>
 
               <MountReveal delay={240}>
-                <div className="mt-6 flex flex-wrap gap-4 text-xs text-slate-500">
+                <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5" />
+                    <Layers className="h-3.5 w-3.5 text-indigo-300" />
                     {summary.pillarsAssessed} pillars assessed
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Target className="h-3.5 w-3.5" />
+                    <Target className="h-3.5 w-3.5 text-indigo-300" />
                     {report.gaps.length} {copy.heroStatPriorities}
                   </span>
                   {hasRoadmap && (
                     <span className="flex items-center gap-1.5">
-                      <MapIcon className="h-3.5 w-3.5" />
+                      <MapIcon className="h-3.5 w-3.5 text-indigo-300" />
                       {roadmap.length} recommended actions
                     </span>
                   )}
                   <span className="flex items-center gap-1.5">
-                    <HelpCircle className="h-3.5 w-3.5" />
+                    <HelpCircle className="h-3.5 w-3.5 text-indigo-300" />
                     {report.followUps.length} {copy.heroStatToConfirm}
                   </span>
                 </div>
@@ -676,12 +624,7 @@ export function MaturityPackSurveyResults({
                 key={item.id}
                 href={`#${item.id}`}
                 onClick={(event) => handleMaturitySectionNav(event, item.id)}
-                className={cn(
-                  "rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:text-white",
-                  isWorkshop
-                    ? "hover:border-emerald-400/40 hover:bg-emerald-500/10"
-                    : "hover:border-indigo-400/40 hover:bg-indigo-500/10"
-                )}
+                className="rounded-md border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-[var(--theme-brand)]/50 hover:bg-white/[0.08] hover:text-white"
               >
                 {item.label}
               </a>
@@ -692,7 +635,7 @@ export function MaturityPackSurveyResults({
 
       <SectionSeam from="dark" to="light" />
 
-      <div className="bg-slate-50">
+      <div className="brand-canvas-shell bg-white">
         <div className="mx-auto max-w-7xl space-y-12 px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
           <ScrollSection data-header-theme="light" glow="none" id="profile" className="print:break-inside-avoid">
             <ScrollReveal variant="premium" instant>
@@ -707,12 +650,14 @@ export function MaturityPackSurveyResults({
               </div>
 
               <div className="grid gap-6 lg:grid-cols-2">
-                <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
-                  <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-[#fafafa] px-5 py-3.5">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                       Pillars
                     </p>
-                    <p className="text-[11px] text-slate-400">{sortedPillars.length} assessed</p>
+                    <p className="text-[11px] tabular-nums text-slate-400">
+                      {sortedPillars.length} assessed
+                    </p>
                   </div>
                   <div>
                     {sortedPillars.map((pillar) => (
@@ -727,10 +672,7 @@ export function MaturityPackSurveyResults({
                 </div>
 
                 <div className="space-y-4">
-                  <PackPillarRadarChart
-                    pillars={report.pillarScores}
-                    accent={isWorkshop ? "brand" : "indigo"}
-                  />
+                  <PackPillarRadarChart pillars={report.pillarScores} accent="brand" />
                   <PackAnswerStackedChart pillars={report.pillarScores} />
                 </div>
               </div>
@@ -767,9 +709,13 @@ export function MaturityPackSurveyResults({
                 description={copy.sectionPrioritiesDescription}
               />
               {report.gaps.length === 0 ? (
-                <div className="flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-5">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                  <p className="text-sm leading-relaxed text-emerald-950">
+                <div className="relative flex items-start gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-5">
+                  <span
+                    aria-hidden
+                    className="absolute bottom-3 left-0 top-3 w-0.5 rounded-r-full bg-[var(--theme-brand)]"
+                  />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[var(--theme-brand)]" />
+                  <p className="text-sm leading-relaxed text-slate-700">
                     No priority improvements were identified. Review areas underway and items to confirm for remaining nuance.
                   </p>
                 </div>
@@ -792,11 +738,11 @@ export function MaturityPackSurveyResults({
             <ScrollReveal variant="premium" instant>
               <SectionHeading
                 eyebrow={copy.sectionImprovementsEyebrow}
-                title="Areas underway"
+                title="In progress"
                 description={copy.sectionImprovementsDescription}
               />
               {report.partials.length === 0 ? (
-                <p className="text-sm text-slate-500">No areas underway were identified in this assessment.</p>
+                <p className="text-sm text-slate-500">No in-progress items in this assessment.</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {report.partials.map((partial, index) => (
@@ -816,11 +762,11 @@ export function MaturityPackSurveyResults({
             <ScrollReveal variant="premium" instant>
               <SectionHeading
                 eyebrow={copy.sectionToConfirmEyebrow}
-                title="To confirm"
+                title="Unresolved"
                 description={copy.sectionToConfirmDescription}
               />
               {report.followUps.length === 0 ? (
-                <p className="text-sm text-slate-500">Nothing left to confirm in this assessment.</p>
+                <p className="text-sm text-slate-500">No unresolved items in this assessment.</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {report.followUps.map((followUp, index) => (

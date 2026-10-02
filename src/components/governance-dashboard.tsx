@@ -47,7 +47,6 @@ const SERVICES = [
       "A structured diagnostic across every governance pillar. Leadership gets a scored posture, named gaps, and a 90-day focus list — without waiting on a workshop.",
     duration: getSurveyModeMeta("quick").duration,
     mode: "Self-paced",
-    featured: false,
     points: [
       "One question per pillar, mapped to five frameworks",
       "Board-ready score, gap register, and roadmap",
@@ -67,7 +66,6 @@ const SERVICES = [
       "Your team walks the client through weighted control statements live. Every answer is explainable, saved automatically, and converted into a presentable governance report.",
     duration: "Half-day session",
     mode: "Live session",
-    featured: false,
     points: [
       "Live weighted scoring you can defend in the room",
       "Pillar-by-pillar walkthrough with the client in the loop",
@@ -87,7 +85,6 @@ const SERVICES = [
       "The complete engagement: scope AI use cases, capture evidence, validate controls, and produce the pack you take to the board. Built for delivery, not a scan.",
     duration: "Multi-week",
     mode: "End-to-end",
-    featured: true,
     points: [
       "Use-case intake, evidence, and control sign-off",
       "Workflow from discovery through deliverables",
@@ -120,11 +117,11 @@ export function GovernanceDashboard({ proof }: { proof: DashboardProof }) {
   return (
     <div
       data-maturity-scroll
-      className="h-full min-h-0 overflow-y-auto scroll-smooth bg-slate-950"
+      className="brand-canvas-shell h-full min-h-0 overflow-y-auto scroll-smooth bg-slate-950"
     >
       <ScrollProgressBar />
 
-      <ScrollSection glow="emerald" className="text-white">
+      <ScrollSection glow="emerald" className="brand-ink-surface text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_70%_-10%,rgba(134,188,37,0.38),transparent)]" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_0%_80%,rgba(134,188,37,0.12),transparent)]" />
         <FilmGrain />
@@ -188,7 +185,7 @@ export function GovernanceDashboard({ proof }: { proof: DashboardProof }) {
         </div>
       </ScrollSection>
 
-      <div className="relative z-10 -mt-4 bg-slate-950 px-5 pb-20 sm:-mt-6 sm:px-8 lg:px-10">
+      <div className="brand-canvas-shell relative z-10 -mt-4 bg-slate-950 px-5 pb-20 sm:-mt-6 sm:px-8 lg:px-10">
         <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-3">
           {SERVICES.map((service, index) => (
             <ScrollReveal key={service.id} delay={index * 80}>
@@ -279,29 +276,10 @@ function ServiceCard({
   return (
     <article
       id={service.id}
-      className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-[28px] border p-6 shadow-xl sm:p-7",
-        service.featured
-          ? "border-[var(--theme-brand-ring)]/50 bg-gradient-to-br from-slate-900 via-slate-900 to-[color-mix(in_srgb,var(--theme-brand)_18%,#0f172a)] ring-1 ring-[var(--theme-brand)]/30"
-          : "border-white/10 bg-white/[0.06] backdrop-blur-md"
-      )}
+      className="brand-elevated-card group relative flex h-full flex-col overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.06] p-6 shadow-xl backdrop-blur-md sm:p-7"
     >
-      {service.featured && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[var(--theme-brand)]/25 blur-3xl"
-        />
-      )}
-
       <div className="relative flex items-start justify-between gap-3">
-        <span
-          className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-2xl",
-            service.featured
-              ? "bg-[var(--theme-brand)] text-slate-950 shadow-lg shadow-[color-mix(in_srgb,var(--theme-brand)_40%,transparent)]"
-              : "bg-white/10 text-[var(--theme-shimmer-from)]"
-          )}
-        >
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-[var(--theme-shimmer-from)]">
           <Icon className="h-5 w-5" />
         </span>
         <span className="font-mono text-sm font-semibold tracking-[0.18em] text-slate-500">
@@ -309,12 +287,7 @@ function ServiceCard({
         </span>
       </div>
 
-      <p
-        className={cn(
-          "relative mt-5 text-[10px] font-bold uppercase tracking-[0.2em]",
-          service.featured ? "text-[var(--theme-shimmer-from)]" : "text-slate-400"
-        )}
-      >
+      <p className="relative mt-5 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
         {service.kicker}
       </p>
       <h2 className="relative mt-1.5 text-2xl font-bold tracking-tight text-white">
@@ -346,16 +319,11 @@ function ServiceCard({
       <div className="relative mt-8 flex flex-1 items-end">
         <Button
           asChild
-          className={cn(
-            "w-full rounded-xl",
-            service.featured
-              ? "bg-[var(--theme-brand)] text-slate-950 hover:bg-[var(--theme-brand-hover)]"
-              : "bg-white text-slate-900 hover:bg-slate-100"
-          )}
+          className="group/cta h-11 w-full rounded-xl bg-white text-sm font-semibold text-slate-900 hover:bg-slate-100"
         >
           <Link href={service.href}>
             {service.cta}
-            <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover/cta:translate-x-0.5" />
           </Link>
         </Button>
       </div>

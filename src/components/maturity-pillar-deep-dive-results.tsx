@@ -188,7 +188,7 @@ export function MaturityPillarDeepDiveResults({
   const findingsWithHelp = pillar.controlFindings.filter((c) => c.engagementGuide);
 
   return (
-    <div className="bg-slate-950 print:bg-white">
+    <div className="brand-ink-surface bg-slate-950 print:bg-white">
       <ScrollSection glow="emerald" className="text-white print:bg-white print:text-slate-900">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_0%_0%,rgba(16,185,129,0.28),transparent)]" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_45%_at_100%_100%,rgba(99,102,241,0.22),transparent)]" />

@@ -232,7 +232,7 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
       </Link>
 
       {/* Hero */}
-      <header className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-xl shadow-slate-300/25 sm:px-8">
+      <header className="admin-hero-header brand-ink-surface overflow-hidden rounded-[28px] border border-slate-200/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-xl shadow-slate-300/25 sm:px-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">

@@ -120,7 +120,7 @@ export function ControlWorkplanPanel({ workplan }: Props) {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white shadow-2xl shadow-slate-300/30">
+      <section className="admin-hero-header brand-ink-surface overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white shadow-2xl shadow-slate-300/30">
         <div className="border-b border-white/10 px-6 py-6 lg:px-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-3xl">

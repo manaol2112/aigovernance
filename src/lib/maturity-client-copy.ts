@@ -1,9 +1,10 @@
 /** Client-safe labels — no internal/consultant jargon on maturity surfaces. */
 
+/** Pillar taxonomy weight — not an audited severity rating. */
 export const GAP_SEVERITY_LABELS = {
-  critical: "Critical priority",
-  high: "Address this quarter",
-  medium: "Improvement area",
+  critical: "Higher-stakes area",
+  high: "Elevated-stakes area",
+  medium: "Standard area",
 } as const;
 
 export function formatGapSeverity(severity: keyof typeof GAP_SEVERITY_LABELS): string {
@@ -24,12 +25,13 @@ export const PACK_ASSESSMENT_COPY = {
   modeLabel: "Baseline scan",
   modeDescription:
     "A focused set of questions across your governance pillars — the recommended starting point for leadership teams.",
-  heroEyebrow: "Configure your assessment",
+  heroEyebrow: "AI governance diagnostic",
   heroTitleAccent: "maturity baseline",
   heroSubtitle:
-    "Two quick steps — organization details, then a short overview before you begin.",
+    "A short engagement setup — confirm the organization, review pillar coverage, then open a board-ready diagnostic.",
   overviewTitle: "What you will cover",
-  overviewSubtitle: "A snapshot of this assessment before you start.",
+  overviewSubtitle:
+    "Confirm how to answer and which governance pillars this baseline will score.",
   howToAnswerTitle: "How to answer",
   howToAnswer: [
     "Yes — this is in place today.",
@@ -44,38 +46,39 @@ export const PACK_ASSESSMENT_COPY = {
   postureScaleNote:
     "Each area is rated Early, Building, Established, or Strong — based on what you confirmed is in place today.",
   scoreHeroNote:
-    "Reflects what is in place today. Items you flagged to confirm are listed separately — they are not treated as gaps.",
-  heroStatPriorities: "priority improvements",
-  heroStatToConfirm: "to confirm",
-  sectionPriorities: "Priority improvements",
-  sectionPrioritiesEyebrow: "What to address first",
+    "Based on your self-reported answers. Items marked Don’t know are listed separately and are not scored as gaps.",
+  heroStatPriorities: "open gaps",
+  heroStatToConfirm: "unresolved",
+  sectionPriorities: "Open gaps",
+  sectionPrioritiesEyebrow: "No responses",
   sectionPrioritiesDescription:
-    "These practices are not yet in place. Each card explains why it matters and the first move to close it.",
-  sectionImprovementsEyebrow: "Building momentum",
+    "Practices marked No. Ordering reflects how high-stakes the governance area is in this model — not an audit severity rating.",
+  sectionImprovementsEyebrow: "Partial responses",
   sectionImprovementsDescription:
-    "Work has started — finish delivery and lock evidence so these do not stall as open risk.",
-  sectionToConfirmEyebrow: "Open items",
+    "Practices marked Partial — work has started, but is not yet complete.",
+  sectionToConfirmEyebrow: "Don’t know responses",
   sectionToConfirmDescription:
-    "You marked these for follow-up. Confirm status with an owner before treating the baseline as closed.",
-  sectionRoadmapEyebrow: "Recommended next steps",
+    "Practices marked Don’t know. Confirm with an owner before treating the baseline as closed.",
+  sectionRoadmapEyebrow: "Suggested sequencing",
   sectionRoadmapTitle: "Your action plan",
   sectionRoadmapDescription:
-    "A sequenced plan from priority gaps to areas underway and items still to confirm — built for leadership follow-through.",
-  sectionStrengthsEyebrow: "What's working",
-  sectionStrengthsTitle: "Strengths",
+    "A suggested sequence from open gaps, to work in progress, to unresolved items — based on your responses.",
+  sectionStrengthsEyebrow: "Yes responses",
+  sectionStrengthsTitle: "Operating today",
   sectionStrengthsDescription:
-    "Practices you confirmed are in place — protect the operating rhythm and keep evidence current.",
+    "Practices marked Yes. This is self-reported current state — not independent validation that controls are effective or evidenced.",
   sectionInsightsEyebrow: "Key findings",
   sectionInsightsTitle: "What matters most",
   sectionInsightsDescription: "",
   sectionProfileEyebrow: "Pillar view",
   sectionProfileTitle: "Where you stand",
-  sectionProfileDescription: "",
+  sectionProfileDescription:
+    "Expand any pillar for a leadership reading of the current posture and what it takes to reach the next level.",
   shareSummary:
-    "Posture by pillar, priority improvements with recommended actions, and a phased plan you can act on.",
+    "Self-reported posture by pillar, open gaps, work in progress, and unresolved follow-ups.",
   aboutReportTitle: "About this report",
   aboutReport:
-    "This report reflects your current-state responses across governance pillars. Each finding includes why it matters and a concrete next step.",
+    "This baseline reflects your self-reported answers across governance pillars. Yes means you reported a practice as operating — it is not an audited strength. Area labels such as higher-stakes reflect the model’s pillar weighting, not a verified severity finding.",
   printConfidential: "Confidential — for authorized organizational use only",
   sessionTitleLabel: "Assessment title (optional)",
   sessionTitlePlaceholder: "Q3 governance baseline",
@@ -134,42 +137,43 @@ export const PACK_WORKSHOP_COPY = {
   postureScaleNote:
     "Each pillar is rated Early, Building, Established, or Strong — based on what the client confirmed is in place today.",
   scoreHeroNote:
-    "Reflects what the client confirmed is in place. Items flagged to confirm are listed separately — they are not treated as gaps.",
-  heroStatPriorities: "priority improvements",
-  heroStatToConfirm: "to confirm",
-  sectionPriorities: "Priority improvements",
-  sectionPrioritiesEyebrow: "Discuss with the client",
+    "Based on answers captured in the session. Items marked Don’t know are listed separately and are not scored as gaps.",
+  heroStatPriorities: "open gaps",
+  heroStatToConfirm: "unresolved",
+  sectionPriorities: "Open gaps",
+  sectionPrioritiesEyebrow: "No responses",
   sectionPrioritiesDescription:
-    "Practices not yet in place — each card explains why it matters for the client and the first move to close it.",
-  sectionImprovementsEyebrow: "Underway",
+    "Practices the client marked No. Ordering reflects how high-stakes the governance area is in this model — not an audit severity rating.",
+  sectionImprovementsEyebrow: "Partial responses",
   sectionImprovementsDescription:
-    "Work has started — help the client finish delivery and lock evidence so these do not stall as open risk.",
-  sectionToConfirmEyebrow: "Follow up after the session",
+    "Practices the client marked Partial — work has started, but is not yet complete.",
+  sectionToConfirmEyebrow: "Don’t know responses",
   sectionToConfirmDescription:
-    "The client flagged these for follow-up — confirm with an owner before treating the baseline as closed.",
-  sectionRoadmapEyebrow: "Recommended next steps",
+    "Practices the client marked Don’t know — confirm with an owner before treating the baseline as closed.",
+  sectionRoadmapEyebrow: "Suggested sequencing",
   sectionRoadmapTitle: "Workshop action plan",
   sectionRoadmapDescription:
-    "A sequenced plan from priority gaps to areas underway and items still to confirm — ready for client debrief.",
-  sectionStrengthsEyebrow: "Confirmed strengths",
-  sectionStrengthsTitle: "What's working",
+    "A suggested sequence from open gaps, to work in progress, to unresolved items — based on session responses.",
+  sectionStrengthsEyebrow: "Yes responses",
+  sectionStrengthsTitle: "Operating today",
   sectionStrengthsDescription:
-    "Practices the client confirmed are in place — protect the operating rhythm and keep evidence current.",
+    "Practices the client marked Yes. This is session-reported current state — not independent validation that controls are effective or evidenced.",
   sectionInsightsEyebrow: "Key findings",
   sectionInsightsTitle: "What matters most",
   sectionInsightsDescription: "",
   sectionProfileEyebrow: "Pillar view",
   sectionProfileTitle: "Where you stand",
-  sectionProfileDescription: "",
+  sectionProfileDescription:
+    "Expand any pillar for a leadership reading of the current posture and what it takes to reach the next level.",
   shareSummary:
-    "Posture by pillar, priority improvements with recommended actions, and a phased plan for follow-through.",
+    "Session-reported posture by pillar, open gaps, work in progress, and unresolved follow-ups.",
   aboutReportTitle: "About this summary",
   aboutReport:
-    "This summary reflects current-state responses from the workshop. Each finding includes why it matters and a concrete next step.",
+    "This summary reflects answers captured in the workshop. Yes means the client reported a practice as operating — it is not an audited strength. Area labels such as higher-stakes reflect the model’s pillar weighting, not a verified severity finding.",
   printConfidential: "Confidential — for authorized client use only",
   sessionTitleLabel: "Workshop title (optional)",
   sessionTitlePlaceholder: "Auto-generated from organization name",
-  startButton: "Begin workshop",
+  startButton: "Start a guided workshop",
   loadingLabel: "Opening your workshop",
   backLink: "Back to workshops",
   backHref: "/guided-workshop",

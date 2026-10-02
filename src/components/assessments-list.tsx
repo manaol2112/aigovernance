@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { AdminPageHeader, AdminPageHeaderStat } from "@/components/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeleteAssessmentButton } from "@/components/delete-assessment-button";
@@ -355,147 +356,80 @@ export function AssessmentsListHero({
   phaseBreakdown: PortfolioPhaseSummary[];
 }) {
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const glassPanelStyle = {
-    borderColor: "color-mix(in srgb, var(--theme-sidebar-fg) 10%, transparent)",
-    backgroundColor: "color-mix(in srgb, var(--theme-sidebar-fg) 6%, transparent)",
-  } as const;
-  const mutedHeroText = {
-    color: "color-mix(in srgb, var(--theme-sidebar-fg) 72%, transparent)",
-  } as const;
-  const faintHeroText = {
-    color: "color-mix(in srgb, var(--theme-sidebar-fg) 52%, transparent)",
-  } as const;
 
   return (
-    <section
-      className="relative overflow-hidden rounded-[32px] border shadow-[0_28px_80px_-36px_rgba(15,23,42,0.85)]"
-      style={{
-        borderColor: "var(--theme-border)",
-        backgroundColor: "var(--theme-hero-bg)",
-      }}
-    >
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at top left, color-mix(in srgb, var(--theme-brand) 28%, transparent), transparent 32%), radial-gradient(circle at bottom right, color-mix(in srgb, var(--theme-brand) 16%, transparent), transparent 24%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-y-0 right-0 w-1/2"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent, color-mix(in srgb, var(--theme-sidebar-fg) 4%, transparent))",
-        }}
-      />
-      <div className="relative px-6 py-8 sm:px-8 sm:py-10">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="max-w-3xl">
-            <div
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]"
-              style={{
-                borderColor: "color-mix(in srgb, var(--theme-brand) 26%, transparent)",
-                backgroundColor: "color-mix(in srgb, var(--theme-brand) 18%, transparent)",
-                color: "var(--theme-sidebar-fg)",
-              }}
-            >
-              <ShieldCheck className="h-3.5 w-3.5" style={{ color: "var(--theme-brand)" }} />
-              Enterprise assessment portfolio
-            </div>
-            <h1
-              className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl"
-              style={{ color: "var(--theme-sidebar-fg)" }}
-            >
-              Assessments
-            </h1>
-            <p className="mt-3 max-w-2xl text-base leading-relaxed sm:text-lg" style={mutedHeroText}>
-              Manage client AI governance engagements with a clearer executive view of portfolio load,
-              workflow progression, validation pressure, and delivery readiness.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-3">
-            <div className="rounded-2xl border px-4 py-3 text-sm backdrop-blur-sm" style={glassPanelStyle}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={faintHeroText}>
-                Completion signal
-              </p>
-              <p className="mt-1 text-2xl font-semibold" style={{ color: "var(--theme-brand)" }}>
-                {completionRate}%
-              </p>
-              <p className="mt-1 text-xs" style={faintHeroText}>
-                {completed} finalized engagement{completed === 1 ? "" : "s"}
-              </p>
-            </div>
-            <Button asChild size="lg" className="gap-2 rounded-full shadow-lg shadow-black/20">
+    <div className="space-y-6">
+      <AdminPageHeader
+        variant="hero"
+        eyebrow="Enterprise assessment portfolio"
+        title="Assessments"
+        description="Manage client AI governance engagements with a clear executive view of portfolio load, workflow progression, validation pressure, and delivery readiness."
+        actions={
+          <>
+            <Button asChild size="sm" className="bg-white text-slate-900 hover:bg-slate-100">
               <Link href="/assessments/new">
                 New assessment
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-          </div>
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            >
+              <Link href="/frameworks">Framework library</Link>
+            </Button>
+          </>
+        }
+      >
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminPageHeaderStat icon={Building2} label="Total engagements" value={total} />
+          <AdminPageHeaderStat icon={Sparkles} label="Active" value={active} />
+          <AdminPageHeaderStat icon={Clock} label="Pending approvals" value={pendingApprovals} />
+          <AdminPageHeaderStat icon={CheckCircle2} label="Controls awaiting" value={controlsAwaiting} />
         </div>
+      </AdminPageHeader>
 
-        <div className="mt-8 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              { label: "Total engagements", value: total, tone: "text-white" },
-              { label: "Active", value: active, tone: "text-white" },
-              { label: "Pending approvals", value: pendingApprovals, tone: "text-amber-200" },
-              { label: "Controls awaiting sign-off", value: controlsAwaiting, tone: "text-cyan-200" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-2xl border px-4 py-4 backdrop-blur-sm"
-                style={glassPanelStyle}
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={faintHeroText}>
-                  {stat.label}
-                </p>
-                <p
-                  className={cn("mt-2 text-3xl font-semibold tabular-nums", stat.tone)}
-                  style={stat.tone === "text-white" ? { color: "var(--theme-sidebar-fg)" } : undefined}
-                >
-                  {stat.value}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="rounded-[24px] border p-5 backdrop-blur-sm" style={glassPanelStyle}>
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={faintHeroText}>
-              <BarChart3 className="h-3.5 w-3.5" style={{ color: "var(--theme-brand)" }} />
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Portfolio posture
-            </div>
-            <p className="mt-3 text-lg font-semibold" style={{ color: "var(--theme-sidebar-fg)" }}>
-              {active > completed ? "Active execution dominates the portfolio." : "Delivery and closeout are accelerating."}
             </p>
-            <p className="mt-2 text-sm leading-relaxed" style={mutedHeroText}>
-              Use this board to identify which engagements need reviewer attention, which are nearing
-              delivery, and where validation throughput could become the next bottleneck.
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">
+              {active > completed
+                ? "Active execution dominates the portfolio."
+                : "Delivery and closeout are accelerating."}
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              {completionRate}% finalized ({completed} engagement{completed === 1 ? "" : "s"}). Focus
+              reviewers on approvals and validation bottlenecks below.
             </p>
           </div>
+          <div className="flex items-center gap-2 text-sm text-slate-600">
+            <BarChart3 className="h-4 w-4 text-[#86BC25]" aria-hidden />
+            Journey phases
+          </div>
         </div>
-
-        <div className="mt-8 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {phaseBreakdown.map((phase) => (
             <div
               key={phase.id}
-              className="rounded-2xl border px-4 py-4 backdrop-blur-sm"
-              style={glassPanelStyle}
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={faintHeroText}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 {phase.label}
               </p>
-              <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color: "var(--theme-sidebar-fg)" }}>
+              <p className="mt-1.5 text-2xl font-semibold tabular-nums text-slate-900">
                 {phase.count}
               </p>
-              <p className="mt-1 text-xs leading-relaxed" style={faintHeroText}>
-                {phase.subtitle}
-              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-600">{phase.subtitle}</p>
             </div>
           ))}
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 

@@ -69,11 +69,11 @@ function FrameworkMarquee() {
 /** Public marketing landing — conversion-focused with private device-owned resume list. */
 export function MaturityAssessmentLanding() {
   return (
-    <div className="bg-slate-950">
+    <div className="brand-canvas-shell bg-slate-950">
       <StickyScrollCTA />
 
       {/* ── HERO ── */}
-      <ScrollSection glow="indigo" className="text-white">
+      <ScrollSection glow="indigo" className="brand-ink-surface text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_70%_-10%,rgba(99,102,241,0.45),transparent)]" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_0%_80%,rgba(16,185,129,0.1),transparent)]" />
         <FilmGrain />
@@ -109,7 +109,7 @@ export function MaturityAssessmentLanding() {
                   <Button
                     asChild
                     size="lg"
-                    className="group h-12 gap-2 rounded-xl bg-white px-8 text-base font-semibold text-slate-900 shadow-xl shadow-indigo-500/20 transition-all hover:scale-[1.02] hover:bg-slate-100"
+                    className="group h-12 gap-2 rounded-xl bg-white px-8 text-base font-semibold text-slate-900 shadow-xl shadow-black/20 transition-all hover:scale-[1.02] hover:bg-slate-100"
                   >
                     <Link href="/maturity-assessment/new">
                       Start your maturity diagnostic
@@ -150,30 +150,34 @@ export function MaturityAssessmentLanding() {
         </div>
       </ScrollSection>
 
-      <SectionSeam from="dark" to="dark" />
+      <SectionSeam from="dark" to="light" />
 
       {/* ── CURIOSITY ── */}
-      <ScrollSection glow="emerald" className="border-y border-white/5 bg-slate-900 py-16 sm:py-20">
+      <ScrollSection
+        glow="none"
+        data-header-theme="light"
+        className="brand-canvas-shell border-y border-slate-200 bg-white py-16 sm:py-20"
+      >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <ScrollReveal variant="premium" className="mx-auto max-w-2xl text-center">
-            <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Three questions boards are already asking
             </h2>
-            <p className="mt-3 text-slate-400">
+            <p className="mt-3 text-slate-600">
               A structured baseline helps you answer each with evidence leadership can stand behind.
             </p>
           </ScrollReveal>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             {CURIOSITY_HOOKS.map((hook, i) => (
               <ScrollReveal key={hook.question} variant="premium" delay={i * 100}>
-                <div className="group h-full rounded-2xl border border-white/8 bg-white/[0.03] p-6 transition-all duration-300 hover:border-indigo-500/30 hover:bg-white/[0.06]">
-                  <span className="text-3xl font-black text-white/10 transition-colors group-hover:text-indigo-500/20">
+                <div className="brand-elevated-card group h-full rounded-2xl border border-slate-200 bg-slate-50 p-6 transition-all duration-300 hover:border-slate-300 hover:bg-white">
+                  <span className="text-3xl font-black text-slate-200 transition-colors group-hover:text-[#86BC25]/40">
                     ?
                   </span>
-                  <p className="mt-3 text-base font-semibold leading-snug text-white">
+                  <p className="mt-3 text-base font-semibold leading-snug text-slate-900">
                     {hook.question}
                   </p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-500">{hook.detail}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{hook.detail}</p>
                 </div>
               </ScrollReveal>
             ))}
@@ -181,7 +185,7 @@ export function MaturityAssessmentLanding() {
         </div>
       </ScrollSection>
 
-      <SectionSeam from="dark" to="light" />
+      <SectionSeam from="light" to="light" />
 
       {/* ── WHAT YOU UNLOCK ── */}
       <ScrollSection glow="none" data-header-theme="light" className="bg-slate-50 py-16 sm:py-24">
@@ -282,30 +286,30 @@ export function MaturityAssessmentLanding() {
       <SectionSeam from="light" to="dark" />
 
       {/* ── FINAL CTA ── */}
-      <ScrollSection glow="indigo" className="bg-slate-950 py-20 sm:py-28">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_100%,rgba(99,102,241,0.35),transparent)]" />
+      <ScrollSection glow="emerald" className="brand-ink-surface bg-slate-950 py-20 sm:py-28">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_100%,rgba(134,188,37,0.28),transparent)]" />
         <FilmGrain />
         <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
           <ScrollReveal variant="premium">
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
               Build the baseline
-              <span className="mt-1 block text-indigo-400">your stakeholders expect.</span>
+              <span className="mt-1 block text-[#86BC25]">your stakeholders expect.</span>
             </h2>
-            <p className="mx-auto mt-5 max-w-xl text-base text-slate-400">
+            <p className="mx-auto mt-5 max-w-xl text-base text-slate-300">
               Move from fragmented assurance to a documented maturity view — pillar scores, prioritized
               gaps, and a roadmap your leadership team can act on in a single working session.
             </p>
             <Button
               asChild
               size="lg"
-              className="group mt-10 h-14 gap-2 rounded-xl bg-indigo-500 px-10 text-base font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] hover:bg-indigo-400"
+              className="group mt-10 h-14 gap-2 rounded-xl bg-white px-10 text-base font-semibold text-slate-900 shadow-lg transition-all hover:scale-[1.02] hover:bg-slate-100"
             >
               <Link href="/maturity-assessment/new">
                 Start your maturity diagnostic
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </Button>
-            <p className="mt-5 text-xs text-slate-600">
+            <p className="mt-5 text-xs text-slate-400">
               Results are private · Mapped to NIST AI RMF, ISO 42001, EU AI Act, OECD & COSO
             </p>
           </ScrollReveal>

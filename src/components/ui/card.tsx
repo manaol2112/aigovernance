@@ -5,7 +5,10 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm", className)}
+      className={cn(
+        "rounded-xl border border-slate-200 bg-theme-card text-theme shadow-sm",
+        className
+      )}
       {...props}
     />
   )
@@ -19,18 +22,24 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
+/** Presentational title — not a heading level (avoids h1→h3 skips). Use page h2 for sections. */
+const CardTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />
+    <div
+      ref={ref}
+      className={cn("text-lg font-semibold leading-none tracking-tight text-theme", className)}
+      {...props}
+    />
   )
 );
 CardTitle.displayName = "CardTitle";
 
-const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("text-sm text-slate-500", className)} {...props} />
-  )
-);
+const CardDescription = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p ref={ref} className={cn("text-sm text-theme-muted", className)} {...props} />
+));
 CardDescription.displayName = "CardDescription";
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
