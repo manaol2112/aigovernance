@@ -170,14 +170,18 @@ export function MaturityAssessmentLanding() {
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             {CURIOSITY_HOOKS.map((hook, i) => (
               <ScrollReveal key={hook.question} variant="premium" delay={i * 100}>
-                <div className="brand-elevated-card group h-full rounded-2xl border border-slate-200 bg-slate-50 p-6 transition-all duration-300 hover:border-slate-300 hover:bg-white">
-                  <span className="text-3xl font-black text-slate-200 transition-colors group-hover:text-[#86BC25]/40">
-                    ?
-                  </span>
-                  <p className="mt-3 text-base font-semibold leading-snug text-slate-900">
+                <div className="brand-elevated-card group relative h-full overflow-hidden rounded-xl border border-[#E3E3E3] bg-white p-6 transition-colors duration-300 hover:border-[#D0D0CE]">
+                  <span
+                    aria-hidden
+                    className="absolute bottom-5 left-0 top-5 w-1 rounded-r-sm bg-[var(--theme-brand)] opacity-80"
+                  />
+                  <p className="pl-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--theme-brand)]">
+                    Question {String(i + 1).padStart(2, "0")}
+                  </p>
+                  <p className="mt-3 pl-3 text-base font-semibold leading-snug tracking-tight text-black">
                     {hook.question}
                   </p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{hook.detail}</p>
+                  <p className="mt-2.5 pl-3 text-sm leading-relaxed text-[#666666]">{hook.detail}</p>
                 </div>
               </ScrollReveal>
             ))}

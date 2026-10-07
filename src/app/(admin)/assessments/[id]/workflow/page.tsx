@@ -8,5 +8,9 @@ export default async function AssessmentWorkflowPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <AssessmentWorkflow assessmentId={id} />;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <AssessmentWorkflow assessmentId={id} />
+    </div>
+  );
 }

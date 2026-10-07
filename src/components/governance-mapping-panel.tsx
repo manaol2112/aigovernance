@@ -486,17 +486,6 @@ export function GovernanceMappingPanel({
     void load();
   }, [load]);
 
-  const stats = useMemo(() => {
-    const grounded = rows.filter((r) => verificationIdForRow(r) === "source_grounded").length;
-    const partial = rows.filter((r) => verificationIdForRow(r) === "partially_grounded").length;
-    const unverified = rows.filter((r) => verificationIdForRow(r) === "unverified").length;
-    const avgTrace =
-      rows.length > 0
-        ? rows.reduce((sum, r) => sum + (r.mappingConfidence ?? 0), 0) / rows.length
-        : null;
-    return { total: rows.length, grounded, partial, unverified, avgTrace };
-  }, [rows]);
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
@@ -605,7 +594,7 @@ export function GovernanceMappingPanel({
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#f6f7f9] text-sm text-slate-500">
+      <div className="flex h-full items-center justify-center bg-[#FAFAFA]/40 text-sm text-[#666666]">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Loading traceability…
       </div>
@@ -613,102 +602,66 @@ export function GovernanceMappingPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f6f7f9]">
-      <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Governance intelligence</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">Control mapping</h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Review what workshop discussion and uploaded evidence substantiate against each control — including
-              documentation gaps where proof is missing.
-            </p>
-          </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#FAFAFA]/40">
+      <header className="flex shrink-0 flex-col gap-2 border-b border-[#E3E3E3] bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--theme-brand)]">
+            Validate
+          </p>
+          <h2 className="text-sm font-semibold text-black">Control mapping</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {rows.length > 0 && (
+            <div className="inline-flex flex-wrap gap-0.5 rounded-md border border-[#E3E3E3] bg-[#FAFAFA] p-0.5">
+              {(
+                [
+                  ["all", "All"],
+                  ["unverified", "Needs review"],
+                  ["partially_grounded", "Partial"],
+                  ["source_grounded", "Grounded"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setVerificationFilter(id)}
+                  className={cn(
+                    "rounded px-2 py-1 text-[11px] font-semibold transition-colors",
+                    verificationFilter === id
+                      ? "bg-black text-white"
+                      : "text-[#53565A] hover:text-black"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <Button
             type="button"
+            size="sm"
             onClick={() => void runMapping()}
             disabled={mapping}
-            className="shrink-0 gap-2 bg-indigo-600 hover:bg-indigo-700"
+            className="h-7 gap-1.5 text-xs"
           >
-            {mapping ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitCompare className="h-4 w-4" />}
-            Sync assessment
+            {mapping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitCompare className="h-3.5 w-3.5" />}
+            Sync
           </Button>
         </div>
-
-        {rows.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {(
-              [
-                ["all", "All"],
-                ["unverified", "Needs review"],
-                ["partially_grounded", "Partial"],
-                ["source_grounded", "Grounded"],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setVerificationFilter(id)}
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  verificationFilter === id
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="px-6 py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+        <div className="space-y-3 px-3 py-3 sm:px-4">
           {rows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center shadow-sm">
-              <GitCompare className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-              <p className="font-medium text-slate-800">No traceability data yet</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Run analysis in the Evidence tab first, then sync traceability here.
+            <div className="rounded-lg border border-dashed border-[#D0D0CE] bg-white px-6 py-10 text-center">
+              <GitCompare className="mx-auto mb-2 h-8 w-8 text-[#D0D0CE]" />
+              <p className="text-sm font-semibold text-black">No traceability data yet</p>
+              <p className="mt-1 text-xs text-[#666666]">
+                Run analysis in Evidence first, then sync here.
               </p>
             </div>
           ) : (
-            <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-              <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50/80 to-white px-6 py-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm ring-1 ring-slate-100">
-                      <GitCompare className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">
-                        Source-grounded linkage
-                      </p>
-                      <h3 className="mt-0.5 text-lg font-semibold text-slate-900">Control traceability review</h3>
-                      <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                        Each control shows how findings connect to uploaded sources. Unanchored claims are flagged and
-                        capped until validated.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {[
-                    { label: "Controls mapped", value: stats.total },
-                    { label: "Source grounded", value: stats.grounded },
-                    { label: "Partially grounded", value: stats.partial },
-                    { label: "Needs review", value: stats.unverified },
-                  ].map((s) => (
-                    <div key={s.label} className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{s.label}</p>
-                      <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{s.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+            <section className="overflow-hidden rounded-lg border border-[#E3E3E3] bg-white">
               <div className="grid min-h-[560px] lg:grid-cols-12">
                 <aside
                   className={cn(
@@ -732,7 +685,7 @@ export function GovernanceMappingPanel({
                                 : new Set(navGroups.map((g) => g.pillarId))
                             )
                           }
-                          className="text-[10px] font-medium text-indigo-600 hover:text-indigo-800"
+                          className="text-[10px] font-medium text-[#046A38] hover:text-black"
                         >
                           {expandedPillars.size === navGroups.length ? "Collapse all" : "Expand all"}
                         </button>

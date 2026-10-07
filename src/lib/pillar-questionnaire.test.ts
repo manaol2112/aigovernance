@@ -15,9 +15,12 @@ import {
   derivePackExecutiveSummary,
   describePackPillarBriefing,
   groupPackRoadmapByPhase,
+  rankPackFindings,
   scoreBandLabel,
   scorePillarAnswers,
+  splitPackFindingsPreview,
 } from "./pillar-questionnaire-scoring";
+import type { PackFinding } from "./pillar-questionnaire";
 
 describe("isQuestionPackProduct", () => {
   it("accepts product tags", () => {
@@ -71,6 +74,43 @@ describe("parseQuestionPackCsv", () => {
     expect(parsed.errors[0]).toMatch(/unknown pillar/i);
   });
 
+  it("maps standard pillar ids when importing into a TMT pack", () => {
+    const parsed = parseQuestionPackCsv(
+      `pillar_id,question
+workforce,Skills ready?
+oversight,Override paths?
+governance,Board mandate?
+not-a-pillar,Skip me
+`,
+      "tmt_6"
+    );
+    expect(parsed.errors).toHaveLength(1);
+    expect(parsed.questions.map((question) => question.pillarId)).toEqual([
+      "human-capital",
+      "operational-risk",
+      "compliance-risk",
+    ]);
+  });
+
+  it("imports short TMT names for technology/operational/ecosystem", () => {
+    const parsed = parseQuestionPackCsv(
+      `pillar_id,question
+technology,Model risk owned?
+operational,Incident paths defined?
+ecosystem,Vendors assessed?
+Technology Risk,Platform controls?
+`,
+      "tmt_6"
+    );
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.questions.map((question) => question.pillarId)).toEqual([
+      "technology-risk",
+      "operational-risk",
+      "ecosystem-risk",
+      "technology-risk",
+    ]);
+  });
+
   it("resolves human pillar labels", () => {
     expect(resolvePackPillarId("Governance & Accountability")).toBe("governance");
   });
@@ -92,11 +132,19 @@ describe("pack scoring", () => {
       noCount: 2,
       dontKnowCount: 1,
       scoredCount: 2,
+      weight: 3,
+      weightSharePct: 30,
+      contributionPct: 0,
     });
-    expect(briefing.readingTitle).toBe("What this means");
+    expect(briefing.readingTitle).toBe("Why this matters now");
     expect(briefing.reading).toMatch(/Governance/);
-    expect(briefing.reading).toMatch(/dependable operating picture|foundation/i);
+    expect(briefing.reading).toMatch(/foundation|basics|early/i);
     expect(briefing.reading).not.toMatch(/÷|×|=|100|50 pts|Yes \+|scored as/i);
+    expect(briefing.ratingTitle).toMatch(/Early/i);
+    expect(briefing.ratingTeaser).toMatch(/Early|not in place/i);
+    expect(briefing.ratingReason).toMatch(/is rated/);
+    expect(briefing.ratingReason).toMatch(/not in place/i);
+    expect(briefing.weightReason).toMatch(/overall|weight|points|contributes/i);
     expect(briefing.nextLevelLabel).toBe("Building");
     expect(briefing.nextLevelGuidance).toMatch(/decision forum|risk committee|policy/i);
     expect(briefing.nextLevelGuidance.length).toBeGreaterThan(40);
@@ -115,7 +163,65 @@ describe("pack scoring", () => {
     });
     expect(briefing.nextLevelLabel).toBe("Established");
     expect(briefing.nextLevelGuidance).toMatch(/data quality|provenance|privacy/i);
-    expect(briefing.reading).not.toMatch(/%|points|equation/i);
+    expect(briefing.reading).not.toMatch(/÷|×|=|equation/i);
+    expect(briefing.ratingReason).toMatch(/is rated/);
+    expect(briefing.ratingReason).toMatch(/Building/i);
+    expect(briefing.ratingTeaser).toMatch(/Building|uneven/i);
+  });
+
+  it("ranks findings by severity then question and pillar weight", () => {
+    const items: PackFinding[] = [
+      {
+        pillarId: "transparency",
+        pillarLabel: "Transparency",
+        prompt: "P1",
+        summary: "Medium low weight",
+        insight: "",
+        recommendation: "",
+        severity: "medium",
+        weight: 2,
+        pillarWeight: 1,
+      },
+      {
+        pillarId: "governance",
+        pillarLabel: "Governance",
+        prompt: "P2",
+        summary: "Critical high weight",
+        insight: "",
+        recommendation: "",
+        severity: "critical",
+        weight: 8,
+        pillarWeight: 3,
+      },
+      {
+        pillarId: "governance",
+        pillarLabel: "Governance",
+        prompt: "P3",
+        summary: "Critical low weight",
+        insight: "",
+        recommendation: "",
+        severity: "critical",
+        weight: 3,
+        pillarWeight: 3,
+      },
+      {
+        pillarId: "privacy-data",
+        pillarLabel: "Privacy",
+        prompt: "P4",
+        summary: "High weight",
+        insight: "",
+        recommendation: "",
+        severity: "high",
+        weight: 9,
+        pillarWeight: 2,
+      },
+    ];
+    const ranked = rankPackFindings(items);
+    expect(ranked.map((item) => item.prompt)).toEqual(["P2", "P3", "P4", "P1"]);
+
+    const { preview, remaining } = splitPackFindingsPreview(items, 2);
+    expect(preview.map((item) => item.prompt)).toEqual(["P2", "P3"]);
+    expect(remaining.map((item) => item.prompt)).toEqual(["P4", "P1"]);
   });
 
   it("snapshots freeze prompt text independently of later pack edits", () => {

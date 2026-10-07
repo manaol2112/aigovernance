@@ -2,12 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ComponentType } from "react";
+import {
+  useEffect,
+  useState,
+  type ComponentType,
+  type FocusEvent,
+  type MouseEvent,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  Database,
   Gauge,
   GitCompareArrows,
   Grid3x3,
@@ -17,7 +25,6 @@ import {
   ShieldAlert,
   Users,
 } from "lucide-react";
-import { SidebarThemeCycle } from "@/components/sidebar-theme-cycle";
 import { isSidebarNavActive } from "@/lib/sidebar-nav";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +86,12 @@ const nav = [
     icon: ClipboardCheck,
   },
   {
+    href: "/ai-system-register",
+    label: "AI System Register",
+    title: "Multi-org AI inventory, risk, and evidence",
+    icon: Database,
+  },
+  {
     href: "/maturity-assessment",
     label: "Maturity Survey",
     title: "Rapid pillar & control self-assessment with roadmap",
@@ -98,6 +111,13 @@ const nav = [
   },
 ];
 
+type HoverTip = {
+  label: string;
+  title: string;
+  top: number;
+  left: number;
+};
+
 function SidebarNavItem({
   href,
   label,
@@ -105,6 +125,8 @@ function SidebarNavItem({
   icon: Icon,
   active,
   expanded,
+  onShowTip,
+  onHideTip,
 }: {
   href: string;
   label: string;
@@ -112,11 +134,36 @@ function SidebarNavItem({
   icon: ComponentType<{ className?: string }>;
   active: boolean;
   expanded: boolean;
+  onShowTip: (tip: HoverTip) => void;
+  onHideTip: () => void;
 }) {
+  function revealTip(el: HTMLElement) {
+    if (expanded) return;
+    const rect = el.getBoundingClientRect();
+    onShowTip({
+      label,
+      title,
+      top: rect.top + rect.height / 2,
+      left: rect.right + 12,
+    });
+  }
+
+  function handleEnter(event: MouseEvent<HTMLAnchorElement>) {
+    revealTip(event.currentTarget);
+  }
+
+  function handleFocus(event: FocusEvent<HTMLAnchorElement>) {
+    revealTip(event.currentTarget);
+  }
+
   return (
     <Link
       href={href}
       aria-label={label}
+      onMouseEnter={handleEnter}
+      onMouseLeave={onHideTip}
+      onFocus={handleFocus}
+      onBlur={onHideTip}
       className={cn(
         "group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
@@ -144,17 +191,6 @@ function SidebarNavItem({
           </span>
         </span>
       )}
-
-      {!expanded && (
-        <span
-          role="tooltip"
-          className="pointer-events-none absolute left-[calc(100%+0.75rem)] top-1/2 z-50 w-max max-w-[220px] -translate-y-1/2 rounded-xl border border-slate-700/80 bg-slate-900 px-3 py-2 text-left opacity-0 shadow-xl shadow-black/40 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 -translate-x-1"
-        >
-          <span className="block text-sm font-semibold text-white">{label}</span>
-          <span className="mt-0.5 block text-xs leading-snug text-slate-400">{title}</span>
-          <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border-b border-l border-slate-700/80 bg-slate-900" />
-        </span>
-      )}
     </Link>
   );
 }
@@ -163,11 +199,18 @@ export function Sidebar({ pathname: pathnameProp }: { pathname?: string }) {
   const clientPathname = usePathname();
   const pathname = clientPathname || pathnameProp || "/";
   const [expanded, setExpanded] = useState(false);
+  const [hoverTip, setHoverTip] = useState<HoverTip | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === "true") setExpanded(true);
   }, []);
+
+  useEffect(() => {
+    if (expanded) setHoverTip(null);
+  }, [expanded]);
 
   function toggle() {
     setExpanded((prev) => {
@@ -180,14 +223,16 @@ export function Sidebar({ pathname: pathnameProp }: { pathname?: string }) {
   return (
     <aside
       className={cn(
-        "relative z-40 flex shrink-0 flex-col overflow-hidden border-r border-theme text-[var(--theme-sidebar-fg)] transition-[width] duration-200 ease-in-out",
+        // h-full + min-h-0 keep the rail inside the chrome shell so the last
+        // nav items (Admin) stay reachable via the scrollable nav region.
+        "relative z-40 flex h-full min-h-0 shrink-0 flex-col border-r border-theme text-[var(--theme-sidebar-fg)] transition-[width] duration-200 ease-in-out",
         "bg-[var(--theme-sidebar-bg)]",
         expanded ? "w-72" : "w-[4.25rem]"
       )}
     >
       <div
         className={cn(
-          "border-b border-slate-800 py-5 transition-colors",
+          "shrink-0 border-b border-slate-800 py-5 transition-colors",
           expanded ? "px-6" : "flex flex-col items-center px-2"
         )}
       >
@@ -216,7 +261,12 @@ export function Sidebar({ pathname: pathnameProp }: { pathname?: string }) {
         )}
       </div>
 
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-visible p-2 [scrollbar-width:thin]">
+      <nav
+        className={cn(
+          "min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-2",
+          "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        )}
+      >
         {nav.map((item) => {
           const active = isSidebarNavActive(pathname, item.href);
           return (
@@ -228,18 +278,19 @@ export function Sidebar({ pathname: pathnameProp }: { pathname?: string }) {
               icon={item.icon}
               active={active}
               expanded={expanded}
+              onShowTip={setHoverTip}
+              onHideTip={() => setHoverTip(null)}
             />
           );
         })}
       </nav>
 
-      <div className="space-y-1 border-t border-slate-800 p-2">
+      <div className="shrink-0 space-y-1 border-t border-slate-800 p-2">
         {expanded && (
           <p className="mb-1 px-2 text-[10px] leading-relaxed text-slate-400">
             NIST · ISO 42001 · EU AI Act · OECD · COSO
           </p>
         )}
-        <SidebarThemeCycle expanded={expanded} />
         <button
           type="button"
           onClick={toggle}
@@ -261,6 +312,24 @@ export function Sidebar({ pathname: pathnameProp }: { pathname?: string }) {
           )}
         </button>
       </div>
+
+      {mounted &&
+        hoverTip &&
+        !expanded &&
+        createPortal(
+          <div
+            role="tooltip"
+            className="pointer-events-none fixed z-[100] w-max max-w-[220px] -translate-y-1/2 rounded-xl border border-slate-700/80 bg-slate-900 px-3 py-2 text-left shadow-xl shadow-black/40"
+            style={{ top: hoverTip.top, left: hoverTip.left }}
+          >
+            <span className="block text-sm font-semibold text-white">{hoverTip.label}</span>
+            <span className="mt-0.5 block text-xs leading-snug text-slate-400">
+              {hoverTip.title}
+            </span>
+            <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border-b border-l border-slate-700/80 bg-slate-900" />
+          </div>,
+          document.body
+        )}
     </aside>
   );
 }

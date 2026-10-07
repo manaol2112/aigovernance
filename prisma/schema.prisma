@@ -931,6 +931,12 @@ enum QuestionPackProduct {
   guided_workshop
 }
 
+/** Pillar taxonomy used by a question pack (standard 11 vs TMT 6). */
+enum QuestionPackPillarSet {
+  standard_11
+  tmt_6
+}
+
 enum PillarQuestionAnswer {
   yes
   no
@@ -939,22 +945,41 @@ enum PillarQuestionAnswer {
 }
 
 model QuestionPack {
-  id          String              @id @default(cuid())
+  id          String                 @id @default(cuid())
   name        String
-  description String?             @db.Text
-  product     QuestionPackProduct @default(maturity_assessment)
-  archivedAt  DateTime?           @map("archived_at")
-  createdAt   DateTime            @default(now()) @map("created_at")
-  updatedAt   DateTime            @updatedAt @map("updated_at")
+  description String?                @db.Text
+  product     QuestionPackProduct    @default(maturity_assessment)
+  pillarSet   QuestionPackPillarSet  @default(standard_11) @map("pillar_set")
+  archivedAt  DateTime?              @map("archived_at")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
 
   questions                 Question[]
+  pillarWeights             QuestionPackPillarWeight[]
   maturityDefaultFor        AppSetting[]     @relation("MaturityDefaultPack")
   workshopDefaultFor        AppSetting[]     @relation("WorkshopDefaultPack")
   maturitySurveys           MaturitySurvey[]
   workshops                 GuidedWorkshop[]
 
   @@index([product])
+  @@index([pillarSet])
   @@map("question_packs")
+}
+
+/** Admin-assigned relative weight of a pillar within a pack (used in overall scoring). */
+model QuestionPackPillarWeight {
+  id        String   @id @default(cuid())
+  packId    String   @map("pack_id")
+  pillarId  String   @map("pillar_id")
+  weight    Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  pack QuestionPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, pillarId])
+  @@index([packId])
+  @@map("question_pack_pillar_weights")
 }
 
 model Question {
@@ -963,6 +988,8 @@ model Question {
   pillarId  String   @map("pillar_id")
   prompt    String   @db.Text
   helpText  String?  @map("help_text") @db.Text
+  /** Relative weight within the pillar (1–10). Higher = more influence on pillar score. */
+  weight    Int      @default(1)
   sortOrder Int      @default(0) @map("sort_order")
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
@@ -1013,6 +1040,8 @@ model MaturitySurveyPackQuestion {
   pillarId         String   @map("pillar_id")
   prompt           String   @db.Text
   helpText         String?  @map("help_text") @db.Text
+  weight           Int      @default(1)
+  pillarWeight     Int      @default(1) @map("pillar_weight")
   sortOrder        Int      @default(0) @map("sort_order")
   createdAt        DateTime @default(now()) @map("created_at")
 
@@ -1191,6 +1220,8 @@ model GuidedWorkshopPackQuestion {
   pillarId         String   @map("pillar_id")
   prompt           String   @db.Text
   helpText         String?  @map("help_text") @db.Text
+  weight           Int      @default(1)
+  pillarWeight     Int      @default(1) @map("pillar_weight")
   sortOrder        Int      @default(0) @map("sort_order")
   createdAt        DateTime @default(now()) @map("created_at")
 
@@ -1234,4 +1265,313 @@ model GuidedWorkshopResponse {
   @@unique([workshopId, pillarId, controlId])
   @@index([workshopId])
   @@map("guided_workshop_responses")
+}
+
+// ── AI System Register (independent prototype — not linked to Full Assessment) ──
+
+enum AiSystemLifecycleStatus {
+  discovery
+  proposed
+  pilot
+  production
+  suspended
+  retired
+  prohibited_blocked
+}
+
+enum AiSystemRiskSource {
+  not_assessed
+  manual
+  assessed
+}
+
+enum AiSystemRiskAssessmentStatus {
+  not_started
+  in_progress
+  completed
+  stale
+  waived
+}
+
+enum AiRegisterComplianceStatus {
+  not_required
+  screening
+  required
+  in_progress
+  completed
+  waived
+}
+
+enum AiRegisterBuildType {
+  internal
+  vendor
+  open_source
+  mixed
+}
+
+enum AiRegisterDecisionImpact {
+  advisory
+  decision_support
+  automated_recommendation
+  automated_decision
+  unclear
+}
+
+enum AiRegisterBusinessCriticality {
+  low
+  medium
+  high
+  mission_critical
+  unclear
+}
+
+enum AiRegisterEvidenceType {
+  policy
+  model_card
+  dpia
+  fria
+  test_report
+  vendor_due_diligence
+  approval
+  monitoring_log
+  incident
+  other
+}
+
+enum AiRegisterOrgRole {
+  admin
+  risk_owner
+  contributor
+  viewer
+}
+
+enum AiRegisterRiskAcceptanceStatus {
+  not_required
+  pending
+  pending_second_review
+  accepted
+}
+
+/// Multi-org container for the AI System Register inventory.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  industry  String?
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  systems AiSystemRegisterItem[]
+  members OrganizationMember[]
+
+  @@map("organizations")
+}
+
+/// Org-scoped access for the AI System Register (prototype RBAC without full app auth).
+model OrganizationMember {
+  id           String             @id @default(cuid())
+  organizationId String           @map("organization_id")
+  email        String
+  displayName  String             @map("display_name")
+  role         AiRegisterOrgRole  @default(contributor)
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@map("organization_members")
+}
+
+/// Company AI inventory row — independent of Assessment UseCase.
+model AiSystemRegisterItem {
+  id              String @id @default(cuid())
+  organizationId  String @map("organization_id")
+  code            String
+  name            String
+  description     String @db.Text
+  intendedPurpose String? @map("intended_purpose") @db.Text
+
+  useCaseType         UseCaseType             @map("use_case_type")
+  status              AiSystemLifecycleStatus @default(discovery)
+  department          String?
+  businessOwner       String?                 @map("business_owner")
+  technicalOwner      String?                 @map("technical_owner")
+  riskOwner           String?                 @map("risk_owner")
+  humanOversightOwner String?                 @map("human_oversight_owner")
+  stewardTeam         String?                 @map("steward_team")
+
+  actorRole            ActorType?
+  euAnnexIiiRelevance  String?                    @map("eu_annex_iii_relevance")
+  euArticle50Triggers  String[]                   @default([]) @map("eu_article_50_triggers")
+  friaStatus           AiRegisterComplianceStatus @default(not_required) @map("fria_status")
+  dpiaStatus           AiRegisterComplianceStatus @default(not_required) @map("dpia_status")
+  ropaLinked           Boolean                    @default(false) @map("ropa_linked")
+  sectorDomain         String?                    @map("sector_domain")
+  applicableFrameworks String[]                   @default([]) @map("applicable_frameworks")
+
+  intendedUsers          String[]                 @default([]) @map("intended_users")
+  affectedPopulations    String?                  @map("affected_populations") @db.Text
+  decisionImpact         AiRegisterDecisionImpact @default(unclear) @map("decision_impact")
+  autonomyLevel          AutonomyLevel            @default(medium) @map("autonomy_level")
+  humanInTheLoop         Boolean                  @default(true) @map("human_in_the_loop")
+  overrideEscalationPath String?                  @map("override_escalation_path") @db.Text
+
+  /// Capability tags: genai, predictive, recommendation, agentic, computer_vision, etc.
+  aiCapabilities           String[]                      @default([]) @map("ai_capabilities")
+  customerFacing           Boolean                       @default(false) @map("customer_facing")
+  employeeFacing           Boolean                       @default(false) @map("employee_facing")
+  externalFacing           Boolean                       @default(false) @map("external_facing")
+  criticalBusinessProcess  Boolean                       @default(false) @map("critical_business_process")
+  businessCriticality      AiRegisterBusinessCriticality @default(unclear) @map("business_criticality")
+  failureImpact            String?                       @map("failure_impact") @db.Text
+  regulatoryJurisdictions  String[]                      @default([]) @map("regulatory_jurisdictions")
+  prohibitedUseNotes       String?                       @map("prohibited_use_notes") @db.Text
+  developerProvider        String?                       @map("developer_provider")
+
+  dataCategories       String[] @default([]) @map("data_categories")
+  personalDataInvolved Boolean  @default(false) @map("personal_data_involved")
+  specialCategoryData  Boolean  @default(false) @map("special_category_data")
+  dataSources          String?  @map("data_sources") @db.Text
+  dataOutputs          String?  @map("data_outputs") @db.Text
+  retentionPolicy      String?  @map("retention_policy") @db.Text
+  crossBorderTransfers Boolean  @default(false) @map("cross_border_transfers")
+  lawfulBasis          String?  @map("lawful_basis")
+
+  buildType            AiRegisterBuildType @default(mixed) @map("build_type")
+  vendor               String?
+  modelProvider        String?             @map("model_provider")
+  modelNameVersion     String?             @map("model_name_version")
+  modelType            AISystemModelType   @default(llm) @map("model_type")
+  hostingLocation      String?             @map("hosting_location")
+  subprocessors        String?             @db.Text
+  trainsOnCustomerData String?             @map("trains_on_customer_data")
+  contractDpaStatus    String?             @map("contract_dpa_status")
+  dependencies         String?             @db.Text
+
+  regions         String[]         @default([])
+  deploymentStage DeploymentStage  @default(idea) @map("deployment_stage")
+  goLiveDate      DateTime?        @map("go_live_date")
+  retirementDate  DateTime?        @map("retirement_date")
+  lastReviewedAt  DateTime?        @map("last_reviewed_at")
+  nextReviewAt    DateTime?        @map("next_review_at")
+  shadowAi        Boolean          @default(false) @map("shadow_ai")
+  nextAction      String?          @map("next_action") @db.Text
+
+  riskTier             RiskTier?                     @map("risk_tier")
+  riskSource           AiSystemRiskSource            @default(not_assessed) @map("risk_source")
+  manualRiskRationale  String?                       @map("manual_risk_rationale") @db.Text
+  riskAssessmentStatus AiSystemRiskAssessmentStatus  @default(not_started) @map("risk_assessment_status")
+  inherentRiskTier     RiskTier?                     @map("inherent_risk_tier")
+  residualRiskTier     RiskTier?                     @map("residual_risk_tier")
+  inherentRiskScore    Float?                        @map("inherent_risk_score")
+  residualRiskScore    Float?                        @map("residual_risk_score")
+  riskSummary          String?                       @map("risk_summary") @db.Text
+  keyRiskThemes        String[]                      @default([]) @map("key_risk_themes")
+  treatmentPlan        String?                       @map("treatment_plan") @db.Text
+  /// Canonical control codes accepted as key controls for this use case.
+  keyControlCodes      String[]                      @default([]) @map("key_control_codes")
+
+  /// Auto-determined assessment suite + module progress (privacy, FRIA, fairness, etc.).
+  assessmentSuite Json? @map("assessment_suite")
+
+  riskAcceptanceStatus   AiRegisterRiskAcceptanceStatus @default(not_required) @map("risk_acceptance_status")
+  riskAcceptedBy         String?                        @map("risk_accepted_by")
+  riskAcceptedByEmail    String?                        @map("risk_accepted_by_email")
+  riskAcceptedAt         DateTime?                      @map("risk_accepted_at")
+  riskAcceptanceNote     String?                        @map("risk_acceptance_note") @db.Text
+  riskSecondReviewer     String?                        @map("risk_second_reviewer")
+  riskSecondReviewerEmail String?                       @map("risk_second_reviewer_email")
+  riskSecondReviewedAt   DateTime?                      @map("risk_second_reviewed_at")
+
+  details Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  riskAssessments AiSystemRiskAssessment[]
+  evidence        AiSystemEvidence[]
+  changeLogs      AiSystemRegisterChangeLog[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([status])
+  @@index([riskTier])
+  @@index([nextReviewAt])
+  @@index([riskAssessmentStatus])
+  @@map("ai_system_register_items")
+}
+
+/// Field-level / action audit trail for a register system.
+model AiSystemRegisterChangeLog {
+  id             String   @id @default(cuid())
+  systemId       String   @map("system_id")
+  organizationId String   @map("organization_id")
+  action         String
+  summary        String
+  field          String?
+  oldValue       String?  @map("old_value") @db.Text
+  newValue       String?  @map("new_value") @db.Text
+  actorName      String?  @map("actor_name")
+  actorEmail     String?  @map("actor_email")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  system AiSystemRegisterItem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@index([systemId, createdAt])
+  @@index([organizationId])
+  @@map("ai_system_register_change_logs")
+}
+
+model AiSystemRiskAssessment {
+  id             String                      @id @default(cuid())
+  systemId       String                      @map("system_id")
+  organizationId String                      @map("organization_id")
+  version        Int                         @default(1)
+  status         AiSystemRiskAssessmentStatus @default(in_progress)
+  factorScores   Json                        @map("factor_scores")
+  inherentScore  Float?                      @map("inherent_score")
+  residualScore  Float?                      @map("residual_score")
+  inherentTier   RiskTier?                   @map("inherent_tier")
+  residualTier   RiskTier?                   @map("residual_tier")
+  hardRulesFired String[]                    @default([]) @map("hard_rules_fired")
+  narrative      String?                     @db.Text
+  assessorName   String?                     @map("assessor_name")
+  completedAt    DateTime?                   @map("completed_at")
+  createdAt      DateTime                    @default(now()) @map("created_at")
+  updatedAt      DateTime                    @updatedAt @map("updated_at")
+
+  system AiSystemRegisterItem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@unique([systemId, version])
+  @@index([systemId])
+  @@index([organizationId])
+  @@map("ai_system_risk_assessments")
+}
+
+model AiSystemEvidence {
+  id                   String                 @id @default(cuid())
+  systemId             String                 @map("system_id")
+  organizationId       String                 @map("organization_id")
+  evidenceType         AiRegisterEvidenceType @default(other) @map("evidence_type")
+  title                String
+  fileName             String?                @map("file_name")
+  filePath             String?                @map("file_path")
+  mimeType             String?                @map("mime_type")
+  fileSize             Int?                   @map("file_size")
+  externalUrl          String?                @map("external_url")
+  notes                String?                @db.Text
+  /// Optional link to a suite assessment type (e.g. privacy_dpia) for audit traceability.
+  linkedAssessmentType String?                @map("linked_assessment_type")
+  uploadedAt           DateTime               @default(now()) @map("uploaded_at")
+  createdAt            DateTime               @default(now()) @map("created_at")
+
+  system AiSystemRegisterItem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@index([systemId])
+  @@index([organizationId])
+  @@index([linkedAssessmentType])
+  @@map("ai_system_evidence")
 }

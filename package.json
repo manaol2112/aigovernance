@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "prisma generate && next dev",
+    "dev": "npm run db:sync && next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
@@ -11,6 +11,7 @@
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
+    "db:sync": "prisma generate && prisma db push",
     "db:seed": "tsx scripts/ingest/ingest-frameworks.ts && tsx scripts/seed-crosswalk.ts && tsx scripts/seed-risks-controls.ts",
     "db:validate": "tsx scripts/validate-manifest.ts",
     "db:audit": "tsx scripts/audit-frameworks.ts",

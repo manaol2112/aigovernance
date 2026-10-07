@@ -117,7 +117,7 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
       documentResponses: true,
       packQuestions: true,
       packResponses: true,
-      questionPack: { select: { name: true } },
+      questionPack: { select: { name: true, pillarSet: true } },
     },
   });
   if (!survey) return null;
@@ -133,6 +133,7 @@ export async function loadMaturitySurveyBundle(surveyId: string) {
       title: survey.title,
       organizationName: survey.organizationName,
       packName: survey.questionPack?.name ?? null,
+      pillarSet: survey.questionPack?.pillarSet ?? null,
       generatedAt: (survey.submittedAt ?? survey.updatedAt).toISOString(),
       snapshots,
       answers: packAnswers,

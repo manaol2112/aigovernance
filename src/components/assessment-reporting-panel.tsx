@@ -25,7 +25,6 @@ import { getDisplayFindings } from "@/lib/report-narrative-generator";
 import {
   ComplianceDonutChart,
   MaturityLegend,
-  ReviewProgressRing,
   RoadmapTimeline,
 } from "@/components/report-visualizations";
 import { MaturityGovernanceDashboard } from "@/components/maturity-charts";
@@ -209,12 +208,9 @@ export function AssessmentReportingPanel({
 
   if (loading) {
     return (
-      <div className="flex h-full min-h-[320px] flex-1 flex-col items-center justify-center gap-3 bg-slate-50/50">
-        <Loader2 className="h-9 w-9 animate-spin text-indigo-500" />
-        <p className="text-sm text-slate-500">Preparing assessment reporting package…</p>
-        <p className="text-xs text-slate-400">
-          First load generates executive narratives; later visits use cached results unless findings change.
-        </p>
+      <div className="flex h-full min-h-[320px] flex-1 flex-col items-center justify-center gap-2 bg-[#FAFAFA]/40">
+        <Loader2 className="h-6 w-6 animate-spin text-black" />
+        <p className="text-sm text-[#666666]">Preparing reporting package…</p>
       </div>
     );
   }
@@ -241,77 +237,55 @@ export function AssessmentReportingPanel({
   ];
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#f4f6fa]">
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
-        {/* Hero header */}
-        <div className="relative shrink-0 overflow-hidden border-b border-slate-200/80 bg-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(79,70,229,0.12),transparent)]" />
-        <div className="relative px-6 py-8">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-700">
-                <Package className="h-3.5 w-3.5" />
-                {isDeliverablesStage ? "Client delivery package" : "Formal deliverables"}
-              </div>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#FAFAFA]/40">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-width:thin]">
+        <header className="shrink-0 border-b border-[#E3E3E3] bg-white px-3 py-2 sm:px-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--theme-brand)]">
+                <Package className="h-3 w-3" />
+                {isDeliverablesStage ? "Client package" : "Preview"}
+              </p>
+              <h2 className="truncate text-sm font-semibold text-black">
                 {report.clientName}
+                <span className="font-normal text-[#666666]"> · {report.assessmentName}</span>
               </h2>
-              <p className="mt-1 text-sm text-slate-500">{report.assessmentName}</p>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                {isDeliverablesStage
-                  ? "Final assessment package for client distribution — executive summaries, gap register, maturity analysis, and remediation roadmap."
-                  : "Enterprise PDF reports generated from reviewer-signed controls. Unreviewed items are excluded from all deliverables."}
-              </p>
-              {refreshing && (
-                <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-indigo-600">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Refreshing narratives for updated sign-offs…
-                </p>
-              )}
             </div>
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-              <ReviewProgressRing confirmed={reviewProgress.confirmed} total={reviewProgress.total} />
-              <p className="text-center text-xs text-slate-500">
-                <span className="font-semibold text-slate-800">{reviewProgress.confirmed}</span> of{" "}
-                {reviewProgress.total} signed off
-              </p>
+            <div className="inline-flex items-center gap-1.5 rounded-md border border-[#E3E3E3] bg-[#FAFAFA] px-2.5 py-1 text-xs text-[#666666]">
+              <span className="font-semibold tabular-nums text-black">{reviewProgress.confirmed}</span>
+              <span className="text-[#A7A8AA]">/</span>
+              <span>{reviewProgress.total} signed off</span>
             </div>
           </div>
-
+          {refreshing && (
+            <p className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-[#666666]">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Refreshing narratives…
+            </p>
+          )}
           {!report.reviewStats.reportingReady ? (
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-amber-50/80 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                <div>
-                  <p className="font-medium text-amber-950">
-                    {report.reviewStats.pendingReview} control(s) not yet signed off
-                  </p>
-                  <p className="mt-0.5 text-sm text-amber-800/90">
-                    Reports reflect {report.reviewStats.confirmed} confirmed control(s). Complete validation
-                    for a full package.
-                  </p>
-                </div>
-              </div>
-              <Button size="sm" variant="outline" className="border-amber-300 bg-white" onClick={onGoToReview}>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+              <p className="text-xs text-amber-900">
+                <span className="font-semibold">{report.reviewStats.pendingReview}</span> control(s) not signed
+                off · reports use {report.reviewStats.confirmed} confirmed
+              </p>
+              <Button size="sm" variant="outline" className="h-7 border-amber-300 bg-white text-xs" onClick={onGoToReview}>
                 Complete validation
               </Button>
             </div>
           ) : (
-            <div className="mt-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              <p className="text-sm font-medium text-emerald-900">
-                {isDeliverablesStage
-                  ? workflowStage === "finalized"
-                    ? "Assessment finalized — package approved for client delivery"
-                    : "Assessment validation complete — formal deliverable package ready"
-                  : "Assessment validation complete — deliverable package ready for distribution"}
-              </p>
-            </div>
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[#046A38]">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {isDeliverablesStage
+                ? workflowStage === "finalized"
+                  ? "Finalized — ready for client delivery"
+                  : "Validation complete — package ready"
+                : "Validation complete — deliverable package ready"}
+            </p>
           )}
-        </div>
-      </div>
+        </header>
 
-      <div className="px-6 pt-6">
+      <div className="px-3 pt-3 sm:px-4">
         <PreviewReadinessPanel
           controlConfirmed={reviewProgress.confirmed}
           controlTotal={reviewProgress.total}
@@ -326,61 +300,64 @@ export function AssessmentReportingPanel({
       </div>
 
       {/* Document package */}
-      <div className="shrink-0 border-b border-slate-200/80 bg-white/80 px-6 py-5 backdrop-blur-sm">
+      <div className="shrink-0 border-b border-[#E3E3E3] bg-white px-3 py-3 sm:px-4">
         <div className="w-full">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">Download report package</h3>
-              <p className="text-xs text-slate-500">Professional PDF documents · Board and audit ready</p>
+              <h3 className="text-sm font-semibold text-black">Download report package</h3>
+              <p className="text-[11px] text-[#666666]">PDF documents · board and audit ready</p>
             </div>
             <Button
               size="sm"
               variant="outline"
+              className="h-7 text-xs"
               onClick={() => void downloadAll()}
               disabled={!!downloading || refreshing}
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
-              Download all (PDF)
+              Download all
             </Button>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {DELIVERABLES.map((doc) => {
               const Icon = doc.icon;
               const isLoading = downloading === doc.type;
               return (
                 <div
                   key={doc.type}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
+                  className="group overflow-hidden rounded-lg border border-[#E3E3E3] bg-white transition-colors hover:border-[#666666]"
                 >
-                  <div className={`h-1.5 bg-gradient-to-r ${doc.accent}`} />
-                  <div className="p-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-700 group-hover:bg-indigo-50 group-hover:text-indigo-700">
-                      <Icon className="h-5 w-5" />
+                  <div className={`h-1 bg-gradient-to-r ${doc.accent}`} />
+                  <div className="p-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E3E3E3] bg-[#FAFAFA] text-black">
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <h4 className="mt-3 text-sm font-semibold text-slate-900">{doc.title}</h4>
-                    <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-500">
+                    <h4 className="mt-2 text-sm font-semibold text-black">{doc.title}</h4>
+                    <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[#666666]">
                       {doc.description}
                     </p>
-                    <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-1.5">
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-7 text-xs"
                         disabled={!!downloading}
                         onClick={() => setPreviewType(doc)}
                       >
-                        <Eye className="mr-1.5 h-3.5 w-3.5" />
+                        <Eye className="mr-1 h-3.5 w-3.5" />
                         Preview
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-7 text-xs"
                         disabled={!!downloading}
                         onClick={() => void downloadPdf(doc.type)}
                       >
                         {isLoading ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Download className="mr-1.5 h-3.5 w-3.5" />
+                          <Download className="mr-1 h-3.5 w-3.5" />
                         )}
                         PDF
                       </Button>
@@ -393,21 +370,20 @@ export function AssessmentReportingPanel({
         </div>
       </div>
 
-      {/* Tabs — sticky while scrolling */}
-      <div className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white/95 px-6 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto py-2">
+      <div className="shrink-0 border-b border-[#E3E3E3] bg-white px-3 sm:px-4">
+        <div className="flex gap-0.5 overflow-x-auto py-1.5 [scrollbar-width:thin]">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                 activeTab === id
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "bg-black text-white"
+                  : "text-[#53565A] hover:bg-[#F5F5F5] hover:text-black"
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-3.5 w-3.5" />
               {label}
             </button>
           ))}
@@ -415,23 +391,23 @@ export function AssessmentReportingPanel({
       </div>
 
       {/* Content */}
-      <div className="px-6 py-6">
-        <div className="space-y-6 pb-8">
+      <div className="px-3 py-3 sm:px-4">
+        <div className="space-y-3 pb-6">
           {activeTab === "overview" && (
             <>
-              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-8 text-white shadow-xl">
-                <div className="flex flex-wrap items-start gap-6">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-                    <Shield className="h-7 w-7 text-indigo-200" />
+              <div className="overflow-hidden rounded-lg border border-[#E3E3E3] bg-black px-4 py-4 text-white sm:px-5">
+                <div className="flex flex-wrap items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white/10">
+                    <Shield className="h-4 w-4 text-[var(--theme-brand)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--theme-brand)]">
                       Executive summary
                     </p>
-                    <h3 className="mt-2 text-2xl font-semibold tracking-tight leading-snug">
+                    <h3 className="mt-1 text-lg font-light tracking-tight leading-snug">
                       {report.executiveSummary.headline}
                     </h3>
-                    <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
+                    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/75">
                       {report.executiveSummary.narrative}
                     </p>
                   </div>

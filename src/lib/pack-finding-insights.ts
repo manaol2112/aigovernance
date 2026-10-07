@@ -1,4 +1,4 @@
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import { findPackPillar } from "@/lib/pack-pillar-catalog";
 import type { PillarQuestionAnswer } from "@/lib/pillar-questionnaire";
 
 type PostureTone = "critical" | "developing" | "defined" | "leading";
@@ -27,6 +27,18 @@ const PILLAR_STAKES: Record<string, string> = {
     "teams cannot operate AI controls consistently as usage expands",
   "financial-resilience":
     "AI disruption can hit continuity, cost, and recovery timelines before finance and ops are ready",
+  "human-capital":
+    "teams cannot operate AI controls consistently as usage expands",
+  "regulatory-financial":
+    "regulatory exposure and financial impact stay open without clear ownership and controls",
+  "operational-risk":
+    "incidents are harder to detect, contain, and escalate before damage spreads",
+  "ecosystem-risk":
+    "partners and platforms can import risk you cannot see — or transfer — without disciplined diligence",
+  "technology-risk":
+    "unreliable, insecure, or poorly governed technology outcomes are more likely to reach production",
+  "compliance-risk":
+    "audits slow down, remediation costs rise, and compliance exposure grows without documentation and evidence",
 };
 
 /** What “strong” looks like in this pillar — client-facing. */
@@ -42,6 +54,12 @@ const PILLAR_STRENGTHS: Record<string, string> = {
   "privacy-data": "Data stewardship for AI looks solid enough to support lawful, controlled use",
   workforce: "Skills and capacity look ready to operate AI controls as usage grows",
   "financial-resilience": "Continuity and financial resilience look prepared for AI-related disruption",
+  "human-capital": "Skills and capacity look ready to operate AI controls as usage grows",
+  "regulatory-financial": "Regulatory and financial risk controls look relatively mature",
+  "operational-risk": "Operational controls look capable of catching issues before they escalate",
+  "ecosystem-risk": "Ecosystem and partner diligence looks established enough to reduce imported risk",
+  "technology-risk": "Technology risk practices look strong enough to reduce operational surprises",
+  "compliance-risk": "Compliance documentation and evidence look ready to support audit conversations",
 };
 
 const PILLAR_OWNERS: Record<string, string> = {
@@ -56,6 +74,12 @@ const PILLAR_OWNERS: Record<string, string> = {
   "privacy-data": "privacy or data governance lead",
   workforce: "people / L&D partner",
   "financial-resilience": "business continuity / finance partner",
+  "human-capital": "people / L&D partner",
+  "regulatory-financial": "compliance / finance partner",
+  "operational-risk": "operations / risk owner",
+  "ecosystem-risk": "procurement / partner risk",
+  "technology-risk": "AI risk or engineering lead",
+  "compliance-risk": "compliance lead",
 };
 
 const POSTURE_HEADLINE: Record<PostureTone | "unknown", string> = {
@@ -128,7 +152,7 @@ export function buildPackFindingInsight(input: {
   /** Optional noun phrase; when omitted, derived from the summary. */
   topic?: string;
 }): PackFindingInsight {
-  const pillar = RISK_PILLARS.find((item) => item.id === input.pillarId);
+  const pillar = findPackPillar(input.pillarId);
   const severity = pillar?.criticality ?? "medium";
   const topic = titleCaseTopic(
     (input.topic?.trim() || topicFromFindingSummary(input.summary)).trim()

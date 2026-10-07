@@ -24,6 +24,8 @@ type PackListItem = {
   name: string;
   description: string | null;
   product: QuestionPackProduct;
+  pillarSet?: "standard_11" | "tmt_6";
+  pillarCount?: number;
   questionCount: number;
   coverageComplete: boolean;
   missingPillarIds: string[];
@@ -355,7 +357,9 @@ export function AdminQuestionnaires() {
                       )}
                       {pack.coverageComplete ? (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> 11 pillars
+                          <CheckCircle2 className="h-3.5 w-3.5" />{" "}
+                          {pack.pillarCount ?? 11} pillars
+                          {pack.pillarSet === "tmt_6" ? " · TMT" : ""}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs text-amber-700">

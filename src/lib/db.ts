@@ -5,8 +5,8 @@ const globalForPrisma = globalThis as unknown as {
   maturitySchemaVersion?: number;
 };
 
-/** Bump when survey/workshop schema changes so dev hot-reload drops stale clients. */
-const MATURITY_SCHEMA_VERSION = 6;
+/** Bump when survey/workshop/register schema changes so dev hot-reload drops stale clients. */
+const MATURITY_SCHEMA_VERSION = 18;
 
 /** Models every page needs — keep minimal so hot-reload never bricks unrelated routes. */
 const CORE_DELEGATES = [
@@ -28,6 +28,7 @@ const MATURITY_DELEGATES = [
   "maturitySurveyDocumentResponse",
   "questionPack",
   "question",
+  "questionPackPillarWeight",
   "maturitySurveyPackQuestion",
   "maturitySurveyPackResponse",
 ] as const;
@@ -38,6 +39,16 @@ const GUIDED_WORKSHOP_DELEGATES = [
   "guidedWorkshopResponse",
   "guidedWorkshopPackQuestion",
   "guidedWorkshopPackResponse",
+] as const;
+
+/** AI System Register prototype — independent of Full Assessment. */
+const AI_REGISTER_DELEGATES = [
+  "organization",
+  "organizationMember",
+  "aiSystemRegisterItem",
+  "aiSystemRiskAssessment",
+  "aiSystemEvidence",
+  "aiSystemRegisterChangeLog",
 ] as const;
 
 function hasDelegate(client: PrismaClient, key: string): boolean {
@@ -62,6 +73,10 @@ function isGuidedWorkshopPrismaReady(client: PrismaClient): boolean {
   return GUIDED_WORKSHOP_DELEGATES.every((key) => hasDelegate(client, key));
 }
 
+function isAiRegisterPrismaReady(client: PrismaClient): boolean {
+  return AI_REGISTER_DELEGATES.every((key) => hasDelegate(client, key));
+}
+
 function isMaturitySchemaCurrent(): boolean {
   const surveyFields = Prisma.MaturitySurveyScalarFieldEnum;
   const settingFields = Prisma.AppSettingScalarFieldEnum;
@@ -77,6 +92,64 @@ function isGuidedWorkshopSchemaCurrent(): boolean {
   if (!("GuidedWorkshopScalarFieldEnum" in Prisma)) return false;
   const fields = Prisma.GuidedWorkshopScalarFieldEnum;
   return "questionCatalogSource" in fields;
+}
+
+function prismaModelNames(): Set<string> {
+  try {
+    const models = Prisma.dmmf?.datamodel?.models ?? [];
+    return new Set(models.map((model) => model.name));
+  } catch {
+    return new Set();
+  }
+}
+
+function registerItemHasField(field: string): boolean {
+  try {
+    const fields = Prisma.AiSystemRegisterItemScalarFieldEnum as
+      | Record<string, string>
+      | undefined;
+    if (!fields) return false;
+    return field in fields || Boolean(fields[field]);
+  } catch {
+    return false;
+  }
+}
+
+function isAiRegisterSchemaCurrent(): boolean {
+  const models = prismaModelNames();
+  if (models.size > 0) {
+    return (
+      models.has("Organization") &&
+      models.has("OrganizationMember") &&
+      models.has("AiSystemRegisterItem") &&
+      models.has("AiSystemRiskAssessment") &&
+      models.has("AiSystemEvidence") &&
+      models.has("AiSystemRegisterChangeLog") &&
+      registerItemHasField("keyControlCodes") &&
+      registerItemHasField("riskAcceptanceStatus") &&
+      registerItemHasField("aiCapabilities") &&
+      registerItemHasField("businessCriticality") &&
+      registerItemHasField("assessmentSuite")
+    );
+  }
+
+  // Fallback when DMMF is unavailable in a bundled runtime.
+  try {
+    return (
+      Boolean(Prisma.OrganizationScalarFieldEnum) &&
+      Boolean(Prisma.OrganizationMemberScalarFieldEnum) &&
+      Boolean(Prisma.AiSystemRegisterItemScalarFieldEnum) &&
+      Boolean(Prisma.AiSystemEvidenceScalarFieldEnum) &&
+      Boolean(Prisma.AiSystemRegisterChangeLogScalarFieldEnum) &&
+      registerItemHasField("keyControlCodes") &&
+      registerItemHasField("riskAcceptanceStatus") &&
+      registerItemHasField("aiCapabilities") &&
+      registerItemHasField("businessCriticality") &&
+      registerItemHasField("assessmentSuite")
+    );
+  } catch {
+    return false;
+  }
 }
 
 function createPrismaClient(): PrismaClient {
@@ -104,13 +177,17 @@ function withConnectionLimit(databaseUrl: string | undefined): string | undefine
 
 function getPrismaClient(): PrismaClient {
   const cached = globalForPrisma.prisma;
-  const schemaCurrent = isMaturitySchemaCurrent() && isGuidedWorkshopSchemaCurrent();
+  const schemaCurrent =
+    isMaturitySchemaCurrent() &&
+    isGuidedWorkshopSchemaCurrent() &&
+    isAiRegisterSchemaCurrent();
 
   if (
     cached &&
     isCorePrismaReady(cached) &&
     schemaCurrent &&
     isGuidedWorkshopPrismaReady(cached) &&
+    isAiRegisterPrismaReady(cached) &&
     globalForPrisma.maturitySchemaVersion === MATURITY_SCHEMA_VERSION
   ) {
     return cached;
@@ -124,8 +201,15 @@ function getPrismaClient(): PrismaClient {
   }
 
   if (!schemaCurrent) {
+    const missing = [
+      !isMaturitySchemaCurrent() ? "maturity survey fields" : null,
+      !isGuidedWorkshopSchemaCurrent() ? "guided workshop models" : null,
+      !isAiRegisterSchemaCurrent() ? "AI System Register models" : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
     throw new PrismaNotReadyError(
-      "Prisma client is out of date (missing survey or workshop models). Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
+      `Prisma client is out of date (missing ${missing || "schema fields"}). Run \`npx prisma generate\`, restart the dev server (\`npm run dev\`), then try again.`
     );
   }
 
@@ -140,6 +224,12 @@ function getPrismaClient(): PrismaClient {
   if (!isGuidedWorkshopPrismaReady(client)) {
     throw new PrismaNotReadyError(
       "Guided workshop models are not in the Prisma client. Run `npx prisma generate` and restart the dev server."
+    );
+  }
+
+  if (!isAiRegisterPrismaReady(client)) {
+    throw new PrismaNotReadyError(
+      "AI System Register models are not in the Prisma client. Run `npx prisma generate` and restart the dev server."
     );
   }
 
@@ -203,6 +293,19 @@ export function assertGuidedWorkshopPrismaReady(): void {
   if (!isGuidedWorkshopSchemaCurrent()) {
     throw new PrismaNotReadyError(
       "Prisma client is missing guided workshop models. Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
+    );
+  }
+}
+
+/** Call before using AI System Register models in API routes or server components. */
+export function assertAiRegisterPrismaReady(): void {
+  const client = getResolvedClient();
+  if (!isCorePrismaReady(client)) {
+    throw new PrismaNotReadyError();
+  }
+  if (!isAiRegisterPrismaReady(client) || !isAiRegisterSchemaCurrent()) {
+    throw new PrismaNotReadyError(
+      "AI System Register models are not in the Prisma client. Run `npx prisma generate`, restart the dev server (`npm run dev`), then try again."
     );
   }
 }

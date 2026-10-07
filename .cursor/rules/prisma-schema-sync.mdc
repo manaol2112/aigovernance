@@ -1,0 +1,21 @@
+---
+description: Keep Prisma client and database in sync after schema changes
+alwaysApply: true
+---
+
+# Prisma schema sync
+
+After **any** change to `prisma/schema.prisma` (new models, fields, enums):
+
+1. Run immediately:
+
+```bash
+npm run db:sync
+```
+
+(`db:sync` = `prisma generate` + `prisma db push` against `DATABASE_URL`.)
+
+2. Bump `MATURITY_SCHEMA_VERSION` in `src/lib/db.ts` so hot-reload drops a stale Prisma singleton.
+3. Tell the user to restart `npm run dev` if APIs still return “Prisma client is out of date” / 503.
+
+Do **not** leave schema-only edits unpushed. `npm run dev` also runs `db:sync` on startup.

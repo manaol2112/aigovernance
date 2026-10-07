@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono, Open_Sans } from "next/font/google";
+import { IgnoreExtensionErrors } from "@/components/ignore-extension-errors";
 import { getColorTheme } from "@/lib/theme-settings";
 import "./globals.css";
 
@@ -40,7 +42,11 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${deloitteSans.variable} h-full`}
       suppressHydrationWarning
     >
-      <body className="min-h-full font-sans antialiased">{children}</body>
+      <body className="min-h-full font-sans antialiased">
+        <Script src="/suppress-extension-noise.js" strategy="beforeInteractive" />
+        <IgnoreExtensionErrors />
+        {children}
+      </body>
     </html>
   );
 }

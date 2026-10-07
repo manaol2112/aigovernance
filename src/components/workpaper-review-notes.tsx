@@ -84,16 +84,13 @@ export function WorkpaperReviewNotes({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <p className="text-sm font-semibold text-slate-900">Field review notes</p>
-        <p className="mt-1 text-xs text-slate-500">
-          Add threaded comments, assign owners, and resolve issues before sign-off.
-        </p>
+    <div className="rounded-lg border border-[#E3E3E3] bg-white">
+      <div className="border-b border-[#E3E3E3] px-3 py-1.5">
+        <p className="text-[11px] font-semibold text-black">Review notes</p>
       </div>
 
-      <div className="border-b border-slate-100 px-4 py-3">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="border-b border-[#E3E3E3] px-2.5 py-1.5">
+        <div className="flex flex-wrap gap-0.5">
           {WORKPAPER_FIELDS.map((field) => {
             const openCount = countOpenThreads(threads, field);
             return (
@@ -102,10 +99,10 @@ export function WorkpaperReviewNotes({
                 type="button"
                 onClick={() => onSelectField(field)}
                 className={cn(
-                  "rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors",
+                  "rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors",
                   activeField === field
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-black text-white"
+                    : "text-[#53565A] hover:bg-[#F5F5F5] hover:text-black"
                 )}
               >
                 {getWorkpaperFieldLabel(field)}
@@ -116,50 +113,54 @@ export function WorkpaperReviewNotes({
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
-        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-          <div className="flex items-center gap-2">
-            <MessageSquarePlus className="h-4 w-4 text-indigo-600" />
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              New note for {getWorkpaperFieldLabel(activeField)}
+      <div className="space-y-2 p-2.5">
+        <div className="rounded-md border border-[#E3E3E3] bg-[#FAFAFA] p-2">
+          <div className="flex items-center gap-1.5">
+            <MessageSquarePlus className="h-3.5 w-3.5 text-[#53565A]" />
+            <p className="text-[10px] font-semibold text-[#767676]">
+              New · {getWorkpaperFieldLabel(activeField)}
             </p>
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-1.5 space-y-1.5">
             <input
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-              placeholder="Short title (optional)"
+              className="w-full rounded-md border border-[#E3E3E3] bg-white px-2 py-1 text-xs"
+              placeholder="Title (optional)"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
             />
             <input
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-md border border-[#E3E3E3] bg-white px-2 py-1 text-xs"
               placeholder="Assign to (optional)"
               value={newAssignee}
               onChange={(e) => setNewAssignee(e.target.value)}
             />
             <textarea
-              className="min-h-[88px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-              placeholder={reviewerName.trim() ? "Describe the issue or requested change..." : "Enter reviewer name below to add notes"}
+              className="min-h-[64px] w-full rounded-md border border-[#E3E3E3] bg-white px-2 py-1 text-xs"
+              placeholder={
+                reviewerName.trim()
+                  ? "Describe the issue…"
+                  : "Enter reviewer name to add notes"
+              }
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
             />
             <Button
               type="button"
               size="sm"
-              className="gap-1.5"
+              className="h-7 gap-1 text-xs"
               onClick={() => void handleCreateThread()}
               disabled={!reviewerName.trim() || !newNote.trim()}
             >
-              <Send className="h-3.5 w-3.5" />
-              Add note
+              <Send className="h-3 w-3" />
+              Add
             </Button>
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {threadsForField.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center text-sm text-slate-500">
-              No review notes for this field.
+            <div className="rounded-md border border-dashed border-[#E3E3E3] px-3 py-4 text-center text-[11px] text-[#767676]">
+              No notes for this field.
             </div>
           ) : (
             threadsForField.map((thread) => {
@@ -171,20 +172,20 @@ export function WorkpaperReviewNotes({
               const linkedQuote = thread.messages.find((message) => message.quotedText)?.quotedText;
 
               return (
-                <div key={thread.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
+                <div key={thread.id} className="rounded-md border border-[#E3E3E3] bg-white p-2">
+                  <div className="flex flex-wrap items-start justify-between gap-1.5">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold text-black">
                         {thread.title?.trim() || getWorkpaperFieldLabel(thread.fieldKey)}
                       </p>
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        Opened by {thread.createdBy} on {new Date(thread.createdAt).toLocaleString()}
+                      <p className="mt-0.5 text-[10px] text-[#767676]">
+                        {thread.createdBy} · {new Date(thread.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                        open ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-800"
+                        "rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase",
+                        open ? "bg-amber-100 text-amber-900" : "bg-[#EEF7E0] text-[#046A38]"
                       )}
                     >
                       {thread.status}
@@ -192,41 +193,41 @@ export function WorkpaperReviewNotes({
                   </div>
 
                   {thread.assignee && (
-                    <p className="mt-2 text-[11px] text-indigo-700">
+                    <p className="mt-1 text-[10px] text-[#53565A]">
                       Assigned to <span className="font-semibold">{thread.assignee}</span>
                     </p>
                   )}
 
                   {linkedQuote && (
-                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                    <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50/70 px-2 py-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-900">
                         Linked text
                       </p>
-                      <p className="mt-1 text-xs leading-relaxed text-slate-700">{linkedQuote}</p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-[#53565A]">{linkedQuote}</p>
                     </div>
                   )}
 
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-1.5 space-y-1.5">
                     {thread.messages.map((message) => (
-                      <div key={message.id} className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                      <div key={message.id} className="rounded-md border border-[#E3E3E3] bg-[#FAFAFA] px-2 py-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] font-semibold text-slate-700">{message.author}</p>
-                          <p className="text-[10px] text-slate-400">
-                            {new Date(message.createdAt).toLocaleString()}
+                          <p className="text-[10px] font-semibold text-[#53565A]">{message.author}</p>
+                          <p className="text-[9px] text-[#A7A8AA]">
+                            {new Date(message.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-700">
+                        <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-snug text-[#53565A]">
                           {message.body}
                         </p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-3 grid gap-2">
-                    <div className="flex gap-2">
+                  <div className="mt-1.5 space-y-1.5">
+                    <div className="flex gap-1.5">
                       <input
-                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                        placeholder="Update assignee"
+                        className="min-w-0 flex-1 rounded-md border border-[#E3E3E3] px-2 py-1 text-xs"
+                        placeholder="Assignee"
                         value={assigneeValue}
                         onChange={(e) =>
                           setAssigneeByThread((prev) => ({ ...prev, [thread.id]: e.target.value }))
@@ -236,7 +237,7 @@ export function WorkpaperReviewNotes({
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="gap-1.5"
+                        className="h-7 gap-1 px-2 text-xs"
                         disabled={!reviewerName.trim() || !assigneeValue.trim() || busy}
                         onClick={() =>
                           void onAssignThread({
@@ -246,26 +247,25 @@ export function WorkpaperReviewNotes({
                           })
                         }
                       >
-                        <UserCheck className="h-3.5 w-3.5" />
-                        Assign
+                        <UserCheck className="h-3 w-3" />
                       </Button>
                     </div>
 
                     <textarea
-                      className="min-h-[72px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="Reply to thread"
+                      className="min-h-[52px] w-full rounded-md border border-[#E3E3E3] px-2 py-1 text-xs"
+                      placeholder="Reply"
                       value={replyValue}
                       onChange={(e) =>
                         setReplyByThread((prev) => ({ ...prev, [thread.id]: e.target.value }))
                       }
                     />
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="gap-1.5"
+                        className="h-7 gap-1 text-xs"
                         disabled={!reviewerName.trim() || !replyValue.trim() || busy}
                         onClick={() =>
                           void onReplyToThread({
@@ -275,14 +275,14 @@ export function WorkpaperReviewNotes({
                           })
                         }
                       >
-                        <Send className="h-3.5 w-3.5" />
+                        <Send className="h-3 w-3" />
                         Reply
                       </Button>
                       {open ? (
                         <>
                           <input
-                            className="min-w-[180px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                            placeholder="Resolution note (optional)"
+                            className="min-w-[120px] flex-1 rounded-md border border-[#E3E3E3] px-2 py-1 text-xs"
+                            placeholder="Resolution (optional)"
                             value={resolutionValue}
                             onChange={(e) =>
                               setResolutionByThread((prev) => ({ ...prev, [thread.id]: e.target.value }))
@@ -291,7 +291,7 @@ export function WorkpaperReviewNotes({
                           <Button
                             type="button"
                             size="sm"
-                            className="gap-1.5"
+                            className="h-7 gap-1 text-xs"
                             disabled={!reviewerName.trim() || busy}
                             onClick={() =>
                               void onResolveThread({
@@ -301,7 +301,7 @@ export function WorkpaperReviewNotes({
                               })
                             }
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <CheckCircle2 className="h-3 w-3" />
                             Resolve
                           </Button>
                         </>
@@ -310,7 +310,7 @@ export function WorkpaperReviewNotes({
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="gap-1.5"
+                          className="h-7 gap-1 text-xs"
                           disabled={!reviewerName.trim() || busy}
                           onClick={() =>
                             void onReopenThread({
@@ -320,7 +320,7 @@ export function WorkpaperReviewNotes({
                             })
                           }
                         >
-                          <RotateCcw className="h-3.5 w-3.5" />
+                          <RotateCcw className="h-3 w-3" />
                           Reopen
                         </Button>
                       )}

@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/db";
-import { packPillarCoverage, type QuestionPackProduct } from "@/lib/pillar-questionnaire";
+import {
+  packPillarCoverage,
+  resolvePackPillarSet,
+  type PackPillarSet,
+  type QuestionPackProduct,
+} from "@/lib/pillar-questionnaire";
 
 export type ProductCatalogSettings = {
   source: "framework" | "pack";
@@ -8,6 +13,8 @@ export type ProductCatalogSettings = {
     id: string;
     name: string;
     product: QuestionPackProduct;
+    pillarSet: PackPillarSet;
+    pillarCount: number;
     questionCount: number;
     coverageComplete: boolean;
     missingPillarIds: string[];
@@ -25,15 +32,19 @@ function packSummary(
     id: string;
     name: string;
     product: QuestionPackProduct;
+    pillarSet?: string | null;
     questions: Array<{ pillarId: string; prompt: string; active: boolean }>;
   } | null
 ): ProductCatalogSettings["defaultPack"] {
   if (!pack) return null;
-  const coverage = packPillarCoverage(pack.questions);
+  const pillarSet = resolvePackPillarSet({ pillarSet: pack.pillarSet, name: pack.name });
+  const coverage = packPillarCoverage(pack.questions, pillarSet);
   return {
     id: pack.id,
     name: pack.name,
     product: pack.product,
+    pillarSet,
+    pillarCount: coverage.pillarCount,
     questionCount: coverage.questionCount,
     coverageComplete: coverage.complete,
     missingPillarIds: coverage.missingPillarIds,
@@ -95,10 +106,11 @@ async function validateDefaultPack(packId: string, product: QuestionPackProduct)
       `That pack is tagged for ${pack.product === "guided_workshop" ? "guided workshop" : "maturity assessment"} only.`
     );
   }
-  const coverage = packPillarCoverage(pack.questions);
+  const pillarSet = resolvePackPillarSet({ pillarSet: pack.pillarSet, name: pack.name });
+  const coverage = packPillarCoverage(pack.questions, pillarSet);
   if (!coverage.complete) {
     throw new Error(
-      "The default pack needs at least one active question in each of the 11 pillars."
+      `The default pack needs at least one active question in each of the ${coverage.pillarCount} pillars for this pack.`
     );
   }
 }

@@ -91,7 +91,7 @@ export function GovernanceDependencyGraphView({ assessmentId }: { assessmentId: 
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#f6f7f9] text-sm text-slate-500">
+      <div className="flex h-full items-center justify-center bg-[#FAFAFA]/40 text-sm text-[#666666]">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Building dependency map…
       </div>
@@ -100,51 +100,44 @@ export function GovernanceDependencyGraphView({ assessmentId }: { assessmentId: 
 
   if (!graph || graph.nodes.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#f6f7f9] p-8 text-center">
-        <GitBranch className="h-10 w-10 text-slate-300" />
-        <p className="font-medium text-slate-800">No controls in scope for dependency mapping</p>
-        <p className="max-w-md text-sm text-slate-500">
-          Complete scoping and run analysis in Evidence first — dependencies reflect your assessment
-          posture and prerequisite chains.
+      <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#FAFAFA]/40 p-8 text-center">
+        <GitBranch className="h-8 w-8 text-[#D0D0CE]" />
+        <p className="text-sm font-semibold text-black">No controls in scope for dependency mapping</p>
+        <p className="max-w-md text-xs text-[#666666]">
+          Complete scoping and run analysis in Evidence first.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f6f7f9]">
-      <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">
-              Governance intelligence
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#FAFAFA]/40">
+      <header className="shrink-0 border-b border-[#E3E3E3] bg-white px-3 py-2 sm:px-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--theme-brand)]">
+              Validate
             </p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-              Control dependencies
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              See which controls must be effective before others can be relied upon. Fix foundation
-              gaps first to unlock downstream requirements.
-            </p>
+            <h2 className="text-sm font-semibold text-black">Control dependencies</h2>
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="shrink-0 gap-2"
+            className="h-7 shrink-0 gap-1.5 text-xs"
             disabled={refreshing}
             onClick={() => void refreshGraph()}
           >
             {refreshing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-3.5 w-3.5" />
             )}
             Refresh
           </Button>
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
           <StatTile label="Effective" value={graph.stats.effective} tone="emerald" />
           <StatTile label="Partial" value={graph.stats.partial} tone="amber" />
           <StatTile label="Gaps" value={graph.stats.ineffective} tone="rose" />
@@ -154,18 +147,18 @@ export function GovernanceDependencyGraphView({ assessmentId }: { assessmentId: 
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 sm:px-4 lg:flex-row [scrollbar-width:thin]">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex rounded-md border border-[#E3E3E3] bg-[#FAFAFA] p-0.5">
               <button
                 type="button"
                 onClick={() => setViewMode("stack")}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
                   viewMode === "stack"
-                    ? "bg-indigo-600 text-white"
-                    : "text-slate-600 hover:bg-slate-50"
+                    ? "bg-black text-white"
+                    : "text-[#53565A] hover:text-black"
                 )}
               >
                 <Layers className="h-3.5 w-3.5" />
@@ -175,10 +168,10 @@ export function GovernanceDependencyGraphView({ assessmentId }: { assessmentId: 
                 type="button"
                 onClick={() => setViewMode("paths")}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
                   viewMode === "paths"
-                    ? "bg-indigo-600 text-white"
-                    : "text-slate-600 hover:bg-slate-50"
+                    ? "bg-black text-white"
+                    : "text-[#53565A] hover:text-black"
                 )}
               >
                 <Route className="h-3.5 w-3.5" />
@@ -187,12 +180,12 @@ export function GovernanceDependencyGraphView({ assessmentId }: { assessmentId: 
             </div>
 
             {viewMode === "stack" && (
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-[#666666]">
                 <input
                   type="checkbox"
                   checked={showOnlyBlocked}
                   onChange={(e) => setShowOnlyBlocked(e.target.checked)}
-                  className="rounded border-slate-300"
+                  className="rounded border-[#D0D0CE]"
                 />
                 Show blocked only
               </label>
@@ -252,17 +245,17 @@ function StatTile({
   tone: "emerald" | "amber" | "rose" | "slate" | "red" | "indigo";
 }) {
   const tones = {
-    emerald: "border-emerald-100 bg-emerald-50/50",
-    amber: "border-amber-100 bg-amber-50/50",
-    rose: "border-rose-100 bg-rose-50/50",
-    slate: "border-slate-200 bg-white",
-    red: "border-red-100 bg-red-50/50",
-    indigo: "border-indigo-100 bg-indigo-50/50",
+    emerald: "border-[#86BC25]/35 bg-[#EEF7E0]/50",
+    amber: "border-amber-200 bg-amber-50/60",
+    rose: "border-rose-200 bg-rose-50/60",
+    slate: "border-[#E3E3E3] bg-[#FAFAFA]",
+    red: "border-red-200 bg-red-50/60",
+    indigo: "border-[#E3E3E3] bg-white",
   };
   return (
-    <div className={cn("rounded-xl border px-3 py-2.5", tones[tone])}>
-      <p className="text-xl font-bold tabular-nums text-slate-900">{value}</p>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+    <div className={cn("rounded-md border px-2.5 py-1.5", tones[tone])}>
+      <p className="text-base font-semibold tabular-nums text-black">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#767676]">{label}</p>
     </div>
   );
 }

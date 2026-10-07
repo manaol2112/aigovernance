@@ -123,13 +123,11 @@ function GuideStickyHeader({
   if (variant === "presentation") return null;
 
   return (
-    <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-5 py-3 shadow-sm backdrop-blur-sm">
+    <div className="border-b border-[#E3E3E3] bg-white px-4 py-2 sm:px-5">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600">Runbook</p>
-        <span className="text-slate-300">·</span>
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-        <span className="text-[11px] text-slate-400">·</span>
-        <span className="text-[11px] text-slate-500">{meta}</span>
+        <h3 className="text-sm font-semibold text-black">{title}</h3>
+        <span className="text-[11px] text-[#A7A8AA]">·</span>
+        <span className="text-[11px] text-[#666666]">{meta}</span>
         {badge}
       </div>
       <TopicFilterSelect

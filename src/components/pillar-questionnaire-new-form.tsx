@@ -38,14 +38,24 @@ import {
 } from "@/lib/client-industries";
 import { formatUnitCount } from "@/lib/format-unit-count";
 import { getPackClientCopy, PACK_WORKSHOP_COPY } from "@/lib/maturity-client-copy";
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import {
+  getPackPillarCatalog,
+  resolvePackPillarSet,
+  type PackPillarSet,
+} from "@/lib/pillar-questionnaire";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 import { rememberClientOwnedSession } from "@/lib/client-owned-sessions";
 
 type Props = {
   product: "maturity" | "workshop";
-  pack: { id: string; name: string; questionCount: number };
+  pack: {
+    id: string;
+    name: string;
+    questionCount: number;
+    pillarSet?: PackPillarSet | string | null;
+    pillarCount?: number;
+  };
   allowOverride: boolean;
 };
 
@@ -211,7 +221,13 @@ function OrganizationFields({
   );
 }
 
-function OverviewPanel({ product }: { product: "maturity" | "workshop" }) {
+function OverviewPanel({
+  product,
+  pillars,
+}: {
+  product: "maturity" | "workshop";
+  pillars: Array<{ id: string; label: string; description: string }>;
+}) {
   const copy = getPackClientCopy(product);
   const modeHeader =
     "relative border-[color-mix(in_srgb,var(--theme-brand)_18%,white)] bg-gradient-to-r from-[var(--theme-brand-muted)]/55 via-white to-white";
@@ -259,11 +275,11 @@ function OverviewPanel({ product }: { product: "maturity" | "workshop" }) {
           <div className="flex items-end justify-between gap-3">
             <p className="text-sm font-semibold text-slate-900">{copy.pillarsHeading}</p>
             <p className="text-[11px] font-medium tabular-nums text-slate-500">
-              {RISK_PILLARS.length} pillars
+              {pillars.length} pillars
             </p>
           </div>
           <div className="mt-3 grid max-h-80 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-            {RISK_PILLARS.map((pillar, index) => (
+            {pillars.map((pillar, index) => (
               <div
                 key={pillar.id}
                 className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-3 shadow-sm shadow-slate-900/[0.02]"
@@ -288,11 +304,13 @@ function PackSetupAside({
   product,
   step,
   questionCount,
+  pillarCount,
   organizationName,
 }: {
   product: "maturity" | "workshop";
   step: SetupStepId;
   questionCount: number;
+  pillarCount: number;
   organizationName: string;
 }) {
   const outcomes = product === "workshop" ? WORKSHOP_SETUP_OUTCOMES : MATURITY_SETUP_OUTCOMES;
@@ -332,7 +350,7 @@ function PackSetupAside({
                 Pillars
               </p>
               <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-slate-900">
-                {RISK_PILLARS.length}
+                {pillarCount}
               </p>
             </div>
           </div>
@@ -369,11 +387,17 @@ function PackNewForm({
   allowOverride,
 }: {
   product: "maturity" | "workshop";
-  pack: { id: string; name: string; questionCount: number };
+  pack: Props["pack"];
   allowOverride: boolean;
 }) {
   const router = useRouter();
   const copy = getPackClientCopy(product);
+  const pillarSet = resolvePackPillarSet({
+    pillarSet: pack.pillarSet,
+    name: pack.name,
+  });
+  const pillars = getPackPillarCatalog(pillarSet);
+  const pillarCount = pack.pillarCount ?? pillars.length;
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<SetupStepId>("organization");
   const [industrySelection, setIndustrySelection] = useState("");
@@ -480,7 +504,7 @@ function PackNewForm({
           </p>
           <p className="text-xs text-slate-500">
             {step === "organization"
-              ? `Step 1 of 2 · ${formatUnitCount(pack.questionCount, "question", "questions")} across ${RISK_PILLARS.length} pillars`
+              ? `Step 1 of 2 · ${formatUnitCount(pack.questionCount, "question", "questions")} across ${pillarCount} pillars`
               : `Step 2 of 2 · ${copy.modeLabel}`}
           </p>
         </div>
@@ -573,7 +597,7 @@ function PackNewForm({
                   <span className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-indigo-300" />
                     {formatUnitCount(pack.questionCount, "question", "questions")} · ~
-                    {RISK_PILLARS.length} minutes
+                    {pillarCount} minutes
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Lock className="h-3.5 w-3.5 text-indigo-300" />
@@ -601,10 +625,11 @@ function PackNewForm({
                   <span className="ml-2 text-base font-normal text-slate-400">questions</span>
                 </p>
                 <p className="mt-1 text-sm text-slate-400">
-                  Across {RISK_PILLARS.length} governance pillars
+                  Across {pillarCount} governance pillars
+                  {pillarSet === "tmt_6" ? " · TMT" : ""}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-1.5">
-                  {RISK_PILLARS.slice(0, 6).map((pillar) => (
+                  {pillars.slice(0, 6).map((pillar) => (
                     <span
                       key={pillar.id}
                       className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-medium text-slate-300"
@@ -612,9 +637,9 @@ function PackNewForm({
                       {pillar.label.split("&")[0]?.trim() ?? pillar.label}
                     </span>
                   ))}
-                  {RISK_PILLARS.length > 6 && (
+                  {pillars.length > 6 && (
                     <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-medium text-slate-400">
-                      +{RISK_PILLARS.length - 6} more
+                      +{pillars.length - 6} more
                     </span>
                   )}
                 </div>
@@ -689,7 +714,7 @@ function PackNewForm({
 
               {step === "overview" && (
                 <ScrollReveal variant="premium" delay={40}>
-                  <OverviewPanel product={product} />
+                  <OverviewPanel product={product} pillars={pillars} />
                 </ScrollReveal>
               )}
 
@@ -710,6 +735,7 @@ function PackNewForm({
                 product={product}
                 step={step}
                 questionCount={pack.questionCount}
+                pillarCount={pillarCount}
                 organizationName={form.organizationName}
               />
             </ScrollReveal>

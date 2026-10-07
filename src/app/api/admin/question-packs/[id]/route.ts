@@ -3,6 +3,7 @@ import { assertPrismaReady, PrismaNotReadyError } from "@/lib/db";
 import {
   archiveQuestionPack,
   getQuestionPack,
+  updatePackPillarWeights,
   updateQuestionPack,
 } from "@/lib/question-pack-service";
 
@@ -34,7 +35,19 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     assertPrismaReady();
     const { id } = await params;
-    const body = (await request.json()) as { name?: string; description?: string | null };
+    const body = (await request.json()) as {
+      name?: string;
+      description?: string | null;
+      pillarSet?: string | null;
+      pillarWeights?: Array<{ pillarId: string; weight: number }>;
+    };
+
+    if (body.pillarWeights) {
+      const pack = await updatePackPillarWeights(id, body.pillarWeights);
+      if (!pack) return NextResponse.json({ error: "Question pack not found." }, { status: 404 });
+      return NextResponse.json(pack);
+    }
+
     const pack = await updateQuestionPack(id, body);
     return NextResponse.json(pack);
   } catch (error) {

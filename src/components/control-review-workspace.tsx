@@ -17,7 +17,6 @@ import {
   Layers,
   Loader2,
   Maximize2,
-  MessageCircle,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -540,20 +539,20 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
     >
     <div
       className={cn(
-        "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm",
+        "flex min-h-0 flex-col rounded-xl border border-[#E3E3E3] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] lg:h-full lg:overflow-hidden",
         className
       )}
     >
-      {/* Compact toolbar — workshop tab uses its own header shell */}
-      {tab !== "workshop" && (
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-3 py-2">
+      {/* Compact toolbar — workshop / evidence / sign-off use their own header shells */}
+      {tab !== "workshop" && tab !== "notes" && tab !== "review" && (
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#E3E3E3] bg-[#FAFAFA]/70 px-3 py-1.5 sm:px-4">
         {!hideWorkspacePhaseTabs && (
           <>
-            <div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-slate-100 p-0.5 [scrollbar-width:thin]">
+            <div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[#E3E3E3] bg-white p-0.5 [scrollbar-width:thin]">
               {WORKSPACE_TAB_GROUPS.map((group, groupIdx) => (
                 <div key={group.journeyId} className="flex shrink-0 items-center gap-0.5">
                   {groupIdx > 0 && (
-                    <span className="mx-0.5 hidden h-4 w-px shrink-0 bg-slate-300/80 sm:block" aria-hidden />
+                    <span className="mx-0.5 hidden h-4 w-px shrink-0 bg-[#E3E3E3] sm:block" aria-hidden />
                   )}
                   {group.tabs.map((tabId) => {
                     const phase = WORKSPACE_PHASES.find((p) => p.id === tabId)!;
@@ -563,22 +562,16 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
                         type="button"
                         title={phase.subtitle}
                         onClick={() => void requestTabChange(phase.id)}
-                        className={`shrink-0 rounded-md px-2.5 py-1.5 text-left transition-all sm:px-3 ${
+                        className={cn(
+                          "shrink-0 rounded-md px-2.5 py-1.5 text-left transition-all sm:px-3",
                           tab === phase.id
-                            ? "bg-white text-indigo-700 shadow-sm"
-                            : "text-slate-500 hover:text-slate-800"
-                        }`}
+                            ? "bg-black text-white shadow-sm"
+                            : "text-[#53565A] hover:bg-[#F5F5F5] hover:text-black"
+                        )}
                       >
                         <span className="block text-[11px] font-semibold leading-tight sm:text-xs">
                           <span className="sm:hidden">{phase.shortLabel}</span>
                           <span className="hidden sm:inline">{phase.label}</span>
-                        </span>
-                        <span
-                          className={`mt-0.5 hidden text-[10px] font-normal leading-tight xl:block ${
-                            tab === phase.id ? "text-indigo-600/80" : "text-slate-400"
-                          }`}
-                        >
-                          {phase.subtitle}
                         </span>
                       </button>
                     );
@@ -586,7 +579,7 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
                 </div>
               ))}
             </div>
-            <div className="hidden h-4 w-px bg-slate-200 sm:block" />
+            <div className="hidden h-4 w-px bg-[#E3E3E3] sm:block" />
           </>
         )}
 
@@ -595,7 +588,7 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
         {departmentOptions.length > 0 && (
           <select
             id="workshop-scope"
-            className="max-w-[200px] rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700"
+            className="max-w-[200px] rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5 text-xs font-medium text-black"
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}
             title="Data scope"
@@ -625,325 +618,312 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
         )}
 
         <div
-          className="hidden items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600 sm:flex"
+          className="hidden items-center gap-1.5 rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1 text-xs text-[#666666] sm:flex"
           title="Validation progress"
         >
-          <span className="font-semibold text-slate-900">{stats.confirmed}</span>
-          <span className="text-slate-400">/</span>
+          <span className="font-semibold text-black">{stats.confirmed}</span>
+          <span className="text-[#A7A8AA]">/</span>
           <span>{stats.total}</span>
-          <div className="ml-1 h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full rounded-full bg-indigo-600" style={{ width: `${progressPct}%` }} />
+          <div className="ml-1 h-1.5 w-16 overflow-hidden rounded-full bg-[#F0F0F0]">
+            <div
+              className="h-full rounded-full bg-[var(--theme-brand)]"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
         </div>
 
-        {tab === "review" && captureChunkCount > 0 && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setValidationChatOpen(true)}
-            className="h-7 gap-1.5 px-2 text-xs"
-          >
-            <MessageCircle className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Ask sources</span>
-          </Button>
-        )}
       </div>
       )}
 
-      {/* Secondary stats — hidden on Workshop tab to maximize question space */}
-      {tab !== "workshop" && (
-        <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 border-b border-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
-          <span>{stats.pillarCount} pillars</span>
-          <span>{stats.total} controls</span>
-          <span>{stats.scopedRequirements} requirements</span>
-          <span className="text-indigo-600">{stats.confirmed} confirmed</span>
-        </div>
-      )}
-
-      {/* Tab content */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Tab content — nested scroll only at lg+; phones use #main-content */}
+      <div className="flex min-h-0 flex-1 flex-col lg:overflow-hidden">
         {tab === "workshop" && (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f6f7f9]">
-            <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">
-                    Assessment workspace
-                  </p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-                    Workshop facilitation
-                  </h2>
-                  <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                    Run stakeholder sessions by risk pillar or department. Use the presenter view for
-                    live facilitation, then move to Evidence when the session is complete.
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={() =>
-                      openWorkshopPresenter(assessmentId, {
-                        mode: runbookMode,
-                        pillarId: activePillarId,
-                        facilitatorDepartment,
-                        department: selectedDepartment,
-                        subPillarId: activeSubPillarId,
-                      })
-                    }
-                  >
-                    <Maximize2 className="h-3.5 w-3.5" />
-                    Presenter
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={!!exportLoading}
-                    onClick={() => downloadWorkshopExport("current")}
-                    className="gap-1.5"
-                  >
-                    {exportLoading === "current" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Download className="h-3.5 w-3.5" />
-                    )}
-                    Export
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={!!exportLoading}
-                    onClick={() => downloadWorkshopExport("all")}
-                  >
-                    Full guide
-                  </Button>
-                  {!hideWorkspacePhaseTabs && (
-                    <Button
+          <div className="min-w-0 space-y-3 bg-[#FAFAFA]/40 pb-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overflow-x-hidden [scrollbar-width:thin]">
+            <header className="flex flex-col gap-2 border-b border-[#E3E3E3] bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <div
+                  className="inline-flex rounded-md border border-[#E3E3E3] bg-[#FAFAFA] p-0.5"
+                  role="group"
+                  aria-label="Workshop navigation mode"
+                >
+                  {([
+                    ["pillar", "Pillars", Layers],
+                    ["department", "Stakeholders", Users],
+                  ] as const).map(([mode, label, Icon]) => (
+                    <button
+                      key={mode}
                       type="button"
-                      size="sm"
-                      onClick={() => void requestTabChange("notes")}
-                      className="gap-1.5 bg-indigo-600 hover:bg-indigo-700"
+                      onClick={() => {
+                        setRunbookMode(mode);
+                        setActiveSubPillarId(null);
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                        runbookMode === mode
+                          ? "bg-black text-white"
+                          : "text-[#53565A] hover:text-black"
+                      )}
                     >
-                      Evidence pipeline
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  ))}
                 </div>
+                {departmentOptions.length > 0 && (
+                  <label className="inline-flex items-center gap-2 text-[11px] text-[#666666]">
+                    <span className="font-medium">Scope</span>
+                    <select
+                      id="workshop-scope"
+                      className="rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5 text-xs font-medium text-black"
+                      value={selectedDepartment}
+                      onChange={(e) => setSelectedDepartment(e.target.value)}
+                    >
+                      <option value={ALL_DEPARTMENTS}>All organization</option>
+                      {departmentOptions.some((d) => d.fromScopedControls) && (
+                        <optgroup label="In scope">
+                          {departmentOptions
+                            .filter((d) => d.fromScopedControls)
+                            .map((dept) => (
+                              <option key={dept.id} value={dept.label}>
+                                {dept.label}
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="Stakeholders">
+                        {departmentOptions
+                          .filter((d) => !d.fromScopedControls)
+                          .map((dept) => (
+                            <option key={dept.id} value={dept.label}>
+                              {dept.label}
+                            </option>
+                          ))}
+                      </optgroup>
+                    </select>
+                  </label>
+                )}
               </div>
-
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <p className="mr-1 text-[11px] tabular-nums text-[#666666]">
+                  <span className="font-semibold text-black">{stats.confirmed}</span>
+                  {" / "}
+                  {stats.total}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() =>
+                    openWorkshopPresenter(assessmentId, {
+                      mode: runbookMode,
+                      pillarId: activePillarId,
+                      facilitatorDepartment,
+                      department: selectedDepartment,
+                      subPillarId: activeSubPillarId,
+                    })
+                  }
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                  Presenter
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!!exportLoading}
+                  onClick={() => downloadWorkshopExport("current")}
+                  className="gap-1.5"
+                >
+                  {exportLoading === "current" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                  Export
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!!exportLoading}
+                  onClick={() => downloadWorkshopExport("all")}
+                >
+                  Full guide
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void requestTabChange("notes")}
+                  className="gap-1.5"
+                >
+                  Evidence
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-hidden p-5 sm:p-6">
-              <div className="flex h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-                <aside className="flex w-[17rem] shrink-0 flex-col border-r border-slate-200 bg-[#f8fafc]">
-                  <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-3">
-                    <div
-                      className="inline-flex w-full rounded-xl border border-slate-200 bg-slate-50 p-1"
-                      role="group"
-                      aria-label="Workshop navigation mode"
+            <div className="min-w-0 space-y-2 px-3 sm:px-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#767676]">
+                  {runbookMode === "pillar" ? "Risk pillars" : "Stakeholders"}
+                </p>
+                {runbookMode === "pillar" && pillars.length > 0 ? (
+                  <label className="inline-flex min-w-0 items-center gap-2 text-[11px] text-[#666666]">
+                    <span className="shrink-0 font-medium">Jump to</span>
+                    <select
+                      className="max-w-[14rem] rounded-md border border-[#E3E3E3] bg-white px-2 py-1 text-xs font-medium text-black"
+                      value={activePillarId ?? ""}
+                      onChange={(e) => selectPillar(e.target.value)}
+                      aria-label="Select risk pillar"
                     >
-                      {([
-                        ["pillar", "Pillars", Layers],
-                        ["department", "Stakeholders", Users],
-                      ] as const).map(([mode, label, Icon]) => (
+                      {pillars.map((pillar, idx) => (
+                        <option key={pillar.pillarId} value={pillar.pillarId}>
+                          {idx + 1}. {pillar.pillarLabel}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {runbookMode === "department" && departmentOptions.length > 0 ? (
+                  <label className="inline-flex min-w-0 items-center gap-2 text-[11px] text-[#666666]">
+                    <span className="shrink-0 font-medium">Jump to</span>
+                    <select
+                      className="max-w-[14rem] rounded-md border border-[#E3E3E3] bg-white px-2 py-1 text-xs font-medium text-black"
+                      value={facilitatorDepartment}
+                      onChange={(e) => {
+                        setFacilitatorDepartment(e.target.value);
+                        setActiveSubPillarId(null);
+                      }}
+                      aria-label="Select stakeholder"
+                    >
+                      {departmentOptions.map((dept) => (
+                        <option key={dept.id} value={dept.label}>
+                          {dept.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
+              <nav
+                className="flex min-w-0 flex-wrap gap-1.5"
+                aria-label={runbookMode === "pillar" ? "Risk pillars" : "Stakeholders"}
+              >
+                {runbookMode === "pillar"
+                  ? pillars.map((pillar, idx) => {
+                      const active = activePillarId === pillar.pillarId;
+                      return (
                         <button
-                          key={mode}
+                          key={pillar.pillarId}
+                          type="button"
+                          onClick={() => selectPillar(pillar.pillarId)}
+                          className={cn(
+                            "inline-flex max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
+                            active
+                              ? "border-black bg-black text-white"
+                              : "border-[#E3E3E3] bg-white text-[#53565A] hover:border-[#D0D0CE] hover:text-black"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-semibold",
+                              active
+                                ? "bg-white/15 text-white"
+                                : "bg-[#EEF7E0] text-[#046A38]"
+                            )}
+                          >
+                            {idx + 1}
+                          </span>
+                          <span className="truncate text-xs font-semibold leading-snug">
+                            {pillar.pillarLabel}
+                          </span>
+                        </button>
+                      );
+                    })
+                  : departmentOptions.map((dept) => {
+                      const active = facilitatorDepartment === dept.label;
+                      return (
+                        <button
+                          key={dept.id}
                           type="button"
                           onClick={() => {
-                            setRunbookMode(mode);
+                            setFacilitatorDepartment(dept.label);
                             setActiveSubPillarId(null);
                           }}
+                          title={dept.description}
                           className={cn(
-                            "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
-                            runbookMode === mode
-                              ? "bg-white text-indigo-900 shadow-sm ring-1 ring-indigo-200"
-                              : "text-slate-600 hover:text-slate-900"
+                            "inline-flex max-w-full items-center rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                            active
+                              ? "border-black bg-black text-white"
+                              : "border-[#E3E3E3] bg-white text-[#53565A] hover:border-[#D0D0CE] hover:text-black"
                           )}
                         >
-                          <Icon className="h-3.5 w-3.5" />
-                          {label}
+                          <span className="truncate">{dept.label}</span>
                         </button>
-                      ))}
-                    </div>
-                    <p className="mt-2.5 px-0.5 text-[11px] leading-relaxed text-slate-600">
-                      {runbookMode === "pillar"
-                        ? `${pillars.length} pillars in scope — pick one to open the runbook.`
-                        : `${departmentOptions.length} stakeholder groups — pick one for targeted questions.`}
-                    </p>
-                    {departmentOptions.length > 0 && (
-                      <label className="mt-3 block">
-                        <span className="mb-1 block text-[11px] font-medium text-slate-600">Data scope</span>
-                        <select
-                          id="workshop-scope"
-                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-                          value={selectedDepartment}
-                          onChange={(e) => setSelectedDepartment(e.target.value)}
-                        >
-                          <option value={ALL_DEPARTMENTS}>All organization</option>
-                          {departmentOptions.some((d) => d.fromScopedControls) && (
-                            <optgroup label="In scope">
-                              {departmentOptions
-                                .filter((d) => d.fromScopedControls)
-                                .map((dept) => (
-                                  <option key={dept.id} value={dept.label}>
-                                    {dept.label}
-                                  </option>
-                                ))}
-                            </optgroup>
-                          )}
-                          <optgroup label="Stakeholders">
-                            {departmentOptions
-                              .filter((d) => !d.fromScopedControls)
-                              .map((dept) => (
-                                <option key={dept.id} value={dept.label}>
-                                  {dept.label}
-                                </option>
-                              ))}
-                          </optgroup>
-                        </select>
-                      </label>
-                    )}
-                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
-                      <span className="font-semibold text-slate-900">{stats.confirmed}</span>
-                      <span>/</span>
-                      <span>{stats.total} validated</span>
-                      <div className="ml-auto h-1.5 w-14 overflow-hidden rounded-full bg-slate-200">
-                        <div
-                          className="h-full rounded-full bg-indigo-600 transition-all"
-                          style={{ width: `${progressPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <nav
-                    className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#f1f5f9] p-3 [scrollbar-width:thin]"
-                    aria-label={runbookMode === "pillar" ? "Risk pillars" : "Stakeholders"}
-                  >
-                    {runbookMode === "pillar"
-                      ? pillars.map((pillar, idx) => {
-                          const active = activePillarId === pillar.pillarId;
-                          return (
-                            <button
-                              key={pillar.pillarId}
-                              type="button"
-                              onClick={() => selectPillar(pillar.pillarId)}
-                              className={cn(
-                                "relative flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
-                                active
-                                  ? "border-indigo-200 bg-white shadow-sm ring-1 ring-indigo-100"
-                                  : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
-                              )}
-                            >
-                              {active && (
-                                <span className="absolute bottom-2 left-0 top-2 w-1 rounded-r-full bg-indigo-600" />
-                              )}
-                              <span
-                                className={cn(
-                                  "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold",
-                                  active
-                                    ? "bg-indigo-600 text-white shadow-sm"
-                                    : "bg-indigo-50 text-indigo-700"
-                                )}
-                              >
-                                {idx + 1}
-                              </span>
-                              <span className="min-w-0 flex-1 pl-1">
-                                <span className="block text-xs font-semibold leading-snug text-slate-900">
-                                  {pillar.pillarLabel}
-                                </span>
-                                <span className="mt-1 block text-[10px] text-slate-500">
-                                  {pillar.requirementCount} requirement
-                                  {pillar.requirementCount !== 1 ? "s" : ""}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })
-                      : departmentOptions.map((dept) => {
-                          const active = facilitatorDepartment === dept.label;
-                          return (
-                            <button
-                              key={dept.id}
-                              type="button"
-                              onClick={() => {
-                                setFacilitatorDepartment(dept.label);
-                                setActiveSubPillarId(null);
-                              }}
-                              className={cn(
-                                "relative w-full rounded-xl border px-3 py-3 text-left text-xs font-semibold leading-snug transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
-                                active
-                                  ? "border-indigo-200 bg-white text-indigo-950 shadow-sm ring-1 ring-indigo-100"
-                                  : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:shadow-sm"
-                              )}
-                              title={dept.description}
-                            >
-                              {active && (
-                                <span className="absolute bottom-2 left-0 top-2 w-1 rounded-r-full bg-indigo-600" />
-                              )}
-                              <span className="block pl-2">{dept.label}</span>
-                            </button>
-                          );
-                        })}
-                  </nav>
-                </aside>
+                      );
+                    })}
+              </nav>
+            </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto bg-[#f6f7f9]">
-                  {runbookMode === "pillar" ? (
-                    <PillarWorkshopGuidePanel
-                      guide={pillarGuide}
-                      loading={pillarGuideLoading}
-                      activeSubPillarId={activeSubPillarId}
-                      onSubPillarSelect={selectSubPillar}
-                    />
-                  ) : (
-                    <DepartmentWorkshopGuidePanel
-                      guide={departmentGuide}
-                      loading={departmentGuideLoading}
-                      activeSubPillarId={activeSubPillarId}
-                      onSubPillarSelect={selectSubPillar}
-                    />
-                  )}
-                </div>
-              </div>
+            <div className="mx-3 overflow-hidden rounded-lg border border-[#E3E3E3] bg-white sm:mx-4">
+              {runbookMode === "pillar" ? (
+                <PillarWorkshopGuidePanel
+                  guide={pillarGuide}
+                  loading={pillarGuideLoading}
+                  activeSubPillarId={activeSubPillarId}
+                  onSubPillarSelect={selectSubPillar}
+                />
+              ) : (
+                <DepartmentWorkshopGuidePanel
+                  guide={departmentGuide}
+                  loading={departmentGuideLoading}
+                  activeSubPillarId={activeSubPillarId}
+                  onSubPillarSelect={selectSubPillar}
+                />
+              )}
             </div>
           </div>
         )}
 
         {tab === "notes" && (
-          <WorkshopCaptureWorkspace
-            assessmentId={assessmentId}
-            evidence={evidence}
-            saving={saving}
-            analysisSummary={analysisSummary}
-            analysisStale={analysisStale}
-            lastAnalyzedAt={lastAnalyzedAt}
-            analysisError={analysisError}
-            onUploadFiles={uploadCaptureFiles}
-            onDeleteFile={deleteEvidence}
-            onAnalyzeAll={analyzeAllCaptureFiles}
-            onGoToMapping={() => void requestTabChange("mapping")}
-          />
+          <div className="flex min-h-[70dvh] min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0">
+            <WorkshopCaptureWorkspace
+              assessmentId={assessmentId}
+              evidence={evidence}
+              saving={saving}
+              analysisSummary={analysisSummary}
+              analysisStale={analysisStale}
+              lastAnalyzedAt={lastAnalyzedAt}
+              analysisError={analysisError}
+              onUploadFiles={uploadCaptureFiles}
+              onDeleteFile={deleteEvidence}
+              onAnalyzeAll={analyzeAllCaptureFiles}
+              onGoToMapping={() => void requestTabChange("mapping")}
+            />
+          </div>
         )}
 
         {tab === "mapping" && (
-          <GovernanceMappingPanel
-            assessmentId={assessmentId}
-            pillars={pillars}
-            workshopNotes={workshopNotes}
-            facilitatorNotes={facilitatorNotes}
-            evidenceTexts={evidenceTexts}
-          />
+          <div className="flex min-h-[70dvh] min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0">
+            <GovernanceMappingPanel
+              assessmentId={assessmentId}
+              pillars={pillars}
+              workshopNotes={workshopNotes}
+              facilitatorNotes={facilitatorNotes}
+              evidenceTexts={evidenceTexts}
+            />
+          </div>
         )}
 
-        {tab === "dependencies" && <GovernanceDependencyGraphView assessmentId={assessmentId} />}
+        {tab === "dependencies" && (
+          <div className="flex min-h-[70dvh] min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0">
+            <GovernanceDependencyGraphView assessmentId={assessmentId} />
+          </div>
+        )}
 
         {tab === "review" && (
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-[70dvh] min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0">
             <ControlReviewWorkpaperPanel
               assessmentId={assessmentId}
               pillars={pillars}
@@ -976,13 +956,19 @@ export const ControlReviewWorkspace = forwardRef<ControlReviewWorkspaceHandle, P
         )}
 
         {tab === "assessment_output" && (
-          <GovernanceAssessmentOutputPanel assessmentId={assessmentId} />
+          <div className="flex min-h-[70dvh] min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0">
+            <GovernanceAssessmentOutputPanel assessmentId={assessmentId} />
+          </div>
         )}
 
-        {tab === "roadmap" && <GovernanceRoadmapPanel assessmentId={assessmentId} />}
+        {tab === "roadmap" && (
+          <div className="flex min-h-[70dvh] min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0">
+            <GovernanceRoadmapPanel assessmentId={assessmentId} />
+          </div>
+        )}
 
         <div
-          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
+          className={`flex min-h-[70dvh] min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0 ${
             tab === "reporting" ? "" : "hidden"
           }`}
         >

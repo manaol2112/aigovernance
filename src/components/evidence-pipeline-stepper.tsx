@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import {
   activePipelineStepId,
   resolveEvidencePipelineSteps,
@@ -22,24 +22,24 @@ type Props = {
 
 const STATUS_STYLES: Record<PipelineStepStatus, { chip: string; badge: string; text: string }> = {
   complete: {
-    chip: "bg-indigo-50 text-indigo-900 ring-1 ring-indigo-100",
-    badge: "bg-indigo-600 text-white",
-    text: "text-indigo-700",
+    chip: "bg-[#EEF7E0] text-[#046A38]",
+    badge: "bg-[#86BC25] text-black",
+    text: "text-[#046A38]",
   },
   active: {
-    chip: "bg-slate-900 text-white shadow-md ring-1 ring-slate-700",
-    badge: "bg-white text-slate-900",
-    text: "text-white/90",
+    chip: "bg-black text-white",
+    badge: "bg-white text-black",
+    text: "text-white/85",
   },
   warning: {
-    chip: "bg-amber-50 text-amber-950 ring-1 ring-amber-200",
+    chip: "bg-amber-50 text-amber-950",
     badge: "bg-amber-500 text-white",
     text: "text-amber-800",
   },
   upcoming: {
-    chip: "bg-slate-50 text-slate-500 ring-1 ring-slate-100",
-    badge: "bg-slate-200 text-slate-600",
-    text: "text-slate-400",
+    chip: "bg-[#FAFAFA] text-[#666666]",
+    badge: "bg-[#E3E3E3] text-[#53565A]",
+    text: "text-[#767676]",
   },
 };
 
@@ -66,7 +66,7 @@ export function EvidencePipelineStepper({
     <nav
       aria-label="Evidence pipeline"
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm",
+        "flex min-w-0 flex-wrap items-center gap-1",
         className
       )}
     >
@@ -76,37 +76,41 @@ export function EvidencePipelineStepper({
         const clickable = Boolean(onStepClick);
 
         return (
-          <div key={step.id} className="flex items-center gap-2">
+          <div key={step.id} className="flex items-center gap-1">
             <button
               type="button"
               disabled={!clickable}
               onClick={() => onStepClick?.(step.id)}
               title={step.detail}
               className={cn(
-                "flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-all",
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left transition-colors",
                 styles.chip,
-                clickable && "hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                clickable && "hover:brightness-[0.98]",
                 !clickable && "cursor-default",
-                isActive && step.status !== "active" && "ring-2 ring-indigo-300"
+                isActive && step.status !== "active" && "ring-1 ring-black/20"
               )}
             >
               <span
                 className={cn(
-                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold",
                   styles.badge
                 )}
               >
-                {step.status === "complete" ? "✓" : i + 1}
+                {step.status === "complete" ? <Check className="h-3 w-3" /> : i + 1}
               </span>
-              <div className="min-w-0">
-                <p className={cn("text-xs font-semibold", styles.text)}>{step.label}</p>
+              <span className="min-w-0">
+                <span className={cn("block text-[11px] font-semibold leading-tight", styles.text)}>
+                  {step.label}
+                </span>
                 {!compact && (
-                  <p className={cn("text-[10px] leading-snug opacity-90", styles.text)}>{step.detail}</p>
+                  <span className={cn("mt-0.5 block text-[10px] leading-snug", styles.text)}>
+                    {step.detail}
+                  </span>
                 )}
-              </div>
+              </span>
             </button>
             {i < steps.length - 1 && (
-              <ChevronRight className="hidden h-4 w-4 shrink-0 text-slate-300 sm:block" />
+              <ChevronRight className="hidden h-3.5 w-3.5 shrink-0 text-[#D0D0CE] sm:block" />
             )}
           </div>
         );

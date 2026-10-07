@@ -18,7 +18,7 @@ export async function loadGuidedWorkshopBundle(workshopId: string) {
       responses: true,
       packQuestions: true,
       packResponses: true,
-      questionPack: { select: { name: true } },
+      questionPack: { select: { name: true, pillarSet: true } },
     },
   });
   if (!workshop) return null;
@@ -34,6 +34,7 @@ export async function loadGuidedWorkshopBundle(workshopId: string) {
       title: workshop.title,
       organizationName: workshop.organizationName,
       packName: workshop.questionPack?.name ?? null,
+      pillarSet: workshop.questionPack?.pillarSet ?? null,
       generatedAt: (workshop.submittedAt ?? workshop.updatedAt).toISOString(),
       snapshots,
       answers: packAnswers,

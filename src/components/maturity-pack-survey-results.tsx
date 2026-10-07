@@ -14,6 +14,7 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
+import { PackRatingMethodDialog } from "@/components/pack-rating-method-dialog";
 import {
   PackAnswerStackedChart,
   PackPillarRadarChart,
@@ -37,11 +38,13 @@ import {
   describePackPillarBriefing,
   groupPackRoadmapByPhase,
   scoreBandLabel,
+  splitPackFindingsPreview,
   type PackPillarScore,
   type PackReport,
   type PackRoadmapPhase,
   type PackRoadmapStep,
 } from "@/lib/pillar-questionnaire-scoring";
+import type { PackFinding } from "@/lib/pillar-questionnaire";
 import {
   getPackClientCopy,
   type PackClientCopy,
@@ -105,43 +108,6 @@ type PillarAnswerFact = {
   status: "no" | "partial" | "dont_know" | "yes";
 };
 
-const PILLAR_FACT_STATUS: Record<
-  PillarAnswerFact["status"],
-  { label: string; short: string; row: string; mark: string }
-> = {
-  no: {
-    label: "Outstanding",
-    short: "No",
-    row: "text-slate-800",
-    mark: "bg-[#DA291C]",
-  },
-  partial: {
-    label: "In progress",
-    short: "Partial",
-    row: "text-slate-800",
-    mark: "bg-[#ED8B00]",
-  },
-  dont_know: {
-    label: "Unresolved",
-    short: "Don’t know",
-    row: "text-slate-600",
-    mark: "bg-[#767676]",
-  },
-  yes: {
-    label: "Operating",
-    short: "Yes",
-    row: "text-slate-800",
-    mark: "bg-[#046A38]",
-  },
-};
-
-function displaySurveyPrompt(prompt: string): string {
-  const cleaned = prompt.trim().replace(/\s+/g, " ");
-  if (!cleaned) return cleaned;
-  // Keep the original question text — accuracy over rewriting.
-  return /[?.!]$/.test(cleaned) ? cleaned : `${cleaned}?`;
-}
-
 function postureLabelClass(tone: ReturnType<typeof scoreBandLabel>["tone"] | null, unknown?: boolean): string {
   if (unknown) return "text-slate-500";
   switch (tone) {
@@ -161,11 +127,9 @@ function postureLabelClass(tone: ReturnType<typeof scoreBandLabel>["tone"] | nul
 function PackPillarScoreRow({
   pillar,
   priorityFocus,
-  facts = [],
 }: {
   pillar: PackPillarScore;
   priorityFocus?: boolean;
-  facts?: PillarAnswerFact[];
 }) {
   const [open, setOpen] = useState(false);
   const posture = scoreBandLabel(pillar.alignmentPct);
@@ -204,6 +168,9 @@ function PackPillarScoreRow({
             <div className="mt-3 max-w-md">
               <PackPostureMeter tone={unknown ? null : posture.tone} size="sm" />
             </div>
+            <p className="mt-2.5 line-clamp-2 text-xs leading-relaxed text-slate-500">
+              {briefing.ratingTeaser}
+            </p>
           </div>
           <div className="flex shrink-0 items-center gap-3 pt-0.5">
             <div className="text-right">
@@ -239,64 +206,117 @@ function PackPillarScoreRow({
               className="absolute bottom-3 left-0 top-3 w-0.5 rounded-r-full bg-[var(--theme-brand)]"
             />
             <p className="pl-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-theme-brand">
-              {briefing.readingTitle}
-            </p>
-            <p className="mt-1.5 pl-2 text-sm leading-relaxed text-slate-700">{briefing.reading}</p>
-          </div>
-
-          <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-[#fafafa] px-4 py-3.5">
-            <span
-              aria-hidden
-              className="absolute bottom-3 left-0 top-3 w-0.5 rounded-r-full bg-slate-900"
-            />
-            <p className="pl-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              {briefing.nextLevelLabel
-                ? `Path to ${briefing.nextLevelLabel}`
-                : "How to hold this level"}
+              {briefing.ratingTitle}
             </p>
             <p className="mt-1.5 pl-2 text-sm leading-relaxed text-slate-700">
-              {briefing.nextLevelGuidance}
+              {briefing.ratingReason}
             </p>
+            <p className="mt-3 pl-2 text-sm leading-relaxed text-slate-700">{briefing.reading}</p>
           </div>
 
-          {facts.length === 0 ? (
-            <p className="text-sm text-slate-500">No answers recorded for this pillar yet.</p>
-          ) : (
-            <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                Supporting responses
+          {briefing.weightReason ? (
+            <div className="relative overflow-hidden rounded-xl border border-[#86BC25]/30 bg-[#86BC25]/[0.06] px-4 py-3.5">
+              <span
+                aria-hidden
+                className="absolute bottom-3 left-0 top-3 w-0.5 rounded-r-full bg-[#86BC25]"
+              />
+              <p className="pl-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#26890D]">
+                {briefing.weightTitle}
               </p>
-              <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                {facts.map((fact, index) => {
-                  const status = PILLAR_FACT_STATUS[fact.status];
-                  return (
-                    <li
-                      key={`${fact.status}-${index}`}
-                      className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-3 last:border-b-0"
-                    >
-                      <span
-                        className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", status.mark)}
-                        aria-hidden
-                      />
-                      <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-slate-700">
-                        {displaySurveyPrompt(fact.prompt)}
-                      </p>
-                      <span
-                        className={cn(
-                          "shrink-0 text-[10px] font-semibold uppercase tracking-[0.1em]",
-                          status.row
-                        )}
-                      >
-                        {status.short}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <p className="mt-1.5 pl-2 text-sm leading-relaxed text-slate-700">
+                {briefing.weightReason}
+              </p>
             </div>
-          )}
+          ) : null}
+
+          <div className="relative overflow-hidden rounded-xl border border-[#86BC25]/35 bg-gradient-to-br from-[#86BC25]/[0.14] via-[#86BC25]/[0.06] to-white px-4 py-4 shadow-sm ring-1 ring-[#86BC25]/10">
+            <div className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-[#86BC25]/15 blur-2xl" />
+            <div className="relative flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#86BC25] text-white shadow-sm shadow-[#86BC25]/30">
+                <TrendingUp className="h-4 w-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#26890D]">
+                  {briefing.nextLevelLabel
+                    ? `Path to ${briefing.nextLevelLabel}`
+                    : "How to hold this level"}
+                </p>
+                <p className="mt-1 text-[11px] font-medium text-[#3d6b12]/80">
+                  {briefing.nextLevelLabel
+                    ? "What to focus on next so this area earns the next level."
+                    : "What to protect so this strength does not quietly erode."}
+                </p>
+                <p className="mt-2.5 text-sm font-medium leading-relaxed text-slate-800">
+                  {briefing.nextLevelGuidance}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function FindingList({
+  items,
+  variant,
+  previewLimit = 4,
+}: {
+  items: PackFinding[];
+  variant: "gap" | "partial" | "follow" | "strength";
+  previewLimit?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { preview, remaining } = useMemo(
+    () => splitPackFindingsPreview(items, previewLimit),
+    [items, previewLimit]
+  );
+  const hiddenCount = remaining.length;
+  const visible = expanded ? [...preview, ...remaining] : preview;
+
+  return (
+    <div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {visible.map((item, index) => (
+          <FindingCard
+            key={`${item.pillarId}-${item.prompt}-${index}`}
+            item={item}
+            rank={index + 1}
+            variant={variant}
+          />
+        ))}
+      </div>
+      {hiddenCount > 0 ? (
+        <div className="mt-4 flex justify-center print:hidden">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#E3E3E3] bg-white px-3.5 py-2 text-xs font-semibold text-[#53565A] transition-colors hover:border-[#D0D0CE] hover:bg-[#FAFAFA] hover:text-black"
+            aria-expanded={expanded}
+          >
+            <ChevronDown
+              className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")}
+            />
+            {expanded
+              ? "Show priority only"
+              : `Show all ${items.length} (${hiddenCount} more)`}
+          </button>
+        </div>
+      ) : null}
+      {/* Print always includes the full ranked list beyond the on-screen preview. */}
+      {!expanded && hiddenCount > 0 ? (
+        <div className="mt-3 hidden grid-cols-2 gap-3 print:grid">
+          {remaining.map((item, index) => (
+            <FindingCard
+              key={`print-${item.pillarId}-${item.prompt}-${index}`}
+              item={item}
+              rank={preview.length + index + 1}
+              variant={variant}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -306,13 +326,7 @@ function FindingCard({
   rank,
   variant = "gap",
 }: {
-  item: {
-    pillarLabel: string;
-    summary: string;
-    insight: string;
-    recommendation: string;
-    severity?: "critical" | "high" | "medium";
-  };
+  item: PackFinding;
   rank: number;
   variant?: "gap" | "partial" | "follow" | "strength";
 }) {
@@ -371,13 +385,21 @@ function FindingCard({
 function PackRoadmapPhaseColumn({
   phase,
   steps,
+  previewLimit = 3,
 }: {
   phase: PackRoadmapPhase;
   steps: PackRoadmapStep[];
+  previewLimit?: number;
 }) {
   const meta = ROADMAP_PHASE_META[phase];
   const Icon = meta.icon;
+  const [expanded, setExpanded] = useState(false);
   if (steps.length === 0) return null;
+
+  const preview = steps.slice(0, previewLimit);
+  const remaining = steps.slice(previewLimit);
+  const hiddenCount = remaining.length;
+  const visible = expanded ? steps : preview;
 
   return (
     <div className={cn("relative overflow-hidden rounded-xl border p-5 shadow-sm", meta.style)}>
@@ -395,7 +417,7 @@ function PackRoadmapPhaseColumn({
         </div>
       </div>
       <ol className="mt-4 space-y-3 pl-2">
-        {steps.map((step, index) => (
+        {visible.map((step, index) => (
           <li
             key={`${phase}-${step.priority}-${index}`}
             className="rounded-lg border border-slate-200 bg-[#fafafa] p-3.5"
@@ -416,6 +438,47 @@ function PackRoadmapPhaseColumn({
           </li>
         ))}
       </ol>
+      {hiddenCount > 0 ? (
+        <div className="mt-3 pl-2 print:hidden">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#E3E3E3] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#53565A] transition-colors hover:border-[#D0D0CE] hover:bg-[#FAFAFA] hover:text-black"
+            aria-expanded={expanded}
+          >
+            <ChevronDown
+              className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")}
+            />
+            {expanded
+              ? "Show priority only"
+              : `Show all ${steps.length} (${hiddenCount} more)`}
+          </button>
+        </div>
+      ) : null}
+      {!expanded && hiddenCount > 0 ? (
+        <ol className="mt-3 hidden space-y-3 pl-2 print:block">
+          {remaining.map((step, index) => (
+            <li
+              key={`${phase}-print-${step.priority}-${index}`}
+              className="rounded-lg border border-slate-200 bg-[#fafafa] p-3.5"
+            >
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-900 text-[10px] font-semibold text-white">
+                  {step.priority}
+                </span>
+                <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                  {step.pillarLabel}
+                </span>
+              </div>
+              <p className="mt-2 text-sm font-semibold leading-snug text-slate-900">{step.summary}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{step.insight}</p>
+              <p className="mt-2 rounded-lg bg-slate-900/[0.04] px-2.5 py-2 text-xs font-medium leading-relaxed text-slate-700">
+                {step.action}
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </div>
   );
 }
@@ -605,6 +668,7 @@ export function MaturityPackSurveyResults({
               <PackScoreHero
                 scoreLabel={summary.scoreLabel}
                 scoreTone={report.overallScorePct == null ? null : summary.scoreTone}
+                overallScorePct={report.overallScorePct}
                 scoreHeroNote={copy.scoreHeroNote}
               />
               <MaturityReportSharePanel
@@ -640,13 +704,21 @@ export function MaturityPackSurveyResults({
           <ScrollSection data-header-theme="light" glow="none" id="profile" className="print:break-inside-avoid">
             <ScrollReveal variant="premium" instant>
               <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <SectionHeading
-                  eyebrow={copy.sectionProfileEyebrow}
-                  title={copy.sectionProfileTitle}
-                  description={copy.sectionProfileDescription}
-                  className="mb-0"
-                />
-                <PackPostureLegend className="sm:mb-1 sm:justify-end" />
+                <div className="min-w-0">
+                  <SectionHeading
+                    eyebrow={copy.sectionProfileEyebrow}
+                    title={copy.sectionProfileTitle}
+                    description={copy.sectionProfileDescription}
+                    className="mb-0"
+                  />
+                  {report.weighting ? (
+                    <PackRatingMethodDialog
+                      weighting={report.weighting}
+                      overallScorePct={report.overallScorePct}
+                    />
+                  ) : null}
+                </div>
+                <PackPostureLegend className="sm:mb-1 sm:justify-end print:hidden" />
               </div>
 
               <div className="grid gap-6 lg:grid-cols-2">
@@ -665,14 +737,17 @@ export function MaturityPackSurveyResults({
                         key={pillar.pillarId}
                         pillar={pillar}
                         priorityFocus={pillar.pillarId === priorityPillarId}
-                        facts={factsByPillar.get(pillar.pillarLabel) ?? []}
                       />
                     ))}
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <PackPillarRadarChart pillars={report.pillarScores} accent="brand" />
+                  <PackPillarRadarChart
+                    pillars={report.pillarScores}
+                    overallScorePct={report.overallScorePct}
+                    accent="brand"
+                  />
                   <PackAnswerStackedChart pillars={report.pillarScores} />
                 </div>
               </div>
@@ -687,16 +762,7 @@ export function MaturityPackSurveyResults({
                   title={copy.sectionStrengthsTitle}
                   description={copy.sectionStrengthsDescription}
                 />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {report.strengths.map((strength, index) => (
-                    <FindingCard
-                      key={`${strength.pillarLabel}-${index}`}
-                      item={strength}
-                      rank={index + 1}
-                      variant="strength"
-                    />
-                  ))}
-                </div>
+                <FindingList items={report.strengths} variant="strength" />
               </ScrollReveal>
             </ScrollSection>
           )}
@@ -720,16 +786,7 @@ export function MaturityPackSurveyResults({
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {report.gaps.map((gap, index) => (
-                    <FindingCard
-                      key={`${gap.pillarLabel}-${index}`}
-                      item={gap}
-                      rank={index + 1}
-                      variant="gap"
-                    />
-                  ))}
-                </div>
+                <FindingList items={report.gaps} variant="gap" />
               )}
             </ScrollReveal>
           </ScrollSection>
@@ -744,16 +801,7 @@ export function MaturityPackSurveyResults({
               {report.partials.length === 0 ? (
                 <p className="text-sm text-slate-500">No in-progress items in this assessment.</p>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {report.partials.map((partial, index) => (
-                    <FindingCard
-                      key={`${partial.pillarLabel}-${index}`}
-                      item={partial}
-                      rank={index + 1}
-                      variant="partial"
-                    />
-                  ))}
-                </div>
+                <FindingList items={report.partials} variant="partial" />
               )}
             </ScrollReveal>
           </ScrollSection>
@@ -768,16 +816,7 @@ export function MaturityPackSurveyResults({
               {report.followUps.length === 0 ? (
                 <p className="text-sm text-slate-500">No unresolved items in this assessment.</p>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {report.followUps.map((followUp, index) => (
-                    <FindingCard
-                      key={`${followUp.pillarLabel}-${index}`}
-                      item={followUp}
-                      rank={index + 1}
-                      variant="follow"
-                    />
-                  ))}
-                </div>
+                <FindingList items={report.followUps} variant="follow" />
               )}
             </ScrollReveal>
           </ScrollSection>

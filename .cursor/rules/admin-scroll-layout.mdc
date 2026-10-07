@@ -1,0 +1,33 @@
+---
+description: Prevent admin page scroll traps and sticky/footer bugs
+alwaysApply: true
+---
+
+# Admin scroll & layout
+
+Admin chrome scrolls **`#main-content`** (`AdminMainShell`: `overflow-y-auto`), not `window`. Full-bleed routes are only maturity/workshop/home.
+
+## Never do this on normal admin pages
+
+- Root wrappers with `overflow-hidden` + viewport height (`h-screen`, `h-dvh`, `min-h-screen`) — clips content and breaks sticky.
+- `window.scrollTo` / `window.scrollY` for in-page navigation — use `#main-content` instead.
+- Nested `overflow-y-auto` panels that fight the main scroller unless intentionally full-bleed.
+- Fixed footers without enough bottom padding on the page (`pb-24` / `pb-28`).
+
+## Do this instead
+
+- Let page content grow; keep decorative backgrounds `absolute`/`pointer-events-none` without trapping overflow.
+- Prefer `overflow-x-clip` only when horizontal bleed must be clipped.
+- Avoid sticky sidebars/panels on long admin forms unless the user explicitly asks — they fight the main scroller and feel broken. Prefer normal document flow.
+- If sticky is required: no `overflow-hidden` ancestors between the sticky node and `#main-content`; use a modest `top-*` that clears chrome.
+- Scroll helpers:
+
+```ts
+document.getElementById("main-content")?.scrollTo({ top: 0, behavior: "smooth" });
+```
+
+- After UI that changes page length (wizards, tabs, steppers), reset **main** scroll, not window.
+
+## Verify before done
+
+Manually confirm: page scrolls end-to-end, sticky chrome still works, fixed footer does not cover fields, step/tab changes return to top of content.

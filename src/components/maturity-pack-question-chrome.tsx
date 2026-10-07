@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import type { PackAnswerRecord, PackSnapshot } from "@/lib/pillar-questionnaire";
 import { getPackClientCopy, type PackClientCopy } from "@/lib/maturity-client-copy";
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import { findPackPillar } from "@/lib/pack-pillar-catalog";
 
 export type PackPillarGroup = {
   pillarId: string;
@@ -71,7 +71,7 @@ export function MaturityPackQuestionChrome({
   const currentGroup = pillarGroups[currentGroupIndex];
   const questionInPillar =
     currentGroup?.questionIndices.findIndex((index) => index === stepIndex) ?? 0;
-  const pillarMeta = RISK_PILLARS.find((pillar) => pillar.id === current.pillarId);
+  const pillarMeta = findPackPillar(current.pillarId);
 
   return (
     <div

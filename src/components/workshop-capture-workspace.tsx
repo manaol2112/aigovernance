@@ -27,6 +27,7 @@ import { evidenceKindLabel } from "@/lib/evidence-classifier";
 import { isAnalyzableEvidence, parseEvidenceKind } from "@/lib/transcript-evidence";
 import type { EvidencePipelineStepId } from "@/lib/evidence-pipeline";
 import type { CaptureAnalysisSummary } from "@/lib/capture-analysis-types";
+import { cn } from "@/lib/utils";
 
 const ACCEPT =
   ".pdf,.txt,.docx,.jpeg,.jpg,.png,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png";
@@ -66,32 +67,29 @@ function formatBytes(bytes?: number): string {
 function fileIcon(name: string) {
   const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : "";
   if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
-    return <FileImage className="h-4 w-4 text-indigo-500" />;
+    return <FileImage className="h-4 w-4 text-[#53565A]" />;
   }
-  return <FileText className="h-4 w-4 text-indigo-500" />;
+  return <FileText className="h-4 w-4 text-[#53565A]" />;
 }
 
 function SectionHeader({
   step,
   title,
   description,
-  icon,
 }: {
   step: string;
   title: string;
   description: string;
-  icon: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white px-6 py-5">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm ring-1 ring-slate-100">
-        {icon}
+    <div className="border-b border-[#E3E3E3] px-4 py-3 sm:px-5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--theme-brand)]">
+          Step {step}
+        </p>
+        <h3 className="text-sm font-semibold text-black">{title}</h3>
       </div>
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Step {step}</p>
-        <h3 className="mt-0.5 text-lg font-semibold tracking-tight text-slate-900">{title}</h3>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-500">{description}</p>
-      </div>
+      <p className="mt-1 max-w-3xl text-xs leading-relaxed text-[#666666]">{description}</p>
     </div>
   );
 }
@@ -111,87 +109,43 @@ function AnalysisCompleteCard({
   return (
     <section
       id="pipeline-mapping-cta"
-      className="overflow-hidden rounded-2xl border border-emerald-200/80 bg-white shadow-sm scroll-mt-6"
+      className="overflow-hidden rounded-lg border border-[#E3E3E3] bg-white scroll-mt-6"
     >
-      <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50/90 to-white px-6 py-5">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
-                Analysis complete
-              </p>
-              <h3 className="mt-0.5 text-lg font-semibold text-slate-900">Sources mapped to controls</h3>
-              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">{summary.summary}</p>
-            </div>
-          </div>
-          <Button onClick={onOpenMapping} className="shrink-0 gap-2 bg-indigo-600 hover:bg-indigo-700">
-            <GitCompare className="h-4 w-4" />
-            Open traceability mapping
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+      <div className="flex flex-col gap-3 border-b border-[#E3E3E3] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#046A38]">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Analysis complete
+          </p>
+          <h3 className="mt-0.5 text-sm font-semibold text-black">Sources mapped to controls</h3>
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#666666]">{summary.summary}</p>
         </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {[
-            { label: "Files processed", value: summary.filesProcessed },
-            { label: "Controls mapped", value: summary.controlsMapped },
-            { label: "Aligned", value: counts.aligned },
-            { label: "Partial / gap", value: counts.partial + counts.gap },
-            { label: "Not discussed", value: summary.topicsNotDiscussed.length },
-          ].map((s) => (
-            <div key={s.label} className="rounded-xl border border-slate-100 bg-white px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{s.label}</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{s.value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="px-6 py-4 text-sm text-slate-600">
-        Review findings, citation links, and traceability scores in the{" "}
-        <strong className="font-medium text-slate-800">Mapping</strong> tab — not here. Evidence stays focused on
-        uploading sources and running analysis.
-      </div>
-    </section>
-  );
-}
-
-function SourceNotebookTeaser({
-  chunkCount,
-  onOpen,
-  disabled,
-}: {
-  chunkCount: number;
-  onOpen: () => void;
-  disabled: boolean;
-}) {
-  const ready = chunkCount > 0 && !disabled;
-
-  return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-50/80 to-white shadow-sm">
-      <SectionHeader
-        step="2"
-        title="Source notebook"
-        description="Query indexed workshop materials in plain language. Answers include citation links to exact source excerpts."
-        icon={<MessageCircle className="h-5 w-5" />}
-      />
-      <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-xl text-sm text-slate-600">
-          {ready
-            ? "Your sources are indexed and ready. Open the source notebook to ask follow-up questions — use the chat button at the bottom right anytime."
-            : "Upload readable sources in Step 1 first. They are vector-indexed on upload and become queryable in the notebook."}
-        </p>
-        <Button
-          type="button"
-          disabled={!ready}
-          onClick={onOpen}
-          className="shrink-0 gap-2 bg-indigo-600 hover:bg-indigo-700"
-        >
-          <MessageCircle className="h-4 w-4" />
-          Open source notebook
+        <Button size="sm" onClick={onOpenMapping} className="shrink-0 gap-1.5">
+          <GitCompare className="h-3.5 w-3.5" />
+          Open mapping
+          <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      <div className="grid gap-2 px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
+        {[
+          { label: "Files", value: summary.filesProcessed },
+          { label: "Mapped", value: summary.controlsMapped },
+          { label: "Aligned", value: counts.aligned },
+          { label: "Partial / gap", value: counts.partial + counts.gap },
+          { label: "Not discussed", value: summary.topicsNotDiscussed.length },
+        ].map((s) => (
+          <div key={s.label} className="rounded-md border border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#767676]">{s.label}</p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums text-black">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="border-t border-[#E3E3E3] px-4 py-2.5 text-xs text-[#666666] sm:px-5">
+        Review findings and citations in <span className="font-semibold text-black">Mapping</span>. This
+        view stays focused on sources and analysis.
+      </p>
     </section>
   );
 }
@@ -308,19 +262,29 @@ export function WorkshopCaptureWorkspace({
 
   const sourcesPanelContent = (
     <>
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Files</p>
-          <p className="mt-1 text-2xl font-bold text-slate-900">{captureFiles.length}</p>
-        </div>
-        <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Ready</p>
-          <p className="mt-1 text-2xl font-bold text-emerald-700">{readyCount}</p>
-        </div>
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600/90">Indexed chunks</p>
-          <p className="mt-1 text-2xl font-bold text-slate-900">{indexStats.chunkCount}</p>
-        </div>
+      <div className="mb-4 grid gap-2 sm:grid-cols-3">
+        {[
+          { label: "Files", value: captureFiles.length },
+          { label: "Ready", value: readyCount, accent: true },
+          { label: "Indexed chunks", value: indexStats.chunkCount },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-md border border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#767676]">
+              {stat.label}
+            </p>
+            <p
+              className={cn(
+                "mt-0.5 text-lg font-semibold tabular-nums",
+                stat.accent ? "text-[#046A38]" : "text-black"
+              )}
+            >
+              {stat.value}
+            </p>
+          </div>
+        ))}
       </div>
 
       <div
@@ -336,23 +300,24 @@ export function WorkshopCaptureWorkspace({
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        className={`mb-6 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-8 py-10 transition-all ${
+        className={cn(
+          "mb-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-6 py-8 transition-colors",
           dragOver
-            ? "border-indigo-400 bg-indigo-50"
-            : "border-slate-200 bg-slate-50/40 hover:border-indigo-300 hover:bg-indigo-50/30"
-        }`}
+            ? "border-black bg-[#FAFAFA]"
+            : "border-[#D0D0CE] bg-[#FAFAFA]/60 hover:border-[#666666] hover:bg-[#FAFAFA]"
+        )}
       >
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 shadow-inner">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md border border-[#E3E3E3] bg-white">
           {isUploading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-black" />
           ) : (
-            <Upload className="h-6 w-6 text-indigo-600" />
+            <Upload className="h-5 w-5 text-black" />
           )}
         </div>
-          <p className="mt-3 text-sm font-semibold text-slate-800">Drop files or click to upload</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Workshop transcripts, policies, procedures, audit records — AI classifies each file on upload
-          </p>
+        <p className="mt-3 text-sm font-semibold text-black">Drop files or click to upload</p>
+        <p className="mt-1 max-w-md text-center text-xs text-[#666666]">
+          Transcripts, policies, procedures, audit records · {ACCEPT_LABEL}
+        </p>
         <input
           ref={inputRef}
           type="file"
@@ -367,52 +332,54 @@ export function WorkshopCaptureWorkspace({
       </div>
 
       {allFiles.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-slate-200">
+        <div className="overflow-hidden rounded-lg border border-[#E3E3E3]">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <thead className="bg-[#FAFAFA] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#767676]">
               <tr>
-                <th className="px-4 py-3">File</th>
-                <th className="hidden px-4 py-3 sm:table-cell">Type</th>
-                <th className="hidden px-4 py-3 sm:table-cell">Size</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-3 py-2.5">File</th>
+                <th className="hidden px-3 py-2.5 sm:table-cell">Type</th>
+                <th className="hidden px-3 py-2.5 sm:table-cell">Size</th>
+                <th className="px-3 py-2.5">Status</th>
+                <th className="px-3 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
+            <tbody className="divide-y divide-[#E3E3E3] bg-white">
               {allFiles.map((file) => {
                 const indexed = Boolean(file.extractedText?.trim());
                 const kind = parseEvidenceKind(file.description ?? null);
                 return (
-                  <tr key={file.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
+                  <tr key={file.id} className="hover:bg-[#FAFAFA]">
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2.5">
                         {fileIcon(file.fileName)}
-                        <span className="font-medium text-slate-800">{file.fileName}</span>
+                        <span className="font-medium text-black">{file.fileName}</span>
                       </div>
                     </td>
-                    <td className="hidden px-4 py-3 sm:table-cell">
+                    <td className="hidden px-3 py-2.5 sm:table-cell">
                       {kind ? (
                         <Badge variant="outline" className="text-[10px] font-normal">
                           {evidenceKindLabel(kind)}
                         </Badge>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        <span className="text-[#A7A8AA]">—</span>
                       )}
                     </td>
-                    <td className="hidden px-4 py-3 text-slate-500 sm:table-cell">{formatBytes(file.fileSize)}</td>
-                    <td className="px-4 py-3">
+                    <td className="hidden px-3 py-2.5 text-[#666666] sm:table-cell">
+                      {formatBytes(file.fileSize)}
+                    </td>
+                    <td className="px-3 py-2.5">
                       <Badge
                         variant="outline"
                         className={
                           indexed
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            ? "border-[#86BC25]/40 bg-[#EEF7E0] text-[#046A38]"
                             : "border-amber-200 bg-amber-50 text-amber-800"
                         }
                       >
                         {indexed ? "Indexed" : "Unreadable"}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-2.5 text-right">
                       <button
                         type="button"
                         onClick={() => {
@@ -420,7 +387,7 @@ export function WorkshopCaptureWorkspace({
                           void Promise.resolve(onDeleteFile(file.id)).finally(() => setDeletingId(null));
                         }}
                         disabled={deletingId === file.id}
-                        className="inline-flex rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                        className="inline-flex rounded-md p-1.5 text-[#A7A8AA] hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
                         aria-label={`Remove ${file.fileName}`}
                       >
                         {deletingId === file.id ? (
@@ -440,313 +407,270 @@ export function WorkshopCaptureWorkspace({
     </>
   );
 
-  const onboardingSourcesSection = (
-    <section id="pipeline-upload" className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm scroll-mt-6">
-      <SectionHeader
-        step="1"
-        title="Source library"
-        description={`Upload workshop notes, policies, procedures, and supporting records. Accepted: ${ACCEPT_LABEL}. Files are classified, text-extracted, and indexed on upload.`}
-        icon={<Upload className="h-5 w-5" />}
-      />
-      <div className="p-6">{sourcesPanelContent}</div>
-    </section>
-  );
-
-  const onboardingAnalyzeSection = (
-    <section
-      id="pipeline-analyze"
-      className={`overflow-hidden rounded-2xl border shadow-lg scroll-mt-6 ${
-        analysisUpToDate
-          ? "border-emerald-200/80 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-emerald-200"
-          : needsReanalyze
-            ? "border-amber-200/80 bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-amber-200"
-            : "border-indigo-200/60 bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-indigo-200"
-      }`}
-    >
-      <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-            {analysisUpToDate ? <CheckCircle2 className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
-          </div>
-          <div>
-            <p
-              className={`text-[11px] font-semibold uppercase tracking-wider ${
-                analysisUpToDate ? "text-emerald-200" : needsReanalyze ? "text-amber-100" : "text-indigo-200"
-              }`}
-            >
-              Step 3
-            </p>
-            <h3 className="mt-0.5 text-xl font-semibold">
-              {analysisUpToDate
-                ? "Analysis up to date"
-                : needsReanalyze
-                  ? "New sources — re-analyze recommended"
-                  : "Run governance analysis"}
-            </h3>
-            <p
-              className={`mt-2 max-w-xl text-sm leading-relaxed ${
-                analysisUpToDate ? "text-emerald-100" : needsReanalyze ? "text-amber-50" : "text-indigo-100"
-              }`}
-            >
-              {analysisUpToDate ? (
-                <>
-                  Results are saved and restored on refresh. Last analyzed
-                  {analyzedLabel ? ` ${analyzedLabel}` : ""}. Re-analyze only when you add or remove sources.
-                </>
-              ) : needsReanalyze ? (
-                <>
-                  Sources changed since the last analysis. Run again to map new evidence to controls with updated
-                  findings and citations.
-                </>
-              ) : (
-                <>
-                  Maps uploaded evidence to scoped controls with in-place findings, gaps, and recommendations. Each
-                  claim links to source citations you can verify.
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-        <Button
-          size="lg"
-          variant={analysisUpToDate ? "outline" : "default"}
-          disabled={readyCount === 0 || isAnalyzing || isUploading}
-          onClick={() => void onAnalyzeAll()}
-          className={`shrink-0 gap-2 px-8 ${
-            analysisUpToDate
-              ? "border-white/40 bg-white/10 text-white hover:bg-white/20"
-              : "bg-white text-indigo-700 hover:bg-indigo-50"
-          }`}
-        >
-          {isAnalyzing ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Analyzing…
-            </>
-          ) : analysisUpToDate ? (
-            <>
-              <Sparkles className="h-4 w-4" />
-              Re-analyze
-            </>
-          ) : needsReanalyze ? (
-            <>
-              <Sparkles className="h-4 w-4" />
-              Re-analyze {readyCount} source{readyCount === 1 ? "" : "s"}
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4" />
-              Analyze {readyCount} source{readyCount === 1 ? "" : "s"}
-            </>
-          )}
-        </Button>
-      </div>
-    </section>
-  );
-
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f6f7f9]">
-      {/* Top bar */}
-      <header className="shrink-0 border-b border-slate-200/80 bg-white px-6 py-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Evidence pipeline</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-              {isResultsMode ? "Analysis complete" : "Upload sources & analyze"}
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              {isResultsMode
-                ? "Sources are mapped to controls. Open Mapping to review findings, citations, and traceability scores."
-                : "Upload workshop transcripts, run governance analysis, then review traceability in the Mapping tab."}
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {isResultsMode && indexStats.chunkCount > 0 && (
-              <Button
-                variant="outline"
-                onClick={() => setChatOpen(true)}
-                disabled={isAnalyzing || isUploading}
-                className="gap-2 border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Ask sources
-              </Button>
-            )}
-            {isResultsMode && analyzedLabel && (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800">
-                Analyzed {analyzedLabel}
-              </span>
-            )}
-            {isResultsMode && analysisSummary && (
-              <Button onClick={onGoToMapping} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
-                Open Mapping
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#FAFAFA]/40 lg:overflow-hidden">
+      <header className="flex shrink-0 flex-col gap-2 border-b border-[#E3E3E3] bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <EvidencePipelineStepper
+          readyCount={readyCount}
+          hasIndex={indexStats.chunkCount > 0}
+          hasAnalysis={hasAnalysis}
+          analysisStale={analysisStale}
+          mappedControlCount={mappedControlCount}
+          onStepClick={handlePipelineStepClick}
+          compact
+          className="min-w-0 flex-1"
+        />
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <p className="text-[11px] tabular-nums text-[#666666]">
+            <span className="font-semibold text-black">{readyCount}</span>
+            {" / "}
+            {captureFiles.length || 0} ready
+          </p>
+          {indexStats.chunkCount > 0 && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setChatOpen(true)}
+              disabled={isAnalyzing || isUploading}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Ask sources
+            </Button>
+          )}
+          {isResultsMode && (
+            <Button type="button" size="sm" onClick={onGoToMapping} className="h-7 gap-1.5 text-xs">
+              Mapping
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
-        {!isResultsMode && (
-          <div className="mt-5">
-            <EvidencePipelineStepper
-              readyCount={readyCount}
-              hasIndex={indexStats.chunkCount > 0}
-              hasAnalysis={hasAnalysis}
-              analysisStale={analysisStale}
-              mappedControlCount={mappedControlCount}
-              onStepClick={handlePipelineStepClick}
-            />
-          </div>
-        )}
-        {isResultsMode && (
-          <div className="mt-5">
-            <EvidencePipelineStepper
-              readyCount={readyCount}
-              hasIndex={indexStats.chunkCount > 0}
-              hasAnalysis={hasAnalysis}
-              analysisStale={analysisStale}
-              mappedControlCount={mappedControlCount}
-              onStepClick={handlePipelineStepClick}
-              compact
-            />
-          </div>
-        )}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="px-6 py-6">
-          {isResultsMode && analysisSummary ? (
-            <div className="space-y-6">
-              {needsReanalyze && (
-                <div
-                  id="pipeline-analyze-results"
-                  className="flex scroll-mt-6 flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <div>
-                      <p className="font-semibold text-amber-950">Sources changed since last analysis</p>
-                      <p className="mt-1 text-sm text-amber-900/80">
-                        Re-analyze to refresh control mappings, or expand source library below to manage files.
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    disabled={readyCount === 0 || isAnalyzing || isUploading}
-                    onClick={() => void onAnalyzeAll()}
-                    className="shrink-0 bg-amber-600 hover:bg-amber-700"
-                  >
-                    {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Re-analyze sources"}
-                  </Button>
-                </div>
-              )}
-
-              <div className="space-y-5">
-                <AnalysisCompleteCard summary={analysisSummary} onOpenMapping={onGoToMapping} />
-
-                {analysisSummary.auditTrail && <AnalysisAuditTrail audit={analysisSummary.auditTrail} />}
-
-                {analysisSummary.topicsNotDiscussed.length > 0 && (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <h4 className="text-sm font-semibold text-slate-800">Not yet covered in uploaded sources</h4>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {analysisSummary.topicsNotDiscussed.map((topic) => (
-                          <Badge
-                            key={topic}
-                            variant="outline"
-                            className="border-slate-200 bg-slate-50 px-3 py-1 text-xs font-normal text-slate-600"
-                          >
-                            {topic}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end">
-                    <FollowUpQuestionsExportButton assessmentId={assessmentId} />
-                  </div>
-              </div>
-
-              <section id="pipeline-upload" className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm scroll-mt-6">
-                <button
-                  type="button"
-                  onClick={() => setSourcesExpanded((v) => !v)}
-                  className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left transition-colors hover:bg-slate-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                      <FolderOpen className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Source library & analysis</p>
-                      <p className="text-xs text-slate-500">
-                        {captureFiles.length} file{captureFiles.length === 1 ? "" : "s"} · {readyCount} ready ·{" "}
-                        {indexStats.chunkCount} indexed chunks
-                        {analysisUpToDate ? " · analysis up to date" : ""}
-                      </p>
-                    </div>
-                  </div>
-                  {sourcesExpanded ? (
-                    <ChevronUp className="h-5 w-5 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 text-slate-400" />
-                  )}
-                </button>
-                {sourcesExpanded && (
-                  <div className="border-t border-slate-100 p-6">
-                    {sourcesPanelContent}
-                    {!needsReanalyze && (
-                      <div className="mt-6 flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                          <p className="text-sm text-emerald-900">
-                            Analysis is current{analyzedLabel ? ` (last run ${analyzedLabel})` : ""}.
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={readyCount === 0 || isAnalyzing || isUploading}
-                          onClick={() => void onAnalyzeAll()}
-                        >
-                          {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Re-analyze"}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </section>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {onboardingSourcesSection}
-              <SourceNotebookTeaser
-                chunkCount={indexStats.chunkCount}
-                disabled={isAnalyzing || isUploading}
-                onOpen={() => setChatOpen(true)}
-              />
-              {onboardingAnalyzeSection}
-              {analysisError && (
-                <div className="flex gap-4 rounded-2xl border border-rose-200 bg-rose-50 p-5">
-                  <AlertCircle className="h-6 w-6 shrink-0 text-rose-600" />
+      <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 [scrollbar-width:thin] sm:px-4">
+        {isResultsMode && analysisSummary ? (
+          <>
+            {needsReanalyze && (
+              <div
+                id="pipeline-analyze-results"
+                className="flex scroll-mt-6 flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   <div>
-                    <p className="font-semibold text-rose-900">Analysis failed</p>
-                    <p className="mt-1 text-sm text-rose-800">{analysisError}</p>
+                    <p className="text-sm font-semibold text-amber-950">Sources changed since last analysis</p>
+                    <p className="mt-0.5 text-xs text-amber-900/80">
+                      Re-analyze to refresh mappings, or expand the source library below.
+                    </p>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+                <Button
+                  size="sm"
+                  disabled={readyCount === 0 || isAnalyzing || isUploading}
+                  onClick={() => void onAnalyzeAll()}
+                  className="shrink-0"
+                >
+                  {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Re-analyze"}
+                </Button>
+              </div>
+            )}
 
-          <SourceNotebookChatLauncher
-            assessmentId={assessmentId}
-            chunkCount={indexStats.chunkCount}
-            disabled={isAnalyzing || isUploading}
-            evidenceTexts={evidenceTexts}
-            open={chatOpen}
-            onOpenChange={setChatOpen}
-          />
-        </div>
+            <AnalysisCompleteCard summary={analysisSummary} onOpenMapping={onGoToMapping} />
+
+            {analysisSummary.auditTrail && <AnalysisAuditTrail audit={analysisSummary.auditTrail} />}
+
+            {analysisSummary.topicsNotDiscussed.length > 0 && (
+              <div className="rounded-lg border border-[#E3E3E3] bg-white px-4 py-3">
+                <h4 className="text-sm font-semibold text-black">Not yet covered in uploaded sources</h4>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {analysisSummary.topicsNotDiscussed.map((topic) => (
+                    <Badge
+                      key={topic}
+                      variant="outline"
+                      className="border-[#E3E3E3] bg-[#FAFAFA] px-2 py-0.5 text-[11px] font-normal text-[#53565A]"
+                    >
+                      {topic}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <FollowUpQuestionsExportButton assessmentId={assessmentId} />
+            </div>
+
+            <section
+              id="pipeline-upload"
+              className="overflow-hidden rounded-lg border border-[#E3E3E3] bg-white scroll-mt-6"
+            >
+              <button
+                type="button"
+                onClick={() => setSourcesExpanded((v) => !v)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-[#FAFAFA] sm:px-5"
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <FolderOpen className="h-4 w-4 shrink-0 text-[#53565A]" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-black">Source library</p>
+                    <p className="truncate text-[11px] text-[#666666]">
+                      {captureFiles.length} file{captureFiles.length === 1 ? "" : "s"} · {readyCount} ready ·{" "}
+                      {indexStats.chunkCount} chunks
+                      {analyzedLabel ? ` · analyzed ${analyzedLabel}` : ""}
+                    </p>
+                  </div>
+                </div>
+                {sourcesExpanded ? (
+                  <ChevronUp className="h-4 w-4 shrink-0 text-[#A7A8AA]" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-[#A7A8AA]" />
+                )}
+              </button>
+              {sourcesExpanded && (
+                <div className="border-t border-[#E3E3E3] px-4 py-4 sm:px-5">
+                  {sourcesPanelContent}
+                  {!needsReanalyze && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-[#86BC25]/35 bg-[#EEF7E0]/50 px-3 py-2.5">
+                      <p className="flex items-center gap-2 text-xs text-[#046A38]">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Analysis is current{analyzedLabel ? ` (last run ${analyzedLabel})` : ""}.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={readyCount === 0 || isAnalyzing || isUploading}
+                        onClick={() => void onAnalyzeAll()}
+                      >
+                        {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Re-analyze"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          </>
+        ) : (
+          <>
+            <section
+              id="pipeline-upload"
+              className="overflow-hidden rounded-lg border border-[#E3E3E3] bg-white scroll-mt-6"
+            >
+              <SectionHeader
+                step="1"
+                title="Source library"
+                description={`Upload workshop notes, policies, procedures, and supporting records (${ACCEPT_LABEL}). Files are classified and indexed on upload.`}
+              />
+              <div className="px-4 py-4 sm:px-5">{sourcesPanelContent}</div>
+            </section>
+
+            <section className="overflow-hidden rounded-lg border border-[#E3E3E3] bg-white">
+              <SectionHeader
+                step="2"
+                title="Source notebook"
+                description="Query indexed materials in plain language. Answers include citation links to source excerpts."
+              />
+              <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <p className="max-w-xl text-xs text-[#666666]">
+                  {indexStats.chunkCount > 0
+                    ? "Sources are indexed. Open the notebook to ask follow-up questions."
+                    : "Upload readable sources in Step 1 first. They are indexed on upload."}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={indexStats.chunkCount === 0 || isAnalyzing || isUploading}
+                  onClick={() => setChatOpen(true)}
+                  className="shrink-0 gap-1.5"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Open notebook
+                </Button>
+              </div>
+            </section>
+
+            <section
+              id="pipeline-analyze"
+              className={cn(
+                "overflow-hidden rounded-lg border scroll-mt-6",
+                analysisUpToDate
+                  ? "border-[#86BC25]/40 bg-[#EEF7E0]/40"
+                  : needsReanalyze
+                    ? "border-amber-200 bg-amber-50"
+                    : "border-[#E3E3E3] bg-white"
+              )}
+            >
+              <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--theme-brand)]">
+                    Step 3
+                  </p>
+                  <h3 className="mt-0.5 text-sm font-semibold text-black">
+                    {analysisUpToDate
+                      ? "Analysis up to date"
+                      : needsReanalyze
+                        ? "New sources — re-analyze recommended"
+                        : "Run governance analysis"}
+                  </h3>
+                  <p className="mt-1 max-w-xl text-xs leading-relaxed text-[#666666]">
+                    {analysisUpToDate ? (
+                      <>
+                        Results restore on refresh. Last analyzed
+                        {analyzedLabel ? ` ${analyzedLabel}` : ""}. Re-analyze when sources change.
+                      </>
+                    ) : needsReanalyze ? (
+                      <>Sources changed since the last run. Re-analyze to refresh control mappings.</>
+                    ) : (
+                      <>
+                        Map uploaded evidence to scoped controls with findings, gaps, and cited claims.
+                      </>
+                    )}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={analysisUpToDate ? "outline" : "default"}
+                  disabled={readyCount === 0 || isAnalyzing || isUploading}
+                  onClick={() => void onAnalyzeAll()}
+                  className="shrink-0 gap-1.5"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Analyzing…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {analysisUpToDate || needsReanalyze ? "Re-analyze" : "Analyze"}{" "}
+                      {readyCount} source{readyCount === 1 ? "" : "s"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </section>
+
+            {analysisError && (
+              <div className="flex gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
+                <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+                <div>
+                  <p className="text-sm font-semibold text-rose-900">Analysis failed</p>
+                  <p className="mt-0.5 text-xs text-rose-800">{analysisError}</p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <SourceNotebookChatLauncher
+          assessmentId={assessmentId}
+          chunkCount={indexStats.chunkCount}
+          disabled={isAnalyzing || isUploading}
+          evidenceTexts={evidenceTexts}
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+        />
       </div>
     </div>
   );

@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Maximize2, Minimize2, X } from "lucide-react";
 import {
   PACK_POSTURE_STEPS,
+  computePackOverallScorePct,
+  describePackPillarRating,
+  scoreBandLabel,
   type PackPillarScore,
   type PackPostureTone,
 } from "@/lib/pillar-questionnaire-scoring";
@@ -24,8 +27,6 @@ const MIX_SEGMENTS = [
   { key: "no" as const, label: "Open gap", color: ANSWER_COLORS.no },
   { key: "dontKnow" as const, label: "Unresolved", color: ANSWER_COLORS.dontKnow },
 ];
-
-const CRITICALITY_WEIGHT: Record<string, number> = { critical: 3, high: 2, medium: 1 };
 
 function MixBar({
   counts,
@@ -91,19 +92,6 @@ function polygonPoints(
     .join(" ");
 }
 
-function weightedPackAlignment(pillars: PackPillarScore[]): number {
-  const active = pillars.filter((pillar) => pillar.scoredCount > 0 && pillar.alignmentPct != null);
-  if (active.length === 0) return 0;
-  let sum = 0;
-  let weight = 0;
-  for (const pillar of active) {
-    const w = CRITICALITY_WEIGHT[pillar.criticality] ?? 1;
-    sum += (pillar.alignmentPct ?? 0) * w;
-    weight += w;
-  }
-  return Math.round(sum / weight);
-}
-
 export function PackPostureMeter({
   tone,
   size = "md",
@@ -143,18 +131,81 @@ export function PackPostureLegend({ className }: { className?: string }) {
   );
 }
 
+function PackPillarHoverCard({ pillar }: { pillar: PackPillarScore }) {
+  const band = scoreBandLabel(pillar.alignmentPct);
+  const explanation = describePackPillarRating(pillar);
+  const answerBits = [
+    pillar.yesCount > 0 ? `${pillar.yesCount} Yes` : null,
+    pillar.partialCount > 0 ? `${pillar.partialCount} Partial` : null,
+    pillar.noCount > 0 ? `${pillar.noCount} No` : null,
+    pillar.dontKnowCount > 0 ? `${pillar.dontKnowCount} Don’t know` : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="rounded-lg border border-white/15 bg-black/90 px-3.5 py-3 shadow-lg ring-1 ring-[var(--theme-brand)]/25">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--theme-brand)]">
+            How this rating was calculated
+          </p>
+          <p className="mt-1 text-sm font-semibold text-white">{pillar.pillarLabel}</p>
+        </div>
+        <span className="shrink-0 rounded-md bg-white/10 px-2 py-1 text-[11px] font-semibold text-white">
+          {pillar.alignmentPct == null
+            ? "Unresolved"
+            : `${band.shortLabel} · ${pillar.alignmentPct}%`}
+        </span>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-slate-300">{explanation.ratingReason}</p>
+      {answerBits.length > 0 ? (
+        <p className="mt-2 text-[11px] text-slate-400">
+          Answer mix:{" "}
+          <span className="font-medium text-slate-200">{answerBits.join(" · ")}</span>
+        </p>
+      ) : null}
+      {pillar.contributionPct != null ? (
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          Contribution to overall:{" "}
+          <span className="font-medium tabular-nums text-slate-200">
+            {pillar.contributionPct} pts
+          </span>
+          {pillar.weightSharePct != null ? (
+            <span className="text-slate-500">
+              {" "}
+              · {pillar.weightSharePct}% of weighting
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+      {explanation.questionWeightReason ? (
+        <p className="mt-2 border-t border-white/10 pt-2 text-[11px] leading-relaxed text-slate-400">
+          {explanation.questionWeightReason}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** Spider chart — same dark maturity web as the framework-driven results. */
 export function PackPillarRadarChart({
   pillars,
+  overallScorePct,
   accent = "brand",
 }: {
   pillars: PackPillarScore[];
+  /** Official overall % from the report — must match the scoring guide / hero. */
+  overallScorePct?: number | null;
   /** Prefer `brand` (Deloitte green). `indigo` kept for legacy call sites. */
   accent?: "indigo" | "brand";
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const titleId = useId();
-  const active = pillars.filter((pillar) => pillar.scoredCount > 0);
+  const active = useMemo(
+    () => pillars.filter((pillar) => pillar.scoredCount > 0),
+    [pillars]
+  );
+  const hovered = active.find((pillar) => pillar.pillarId === hoveredId) ?? null;
 
   useEffect(() => {
     if (!expanded) return;
@@ -181,7 +232,7 @@ export function PackPillarRadarChart({
   const isBrand = accent !== "indigo";
   const fillColor = isBrand ? "rgba(134,188,37,0.28)" : "rgba(99,102,241,0.35)";
   const strokeColor = isBrand ? "#86bc25" : "#818cf8";
-  const labelAccent = "text-indigo-300";
+  const labelAccent = "text-[var(--theme-brand)]";
   const shellBg = "brand-ink-surface border-slate-700/80 bg-black";
 
   const cx = 200;
@@ -195,14 +246,17 @@ export function PackPillarRadarChart({
   );
   const step = (2 * Math.PI) / active.length;
   const start = -Math.PI / 2;
-  const weighted = weightedPackAlignment(active);
+  const overallPct =
+    overallScorePct !== undefined
+      ? overallScorePct
+      : computePackOverallScorePct(active);
 
   const legend = (
     <div className="flex gap-3 text-[10px] text-slate-300">
       <span className="flex items-center gap-1.5">
         <span
-          className="h-0.5 w-4 rounded bg-indigo-400"
-          style={isBrand ? { backgroundColor: strokeColor } : undefined}
+          className="h-0.5 w-4 rounded"
+          style={{ backgroundColor: strokeColor }}
         />
         Posture
       </span>
@@ -214,94 +268,154 @@ export function PackPillarRadarChart({
   );
 
   const chartSvg = (size: "default" | "large") => (
-    <svg
-      viewBox="0 0 400 400"
-      className={cn(
-        "mx-auto h-auto w-full",
-        size === "large" ? "max-w-3xl" : "max-w-md"
-      )}
-      role="img"
-      aria-label="Governance posture by pillar"
+    <div
+      className={cn("relative mx-auto w-full", size === "large" ? "max-w-3xl" : "max-w-md")}
+      onMouseLeave={() => setHoveredId(null)}
     >
-      {[25, 50, 75, 100].map((ring) => (
-        <circle
-          key={ring}
-          cx={cx}
-          cy={cy}
-          r={(ring / 100) * maxR}
-          fill="none"
-          stroke="rgba(148,163,184,0.2)"
-          strokeWidth={1}
-        />
-      ))}
-      {active.map((_, index) => {
-        const angle = start + index * step;
-        const outer = polar(cx, cy, maxR, angle, 100);
-        return (
-          <line
-            key={index}
-            x1={cx}
-            y1={cy}
-            x2={outer.x}
-            y2={outer.y}
-            stroke="rgba(148,163,184,0.25)"
+      <svg
+        viewBox="0 0 400 400"
+        className="h-auto w-full"
+        role="img"
+        aria-label="Governance posture by pillar. Hover a pillar to see how its rating was calculated."
+      >
+        {[25, 50, 75, 100].map((ring) => (
+          <circle
+            key={ring}
+            cx={cx}
+            cy={cy}
+            r={(ring / 100) * maxR}
+            fill="none"
+            stroke="rgba(148,163,184,0.2)"
             strokeWidth={1}
           />
-        );
-      })}
-      <polygon
-        points={polygonPoints(cx, cy, maxR, coverage, start)}
-        fill="none"
-        stroke="#86bc25"
-        strokeWidth={2}
-        strokeDasharray="6 4"
-        opacity={0.85}
-      />
-      <polygon
-        points={polygonPoints(cx, cy, maxR, alignment, start)}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth={2.5}
-      />
-      {active.map((pillar, index) => {
-        const angle = start + index * step;
-        const pt = polar(cx, cy, maxR + 22, angle, 100);
-        const anchor =
-          Math.cos(angle) > 0.1 ? "start" : Math.cos(angle) < -0.1 ? "end" : "middle";
-        return (
-          <text
-            key={pillar.pillarId}
-            x={pt.x}
-            y={pt.y}
-            textAnchor={anchor}
-            dominantBaseline="middle"
-            className={cn(
-              "fill-slate-300 font-medium",
-              size === "large" ? "text-[11px]" : "text-[9px]"
-            )}
-          >
-            <title>{pillar.pillarLabel}</title>
-            {shortPillarLabel(pillar.pillarLabel)}
-          </text>
-        );
-      })}
-      <text
-        x={cx}
-        y={cy - 6}
-        textAnchor="middle"
-        className={cn("fill-white font-bold", size === "large" ? "text-[28px]" : "text-[22px]")}
-      >
-        {weighted}%
-      </text>
-      <text x={cx} y={cy + 12} textAnchor="middle" className="fill-slate-400 text-[9px]">
-        weighted posture
-      </text>
-    </svg>
+        ))}
+        {active.map((pillar, index) => {
+          const angle = start + index * step;
+          const outer = polar(cx, cy, maxR, angle, 100);
+          return (
+            <line
+              key={`spoke-${pillar.pillarId}`}
+              x1={cx}
+              y1={cy}
+              x2={outer.x}
+              y2={outer.y}
+              stroke="rgba(148,163,184,0.25)"
+              strokeWidth={1}
+            />
+          );
+        })}
+        <polygon
+          points={polygonPoints(cx, cy, maxR, coverage, start)}
+          fill="none"
+          stroke="#86bc25"
+          strokeWidth={2}
+          strokeDasharray="6 4"
+          opacity={hoveredId ? 0.45 : 0.85}
+        />
+        <polygon
+          points={polygonPoints(cx, cy, maxR, alignment, start)}
+          fill={fillColor}
+          stroke={strokeColor}
+          strokeWidth={2.5}
+          opacity={hoveredId ? 0.75 : 1}
+        />
+        {active.map((pillar, index) => {
+          const angle = start + index * step;
+          const tip = polar(cx, cy, maxR, angle, pillar.alignmentPct ?? 0);
+          const labelPt = polar(cx, cy, maxR + 22, angle, 100);
+          const hit = polar(cx, cy, maxR * 0.72, angle, 100);
+          const anchor =
+            Math.cos(angle) > 0.1 ? "start" : Math.cos(angle) < -0.1 ? "end" : "middle";
+          const isHovered = hoveredId === pillar.pillarId;
+          const dimmed = hoveredId != null && !isHovered;
+          return (
+            <g
+              key={pillar.pillarId}
+              onMouseEnter={() => setHoveredId(pillar.pillarId)}
+              onFocus={() => setHoveredId(pillar.pillarId)}
+              className="cursor-pointer"
+            >
+              <circle
+                cx={hit.x}
+                cy={hit.y}
+                r={size === "large" ? 28 : 22}
+                fill="transparent"
+                className="outline-none"
+                tabIndex={0}
+                role="button"
+                aria-label={`${pillar.pillarLabel}: ${
+                  pillar.alignmentPct == null
+                    ? "Unresolved"
+                    : `${scoreBandLabel(pillar.alignmentPct).shortLabel}, ${pillar.alignmentPct}%`
+                }. Hover or focus for rating calculation.`}
+              />
+              <circle
+                cx={tip.x}
+                cy={tip.y}
+                r={isHovered ? 6 : 3.5}
+                fill={isHovered ? strokeColor : "#ffffff"}
+                stroke={strokeColor}
+                strokeWidth={isHovered ? 2 : 1}
+                opacity={dimmed ? 0.35 : 1}
+                className="transition-all duration-150"
+              />
+              <text
+                x={labelPt.x}
+                y={labelPt.y}
+                textAnchor={anchor}
+                dominantBaseline="middle"
+                className={cn(
+                  "font-medium transition-colors duration-150",
+                  size === "large" ? "text-[11px]" : "text-[9px]",
+                  isHovered ? "fill-white" : dimmed ? "fill-slate-600" : "fill-slate-300"
+                )}
+              >
+                {shortPillarLabel(pillar.pillarLabel)}
+              </text>
+            </g>
+          );
+        })}
+        <text
+          x={cx}
+          y={cy - 6}
+          textAnchor="middle"
+          className={cn(
+            "pointer-events-none fill-white font-light",
+            size === "large" ? "text-[28px]" : "text-[22px]"
+          )}
+        >
+          {overallPct == null ? "—" : `${overallPct}%`}
+        </text>
+        <text
+          x={cx}
+          y={cy + 12}
+          textAnchor="middle"
+          className="pointer-events-none fill-slate-400 text-[9px]"
+        >
+          overall result
+        </text>
+      </svg>
+    </div>
+  );
+
+  const hoverPanel = (
+    <div className="mt-3 min-h-[7.5rem] print:hidden">
+      {hovered ? (
+        <PackPillarHoverCard pillar={hovered} />
+      ) : (
+        <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.03] px-4 py-5 text-center">
+          <p className="text-[11px] leading-relaxed text-slate-500">
+            Hover a pillar on the web to see how its Early / Building / Established / Strong
+            rating was calculated.
+          </p>
+        </div>
+      )}
+    </div>
   );
 
   return (
     <>
-      <div className={cn("relative overflow-hidden rounded-2xl border p-4 shadow-lg", shellBg)}>
+      <div className={cn("relative rounded-2xl border p-4 shadow-lg", shellBg)}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
           <p className={cn("text-[11px] font-semibold uppercase tracking-wider", labelAccent)}>
             Governance maturity web
@@ -319,17 +433,8 @@ export function PackPillarRadarChart({
             </button>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="group block w-full rounded-lg text-left transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-brand)] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-          aria-label="Expand governance maturity web"
-        >
-          {chartSvg("default")}
-          <span className="mt-2 block text-center text-[11px] text-slate-500 group-hover:text-slate-300">
-            Click to enlarge
-          </span>
-        </button>
+        {chartSvg("default")}
+        {hoverPanel}
       </div>
 
       {expanded && (
@@ -355,7 +460,9 @@ export function PackPillarRadarChart({
                 >
                   Governance maturity web
                 </p>
-                <p className="mt-1 text-sm text-slate-400">Expanded view</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  Hover a pillar to inspect how its rating was calculated
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 {legend}
@@ -378,6 +485,7 @@ export function PackPillarRadarChart({
               </div>
             </div>
             {chartSvg("large")}
+            {hoverPanel}
           </div>
         </div>
       )}
@@ -427,10 +535,12 @@ export function PackAnswerStackedChart({ pillars }: { pillars: PackPillarScore[]
 export function PackScoreHero({
   scoreLabel,
   scoreTone,
+  overallScorePct,
   scoreHeroNote,
 }: {
   scoreLabel: string;
   scoreTone: PackPostureTone | null;
+  overallScorePct?: number | null;
   scoreHeroNote?: string;
 }) {
   const active = PACK_POSTURE_STEPS.find((step) => step.tone === scoreTone);
@@ -441,8 +551,8 @@ export function PackScoreHero({
         aria-hidden
         className="absolute bottom-4 left-0 top-4 w-0.5 rounded-r-full bg-[var(--theme-brand)]"
       />
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-300">
-        Overall posture
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--theme-brand)]">
+        Overall result
       </p>
       <div className="mt-4 flex flex-col items-center">
         <span
@@ -454,6 +564,11 @@ export function PackScoreHero({
         <p className="mt-3 text-lg font-light tracking-tight text-white print:text-slate-900">
           {scoreLabel}
         </p>
+        {overallScorePct != null ? (
+          <p className="mt-1 text-2xl font-light tabular-nums tracking-tight text-white print:text-slate-900">
+            {overallScorePct}%
+          </p>
+        ) : null}
         <p className="mt-2 text-xs leading-relaxed text-slate-400 print:text-slate-600">
           {scoreHeroNote ?? PACK_ASSESSMENT_COPY.scoreHeroNote}
         </p>

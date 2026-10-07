@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import { packPillarDescriptionAny } from "@/lib/pack-pillar-catalog";
 
 type Props = {
   index: number;
@@ -22,7 +22,7 @@ export function MaturityPackPillarSectionHeader({
 }: Props) {
   const complete = totalCount > 0 && answeredCount === totalCount;
   const fill = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
-  const description = RISK_PILLARS.find((pillar) => pillar.id === pillarId)?.description;
+  const description = packPillarDescriptionAny(pillarId);
 
   return (
     <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur-md">

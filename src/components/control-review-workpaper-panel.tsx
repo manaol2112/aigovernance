@@ -12,11 +12,8 @@ import {
   ChevronRight,
   Circle,
   ClipboardCheck,
-  FileCheck,
-  Files,
   Loader2,
   Lock,
-  MessageSquareMore,
   PenLine,
   Save,
   ShieldCheck,
@@ -275,7 +272,7 @@ export function ControlReviewWorkpaperPanel({
   const [activeCitation, setActiveCitation] = useState<number | null>(null);
   const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
   const [expandedPillars, setExpandedPillars] = useState<Set<string>>(new Set());
-  const [reviewTab, setReviewTab] = useState<ReviewTab>("details");
+  const [reviewTab, setReviewTab] = useState<ReviewTab>("writeup");
   const [activeField, setActiveField] = useState<WorkpaperFieldKey>("inPlaceFindings");
   const [busyThreadId, setBusyThreadId] = useState<string | null>(null);
   const evidenceDrawer = useEvidenceDrawer();
@@ -627,7 +624,7 @@ export function ControlReviewWorkpaperPanel({
     void guardedNavigate(() => {
       loadedControlRef.current = null;
       setSelectedControlId(controlId);
-      setReviewTab("details");
+      setReviewTab("writeup");
       setActiveCitation(null);
       setEvidenceDialogOpen(false);
     });
@@ -933,90 +930,73 @@ export function ControlReviewWorkpaperPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50/30">
-      <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Validate workpaper</p>
-            <h2 className="mt-0.5 text-lg font-semibold text-slate-900">Reviewer-first control workpapers</h2>
-            <p className="mt-1 max-w-3xl text-sm text-slate-500">
-              Document grounded findings, challenge them with threaded notes, validate evidence completeness, and
-              sign off only when the workpaper is resolved and defensible.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <FollowUpQuestionsExportButton assessmentId={assessmentId} departmentQuery={departmentQuery} />
-            <div className="text-right">
-              <p className="text-2xl font-bold tabular-nums text-slate-900">
-                {stats.confirmed}
-                <span className="text-base font-normal text-slate-400"> / {stats.total}</span>
-              </p>
-              <p className="text-xs text-slate-500">controls signed off</p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-indigo-100">
-              <span className="text-sm font-bold text-indigo-700">{progressPct}%</span>
-            </div>
-          </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#FAFAFA]/40">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#E3E3E3] bg-white px-3 py-1.5 sm:px-4">
+        <div className="inline-flex rounded-md border border-[#E3E3E3] bg-[#FAFAFA] p-0.5">
+          {([
+            ["individual", "Individual"],
+            ["batch", "Batch"],
+          ] as const).map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => void guardedNavigate(() => setReviewMode(mode))}
+              className={`rounded-md px-2 py-1 text-[11px] font-semibold transition-colors ${
+                reviewMode === mode
+                  ? "bg-black text-white"
+                  : "text-[#53565A] hover:text-black"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
-            style={{ width: `${progressPct}%` }}
-          />
+        <div className="inline-flex min-w-0 flex-1 flex-wrap gap-0.5 overflow-x-auto [scrollbar-width:thin]">
+          {([
+            ["all", "All"],
+            ["ready", "Ready"],
+            ["confirmed", "Signed"],
+            ["rejected", "Revision"],
+            ["pending", "Pending"],
+          ] as const).map(([f, label]) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => void guardedNavigate(() => setStatusFilter(f))}
+              className={`shrink-0 rounded px-2 py-1 text-[11px] font-semibold transition-colors ${
+                statusFilter === f
+                  ? "bg-black text-white"
+                  : "text-[#53565A] hover:bg-[#F5F5F5] hover:text-black"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-            {([
-              ["individual", "Individual review"],
-              ["batch", "Batch review"],
-            ] as const).map(([mode, label]) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => void guardedNavigate(() => setReviewMode(mode))}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                  reviewMode === mode
-                    ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="inline-flex flex-wrap gap-1">
-            {([
-              ["all", "All"],
-              ["ready", "Ready to review"],
-              ["confirmed", "Signed off"],
-              ["rejected", "Needs revision"],
-              ["pending", "Not analyzed"],
-            ] as const).map(([f, label]) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => void guardedNavigate(() => setStatusFilter(f))}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  statusFilter === f
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+        <div className="flex shrink-0 items-center gap-2">
+          <FollowUpQuestionsExportButton assessmentId={assessmentId} departmentQuery={departmentQuery} />
+          <div className="inline-flex items-center gap-1 text-[11px] tabular-nums text-[#666666]">
+            <span className="font-semibold text-black">{stats.confirmed}</span>
+            <span>/</span>
+            <span>{stats.total}</span>
+            <div className="ml-0.5 h-1 w-12 overflow-hidden rounded-full bg-[#F0F0F0]">
+              <div
+                className="h-full rounded-full bg-[var(--theme-brand)]"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-12">
-        <aside className="flex max-h-[40vh] flex-col overflow-hidden border-b border-slate-200 bg-white lg:col-span-4 lg:max-h-none lg:border-b-0 lg:border-r">
+        <aside className="flex max-h-[34vh] flex-col overflow-hidden border-b border-[#E3E3E3] bg-white lg:col-span-3 lg:max-h-none lg:border-b-0 lg:border-r">
           <ValidationQueuePanel
             queue={validationQueue}
             selectedControlId={selectedControlId}
             onSelectControl={selectControl}
           />
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
             {pillars.map((pillar) => {
               const pillarControls = pillar.controls.filter((c) =>
                 filteredControls.some((fc) => fc.id === c.id)
@@ -1028,8 +1008,8 @@ export function ControlReviewWorkpaperPanel({
               ).length;
 
               return (
-                <div key={pillar.pillarId} className="border-b border-slate-100">
-                  <div className="flex items-center gap-2 bg-slate-50/80 px-3 py-2">
+                <div key={pillar.pillarId} className="border-b border-[#E3E3E3]">
+                  <div className="flex items-center gap-1.5 bg-[#FAFAFA] px-2 py-1.5">
                     {reviewMode === "batch" && (() => {
                       const reviewableIds = pillar.controls
                         .map((c) => c.id)
@@ -1037,7 +1017,7 @@ export function ControlReviewWorkpaperPanel({
                       return (
                         <input
                           type="checkbox"
-                          className="rounded border-slate-300"
+                          className="rounded border-[#D0D0CE]"
                           disabled={reviewableIds.length === 0}
                           onChange={() => togglePillarBatch(pillar.pillarId)}
                           checked={
@@ -1049,7 +1029,7 @@ export function ControlReviewWorkpaperPanel({
                     })()}
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                       onClick={() =>
                         setExpandedPillars((prev) => {
                           const next = new Set(prev);
@@ -1060,12 +1040,12 @@ export function ControlReviewWorkpaperPanel({
                       }
                     >
                       <ChevronRight
-                        className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`}
+                        className={`h-3.5 w-3.5 shrink-0 text-[#A7A8AA] transition-transform ${expanded ? "rotate-90" : ""}`}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-slate-800">{pillar.pillarLabel}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {pillarConfirmed}/{pillar.controls.length} signed off
+                        <p className="truncate text-[11px] font-semibold text-black">{pillar.pillarLabel}</p>
+                        <p className="text-[10px] tabular-nums text-[#767676]">
+                          {pillarConfirmed}/{pillar.controls.length}
                         </p>
                       </div>
                     </button>
@@ -1081,16 +1061,16 @@ export function ControlReviewWorkpaperPanel({
                       return (
                         <div
                           key={c.id}
-                          className={`flex items-start gap-2 border-l-2 px-3 py-2.5 transition-colors ${
+                          className={`flex items-start gap-1.5 border-l-2 px-2 py-1.5 transition-colors ${
                             selected
-                              ? "border-indigo-500 bg-indigo-50/60"
-                              : "border-transparent hover:bg-slate-50"
+                              ? "border-black bg-[#FAFAFA]"
+                              : "border-transparent hover:bg-[#FAFAFA]"
                           }`}
                         >
                           {reviewMode === "batch" && (
                             <input
                               type="checkbox"
-                              className="mt-1 rounded border-slate-300"
+                              className="mt-0.5 rounded border-[#D0D0CE]"
                               disabled={!ev?.inPlaceFindings?.trim()}
                               checked={batchSelected.has(c.id)}
                               onChange={() => toggleBatch(c.id)}
@@ -1101,32 +1081,25 @@ export function ControlReviewWorkpaperPanel({
                             className="min-w-0 flex-1 text-left"
                             onClick={() => selectControl(c.id)}
                           >
-                            <div className="flex items-center gap-2">
-                              <ReviewIcon className={`h-3.5 w-3.5 shrink-0 ${reviewMeta.className}`} />
-                              <span className="font-mono text-[11px] font-bold text-indigo-700">{c.code}</span>
+                            <div className="flex items-center gap-1.5">
+                              <ReviewIcon className={`h-3 w-3 shrink-0 ${reviewMeta.className}`} />
+                              <span className="font-mono text-[10px] font-semibold text-black">{c.code}</span>
+                              {openNotes > 0 && (
+                                <span className="rounded bg-amber-50 px-1 text-[9px] font-semibold text-amber-800">
+                                  {openNotes}n
+                                </span>
+                              )}
                               {ev && (
                                 <span
-                                  className={`ml-auto shrink-0 rounded border px-1 py-0.5 text-[9px] font-medium uppercase ${
+                                  className={`ml-auto shrink-0 rounded border px-1 py-px text-[9px] font-medium uppercase ${
                                     STATUS_COLORS[ev.complianceStatus] ?? ""
                                   }`}
                                 >
-                                  {ev.complianceStatus.replace("_", " ")}
+                                  {ev.complianceStatus.replace("_", " ").slice(0, 7)}
                                 </span>
                               )}
                             </div>
-                            <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-600">{c.title}</p>
-                            <div className="mt-1 flex flex-wrap gap-1.5">
-                              {openNotes > 0 && (
-                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                                  {openNotes} open note{openNotes === 1 ? "" : "s"}
-                                </span>
-                              )}
-                              {ev?.disagreements?.some((item) => item.status === "open") && (
-                                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
-                                  disagreement
-                                </span>
-                              )}
-                            </div>
+                            <p className="mt-0.5 line-clamp-1 text-[10px] leading-snug text-[#666666]">{c.title}</p>
                           </button>
                         </div>
                       );
@@ -1137,113 +1110,87 @@ export function ControlReviewWorkpaperPanel({
           </div>
         </aside>
 
-        <main className="flex min-h-0 flex-col overflow-hidden lg:col-span-8">
+        <main className="flex min-h-0 flex-col overflow-hidden lg:col-span-9">
           {reviewMode === "batch" && batchReviewable.length > 0 && (
-            <div className="shrink-0 border-b border-indigo-200 bg-indigo-50/80 px-5 py-3">
-              <p className="text-sm font-medium text-indigo-900">
-                <Users className="mr-1.5 inline h-4 w-4" />
-                {batchReviewable.length} control(s) selected for batch attestation
+            <div className="shrink-0 border-b border-[#E3E3E3] bg-[#FAFAFA] px-3 py-1.5">
+              <p className="text-[11px] font-medium text-black">
+                <Users className="mr-1 inline h-3.5 w-3.5" />
+                {batchReviewable.length} selected for batch sign-off
               </p>
             </div>
           )}
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-4 [scrollbar-width:thin]">
             {selectedControl && selectedEval ? (
-              <div className="space-y-5">
-                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">
-                          {selectedControl.pillarLabel}
-                        </Badge>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                          {stats.confirmed}/{stats.total} signed off
-                        </span>
-                        {selectedEval.status === "human_confirmed" ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                            <Lock className="mr-1 h-3 w-3" /> Signed off
-                          </Badge>
-                        ) : selectedEval.status === "rejected" ? (
-                          <Badge variant="danger">Needs revision</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-amber-700">
-                            Workpaper in progress
-                          </Badge>
-                        )}
-                      </div>
-                      <h3 className="mt-2 text-lg font-semibold tracking-tight text-slate-900">
-                        <span className="font-mono text-indigo-700">{selectedControl.code}</span>
-                        <span className="font-normal text-slate-400"> — </span>
-                        {selectedControl.title}
-                      </h3>
-                      <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-600">
-                        {selectedControl.description}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <MetaChip
-                        icon={Files}
-                        label={`${selectedOpenNotes} open review note${selectedOpenNotes === 1 ? "" : "s"}`}
-                        tone={hasSelectedOpenNotes ? "amber" : "slate"}
-                      />
-                      <MetaChip
-                        icon={FileCheck}
-                        label={
-                          documentationValidation
-                            ? `${documentationValidation.coveragePct}% documentation coverage`
-                            : "Documentation not validated"
-                        }
-                        tone={documentationValidation?.overallStatus === "complete" ? "emerald" : "slate"}
-                      />
-                      <MetaChip
-                        icon={MessageSquareMore}
-                        label={`${selectedEval.citations.length} source citation${selectedEval.citations.length === 1 ? "" : "s"}`}
-                        tone="slate"
-                      />
-                    </div>
+              <div className="space-y-3 pb-14">
+                <div className="rounded-lg border border-[#E3E3E3] bg-white px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-mono text-xs font-semibold text-black">{selectedControl.code}</span>
+                    <span className="text-[#D0D0CE]">·</span>
+                    <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-black">
+                      {selectedControl.title}
+                    </h3>
+                    {selectedEval.status === "human_confirmed" ? (
+                      <Badge className="bg-[#EEF7E0] text-[#046A38] hover:bg-[#EEF7E0]">
+                        <Lock className="mr-1 h-3 w-3" /> Signed off
+                      </Badge>
+                    ) : selectedEval.status === "rejected" ? (
+                      <Badge variant="danger">Needs revision</Badge>
+                    ) : hasSelectedOpenNotes ? (
+                      <Badge variant="outline" className="border-amber-200 text-amber-800">
+                        {selectedOpenNotes} open note{selectedOpenNotes === 1 ? "" : "s"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[#666666]">
+                        In progress
+                      </Badge>
+                    )}
                   </div>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="inline-flex rounded-md border border-[#E3E3E3] bg-[#FAFAFA] p-0.5">
                       {([
-                        ["details", "Control details"],
-                        ["writeup", "Control Documentation"],
+                        ["writeup", "Workpaper"],
+                        ["details", "Details"],
                       ] as const).map(([id, label]) => (
                         <button
                           key={id}
                           type="button"
                           onClick={() => setReviewTab(id)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                          className={`rounded px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                             reviewTab === id
-                              ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
-                              : "text-slate-500 hover:text-slate-800"
+                              ? "bg-black text-white"
+                              : "text-[#53565A] hover:text-black"
                           }`}
                         >
                           {label}
                         </button>
                       ))}
                     </div>
-
-                    <div className="ml-auto flex flex-wrap gap-2">
+                    <span className="hidden text-[10px] text-[#767676] sm:inline">
+                      {selectedControl.pillarLabel}
+                      {documentationValidation
+                        ? ` · ${documentationValidation.coveragePct}% docs`
+                        : ""}
+                      {` · ${selectedEval.citations.length} citations`}
+                    </span>
+                    <div className="ml-auto flex flex-wrap gap-1">
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-7 text-xs"
                         onClick={() => analyzeControl(selectedControl.id)}
                         disabled={!!saving}
                       >
                         {saving === `analyze-${selectedControl.id}` ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Brain className="mr-1.5 h-3.5 w-3.5" />
+                          <Brain className="h-3.5 w-3.5" />
                         )}
-                        Re-analyze
                       </Button>
-                      <Button size="sm" variant="outline" onClick={goPrev} disabled={currentIndex <= 0}>
+                      <Button size="sm" variant="outline" className="h-7 px-2" onClick={goPrev} disabled={currentIndex <= 0}>
                         <ArrowLeft className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={goNext} disabled={currentIndex >= navigableIds.length - 1}>
+                      <Button size="sm" variant="outline" className="h-7 px-2" onClick={goNext} disabled={currentIndex >= navigableIds.length - 1}>
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -1251,49 +1198,40 @@ export function ControlReviewWorkpaperPanel({
                 </div>
 
                 {hasSelectedOpenNotes && (
-                  <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white px-4 py-3 shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-amber-900">Open reviewer notes are blocking approval</p>
-                        <p className="mt-1 text-xs text-amber-800/80">
-                          Resolve or reopen the active field threads before this control can be approved.
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-amber-200 text-amber-900 hover:bg-amber-100"
-                        onClick={() => void resolveAllNotes()}
-                        disabled={!reviewerName.trim() || selectedOpenNotes === 0 || !!saving}
-                      >
-                        {saving === "resolve_notes" ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                        )}
-                        Resolve all notes
-                      </Button>
-                    </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-xs text-amber-900">
+                      <span className="font-semibold">{selectedOpenNotes} open note{selectedOpenNotes === 1 ? "" : "s"}</span>
+                      {" "}blocking approval
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 border-amber-200 text-xs text-amber-900"
+                      onClick={() => void resolveAllNotes()}
+                      disabled={!reviewerName.trim() || selectedOpenNotes === 0 || !!saving}
+                    >
+                      Resolve all
+                    </Button>
                   </div>
                 )}
 
                 {selectedEval.disagreements.length > 0 && (
-                  <div className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white px-4 py-3 shadow-sm">
-                    <p className="text-sm font-semibold text-rose-900">Reviewer disagreement history detected</p>
-                    <p className="mt-1 text-xs text-rose-800/80">
-                      Prior reviewer objections remain attached to this control for traceability and challenge history.
-                    </p>
-                  </div>
+                  <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-800">
+                    Disagreement history attached to this control.
+                  </p>
                 )}
 
                 {reviewTab === "details" ? (
-                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-                    <div className="space-y-5">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-[#E3E3E3] bg-white px-3 py-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#767676]">
                           Control details
                         </p>
-                        <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <p className="mt-2 text-xs leading-relaxed text-[#666666]">
+                          {selectedControl.description}
+                        </p>
+                        <div className="mt-3 grid gap-2 md:grid-cols-3">
                           <StatusRow label="Control code" value={selectedControl.code} />
                           <StatusRow label="Owner role" value={selectedControl.ownerRole || "Unassigned"} />
                           <StatusRow
@@ -1303,14 +1241,14 @@ export function ControlReviewWorkpaperPanel({
                           />
                         </div>
                         {selectedEval.explainability?.frameworkRequirements?.length ? (
-                          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                              Framework references in scope
+                          <div className="mt-3 rounded-md border border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#767676]">
+                              Framework references
                             </p>
-                            <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+                            <ul className="mt-1.5 space-y-1 text-xs text-[#53565A]">
                               {selectedEval.explainability.frameworkRequirements.slice(0, 6).map((item) => (
                                 <li key={item} className="flex gap-2">
-                                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--theme-brand)]" />
                                   <span>{item}</span>
                                 </li>
                               ))}
@@ -1327,7 +1265,7 @@ export function ControlReviewWorkpaperPanel({
                       />
                     </div>
 
-                    <aside className="space-y-5 xl:sticky xl:top-5 xl:self-start">
+                    <aside className="space-y-3">
                       <WorkpaperStatusCard
                         selectedEval={selectedEval}
                         documentationValidation={documentationValidation}
@@ -1335,14 +1273,11 @@ export function ControlReviewWorkpaperPanel({
                       />
 
                       {selectedEval.disagreements.length > 0 && (
-                        <div className="rounded-2xl border border-rose-200 bg-white shadow-sm">
-                          <div className="border-b border-rose-100 px-4 py-3">
-                            <p className="text-sm font-semibold text-rose-900">Open disagreements</p>
-                            <p className="mt-1 text-xs text-rose-700/80">
-                              Historical reviewer disputes carried into the workpaper for traceability.
-                            </p>
+                        <div className="rounded-lg border border-rose-200 bg-white">
+                          <div className="border-b border-rose-100 px-3 py-2">
+                            <p className="text-xs font-semibold text-rose-900">Open disagreements</p>
                           </div>
-                          <div className="space-y-3 p-4">
+                          <div className="space-y-2 p-3">
                             {selectedEval.disagreements.map((item) => (
                               <div key={item.id} className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">
@@ -1373,22 +1308,22 @@ export function ControlReviewWorkpaperPanel({
                     )}
 
                     {!hasReviewableFindings(selectedEval) ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
-                        <Brain className="mx-auto h-10 w-10 text-slate-300" />
-                        <p className="mt-3 font-medium text-slate-700">No findings to review yet</p>
-                        <p className="mt-1 text-sm text-slate-500">
+                      <div className="rounded-lg border border-dashed border-[#E3E3E3] bg-white px-4 py-8 text-center">
+                        <Brain className="mx-auto h-8 w-8 text-[#A7A8AA]" />
+                        <p className="mt-2 text-sm font-medium text-black">No findings to review yet</p>
+                        <p className="mt-1 text-xs text-[#666666]">
                           {isMalformedFindingText(selectedEval.inPlaceFindings)
                             ? "The last analysis did not format correctly. Run AI analysis again."
                             : "Run AI analysis from Evidence & Analysis or re-analyze this control."}
                         </p>
-                        <Button className="mt-4" size="sm" onClick={() => analyzeControl(selectedControl.id)} disabled={!!saving}>
+                        <Button className="mt-3" size="sm" onClick={() => analyzeControl(selectedControl.id)} disabled={!!saving}>
                           Run AI analysis
                         </Button>
                       </div>
                     ) : (
                       <>
-                        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_380px]">
-                          <div className="space-y-5">
+                        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_260px]">
+                          <div className="space-y-3">
                             <LimitedRichTextEditor
                               label="In Place"
                               value={draftInPlace}
@@ -1533,21 +1468,21 @@ export function ControlReviewWorkpaperPanel({
                             )}
                           </div>
 
-                          <aside className="space-y-5 xl:sticky xl:top-5 xl:self-start">
+                          <aside className="space-y-2 xl:self-start">
                             <WorkpaperStatusCard
                               selectedEval={selectedEval}
                               documentationValidation={documentationValidation}
                               openNotes={selectedOpenNotes}
                             />
 
-                            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                              <div className="border-b border-slate-100 px-4 py-3">
-                                <p className="text-sm font-semibold text-slate-900">Reviewed supports</p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  Active field: {getWorkpaperFieldLabel(activeField)}
+                            <div className="rounded-lg border border-[#E3E3E3] bg-white">
+                              <div className="border-b border-[#E3E3E3] px-3 py-1.5">
+                                <p className="text-[11px] font-semibold text-black">Supports</p>
+                                <p className="text-[10px] text-[#767676]">
+                                  {getWorkpaperFieldLabel(activeField)}
                                 </p>
                               </div>
-                              <div className="p-4">
+                              <div className="p-2.5">
                                 {activeFieldCitations.length > 0 ? (
                                   <CitedAnalysis
                                     text={htmlToPlainText(
@@ -1562,11 +1497,11 @@ export function ControlReviewWorkpaperPanel({
                                     citations={activeFieldCitations}
                                     activeCitation={activeCitation}
                                     onCitationClick={openEvidenceCitation}
-                                    className="text-sm"
+                                    className="text-xs"
                                   />
                                 ) : (
-                                  <p className="text-sm text-slate-500">
-                                    No direct citations are mapped to this field yet.
+                                  <p className="text-[11px] text-[#767676]">
+                                    No citations mapped to this field yet.
                                   </p>
                                 )}
                               </div>
@@ -1586,24 +1521,21 @@ export function ControlReviewWorkpaperPanel({
                             />
 
                             {selectedEval.disagreements.length > 0 && (
-                              <div className="rounded-2xl border border-rose-200 bg-white shadow-sm">
-                                <div className="border-b border-rose-100 px-4 py-3">
-                                  <p className="text-sm font-semibold text-rose-900">Open disagreements</p>
-                                  <p className="mt-1 text-xs text-rose-700/80">
-                                    Historical reviewer disputes carried into the workpaper for traceability.
-                                  </p>
+                              <div className="rounded-lg border border-rose-200 bg-white">
+                                <div className="border-b border-rose-100 px-3 py-1.5">
+                                  <p className="text-[11px] font-semibold text-rose-900">Disagreements</p>
                                 </div>
-                                <div className="space-y-3 p-4">
+                                <div className="space-y-2 p-2.5">
                                   {selectedEval.disagreements.map((item) => (
-                                    <div key={item.id} className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
-                                      <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">
+                                    <div key={item.id} className="rounded-md border border-rose-100 bg-rose-50/50 p-2">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700">
                                         {item.disputedField?.replaceAll("_", " ") ?? "general"}
                                       </p>
                                       {item.mismatchReason && (
-                                        <p className="mt-1 text-sm text-slate-700">{item.mismatchReason}</p>
+                                        <p className="mt-0.5 text-xs text-[#53565A]">{item.mismatchReason}</p>
                                       )}
                                       {item.reviewerOverride && (
-                                        <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                                        <p className="mt-1 text-[11px] leading-relaxed text-[#666666]">
                                           {item.reviewerOverride}
                                         </p>
                                       )}
@@ -1616,80 +1548,76 @@ export function ControlReviewWorkpaperPanel({
                         </div>
 
                         {reviewMode === "individual" && (
-                          <div className="sticky bottom-0 z-20 rounded-[24px] border border-slate-900/10 bg-white/95 p-4 shadow-2xl shadow-slate-300/25 backdrop-blur">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                                  Workpaper actions
-                                </p>
-                                <p className="mt-1 text-sm text-slate-600">
-                                  Save, challenge, resolve, and approve from a single sticky action rail.
-                                </p>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
+                          <div className="sticky bottom-0 z-20 -mx-3 border-t border-[#E3E3E3] bg-white/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:px-4">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => void saveWorkpaper(selectedControl.id)}
+                                disabled={!!saving || saveStatus === "saving" || !findingsDirty}
+                              >
+                                {saving === "workpaper" || saveStatus === "saving" ? (
+                                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Save className="mr-1 h-3.5 w-3.5" />
+                                )}
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 border-rose-200 text-xs text-rose-800 hover:bg-rose-50"
+                                onClick={() => void requestChanges()}
+                                disabled={actionBarBlocked || !reviewerName.trim() || selectedEval.status === "human_confirmed"}
+                              >
+                                Changes
+                              </Button>
+                              {selectedOpenNotes > 0 && (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => void saveWorkpaper(selectedControl.id)}
-                                  disabled={!!saving || saveStatus === "saving" || !findingsDirty}
-                                >
-                                  {saving === "workpaper" || saveStatus === "saving" ? (
-                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Save className="mr-1.5 h-3.5 w-3.5" />
-                                  )}
-                                  Save draft
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-rose-200 text-rose-800 hover:bg-rose-50"
-                                  onClick={() => void requestChanges()}
-                                  disabled={actionBarBlocked || !reviewerName.trim() || selectedEval.status === "human_confirmed"}
-                                >
-                                  Request changes
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-amber-200 text-amber-800 hover:bg-amber-50"
+                                  className="h-7 border-amber-200 text-xs text-amber-800 hover:bg-amber-50"
                                   onClick={() => void resolveAllNotes()}
-                                  disabled={!reviewerName.trim() || selectedOpenNotes === 0 || !!saving}
+                                  disabled={!reviewerName.trim() || !!saving}
                                 >
                                   {saving === "resolve_notes" ? (
-                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                                   ) : (
-                                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                                   )}
-                                  Resolve all notes
+                                  Resolve notes
                                 </Button>
+                              )}
+                              <div className="ml-auto">
                                 {selectedEval.status === "human_confirmed" ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="border-amber-200 text-amber-800 hover:bg-amber-50"
+                                    className="h-7 border-amber-200 text-xs text-amber-800 hover:bg-amber-50"
                                     onClick={() => removeSignOff(selectedControl.id, selectedControl.code)}
                                     disabled={!!saving}
                                   >
                                     {saving === "unconfirm" ? (
-                                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                                     ) : (
-                                      <Undo2 className="mr-1.5 h-3.5 w-3.5" />
+                                      <Undo2 className="mr-1 h-3.5 w-3.5" />
                                     )}
-                                    Re-open control
+                                    Re-open
                                   </Button>
                                 ) : (
                                   <Button
                                     size="sm"
+                                    className="h-7 text-xs"
                                     onClick={() => void submitReview([selectedControl.id])}
                                     disabled={actionBarBlocked || hasSelectedOpenNotes}
                                   >
                                     {saving === "review" ? (
-                                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                                     ) : (
-                                      <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                                      <ShieldCheck className="mr-1 h-3.5 w-3.5" />
                                     )}
-                                    Approve control
+                                    Approve
                                   </Button>
                                 )}
                               </div>
@@ -1702,95 +1630,74 @@ export function ControlReviewWorkpaperPanel({
                 )}
               </div>
             ) : (
-              <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
-                <ClipboardCheck className="h-10 w-10 text-slate-300" />
-                <p className="mt-3 font-medium text-slate-600">Select a control workpaper</p>
-                <p className="mt-1 max-w-sm text-sm text-slate-400">
-                  Use the left queue to open a control, document the workpaper, resolve review notes, and sign off.
+              <div className="flex min-h-[240px] flex-col items-center justify-center rounded-lg border border-dashed border-[#E3E3E3] bg-white px-4 py-10 text-center">
+                <ClipboardCheck className="h-8 w-8 text-[#A7A8AA]" />
+                <p className="mt-2 text-sm font-medium text-black">Select a control workpaper</p>
+                <p className="mt-1 max-w-sm text-xs text-[#767676]">
+                  Open a control from the left queue to document findings, resolve notes, and sign off.
                 </p>
               </div>
             )}
           </div>
 
           {reviewMode === "batch" && (
-            <div className="shrink-0 border-t border-indigo-100 bg-gradient-to-b from-indigo-50/40 to-white px-5 py-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Batch attestation</p>
-                  <h4 className="mt-0.5 text-sm font-semibold text-slate-900">Sign off multiple controls</h4>
-                  {batchHasOpenNotes && (
-                    <p className="mt-1 text-xs text-amber-700">
-                      Resolve open workpaper notes on selected controls before batch sign-off.
-                    </p>
-                  )}
-                </div>
+            <div className="shrink-0 border-t border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2.5 sm:px-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-[#666666]">
+                  <span className="font-semibold text-black">Batch sign-off</span>
+                  {batchHasOpenNotes
+                    ? " · resolve open notes on selected controls first"
+                    : ` · ${batchReviewable.length} ready`}
+                </p>
                 <Button
                   size="sm"
+                  className="h-7 text-xs"
                   onClick={() => submitReview(batchReviewable)}
                   disabled={!!saving || batchReviewable.length === 0 || batchHasOpenNotes}
                 >
                   {saving === "review" ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                    <ShieldCheck className="mr-1 h-3.5 w-3.5" />
                   )}
-                  Attest selected ({batchReviewable.length})
+                  Attest ({batchReviewable.length})
                 </Button>
               </div>
-              <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                <div className="space-y-2 lg:col-span-1">
+              <div className="mt-2 grid gap-2 lg:grid-cols-3">
+                <div className="flex flex-wrap gap-x-3 gap-y-1 lg:col-span-1">
                   {(["complete", "accurate", "noHallucination"] as const).map((key) => (
-                    <label
-                      key={key}
-                      className="flex items-start gap-2 rounded-lg border border-white bg-white/80 px-3 py-2 text-sm text-slate-700 shadow-sm"
-                    >
+                    <label key={key} className="flex items-center gap-1.5 text-[11px] text-[#53565A]">
                       <input
                         type="checkbox"
-                        className="mt-0.5 rounded border-slate-300"
+                        className="rounded border-[#D0D0CE]"
                         checked={reviewChecks[key]}
                         onChange={(e) =>
                           setReviewChecks({ ...reviewChecks, [key]: e.target.checked })
                         }
                       />
-                      <span className="text-xs leading-snug">
-                        {key === "complete" && "Complete — addresses requirements"}
-                        {key === "accurate" && "Accurate — matches evidence"}
-                        {key === "noHallucination" && "No hallucination — cited claims"}
-                      </span>
+                      {key === "complete" && "Complete"}
+                      {key === "accurate" && "Accurate"}
+                      {key === "noHallucination" && "Traceable"}
                     </label>
                   ))}
                 </div>
-                <div className="space-y-3 lg:col-span-2">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                        <PenLine className="h-3 w-3" />
-                        Reviewer name
-                      </label>
-                      <input
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                        placeholder="Full name"
-                        value={reviewerName}
-                        onChange={(e) => setReviewerName(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                        <Calendar className="h-3 w-3" />
-                        Sign-off date
-                      </label>
-                      <input
-                        type="date"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                        value={signOffDate}
-                        onChange={(e) => setSignOffDate(e.target.value)}
-                      />
-                    </div>
-                  </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:col-span-2">
+                  <input
+                    className="w-full rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5 text-xs"
+                    placeholder="Reviewer name"
+                    value={reviewerName}
+                    onChange={(e) => setReviewerName(e.target.value)}
+                  />
+                  <input
+                    type="date"
+                    className="w-full rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5 text-xs"
+                    value={signOffDate}
+                    onChange={(e) => setSignOffDate(e.target.value)}
+                  />
                   <textarea
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                    rows={2}
-                    placeholder="Batch reviewer notes (optional)"
+                    className="w-full rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5 text-xs sm:col-span-2"
+                    rows={1}
+                    placeholder="Batch notes (optional)"
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
                   />
@@ -1815,28 +1722,6 @@ export function ControlReviewWorkpaperPanel({
   );
 }
 
-function MetaChip({
-  icon: Icon,
-  label,
-  tone,
-}: {
-  icon: typeof Files;
-  label: string;
-  tone: "slate" | "amber" | "emerald";
-}) {
-  const tones = {
-    slate: "border-slate-200 bg-slate-50 text-slate-600",
-    amber: "border-amber-200 bg-amber-50 text-amber-800",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  };
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${tones[tone]}`}>
-      <Icon className="h-3.5 w-3.5" />
-      {label}
-    </span>
-  );
-}
-
 function WorkpaperStatusCard({
   selectedEval,
   documentationValidation,
@@ -1847,29 +1732,28 @@ function WorkpaperStatusCard({
   openNotes: number;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <p className="text-sm font-semibold text-slate-900">Workpaper status</p>
-        <p className="mt-1 text-xs text-slate-500">Approval is blocked until open field notes are resolved.</p>
+    <div className="rounded-lg border border-[#E3E3E3] bg-white">
+      <div className="border-b border-[#E3E3E3] px-3 py-1.5">
+        <p className="text-[11px] font-semibold text-black">Status</p>
       </div>
-      <div className="space-y-3 p-4">
+      <div className="grid grid-cols-2 gap-1.5 p-2.5">
         <StatusRow
-          label="Review state"
+          label="Review"
           value={REVIEW_STATUS_ICON[selectedEval.status ?? "pending"]?.label ?? "In progress"}
         />
-        <StatusRow label="Open notes" value={String(openNotes)} tone={openNotes > 0 ? "amber" : "emerald"} />
+        <StatusRow label="Notes" value={String(openNotes)} tone={openNotes > 0 ? "amber" : "emerald"} />
         <StatusRow
-          label="Documentation"
+          label="Docs"
           value={
             documentationValidation
-              ? `${documentationValidation.overallStatus} (${documentationValidation.coveragePct}%)`
-              : "Not validated"
+              ? `${documentationValidation.coveragePct}%`
+              : "—"
           }
           tone={documentationValidation?.overallStatus === "complete" ? "emerald" : "slate"}
         />
         <StatusRow
-          label="Traceability"
-          value={`${selectedEval.citations.length} citation${selectedEval.citations.length === 1 ? "" : "s"}`}
+          label="Citations"
+          value={String(selectedEval.citations.length)}
         />
       </div>
     </div>
@@ -1886,14 +1770,14 @@ function StatusRow({
   tone?: "slate" | "amber" | "emerald";
 }) {
   const tones = {
-    slate: "text-slate-700",
+    slate: "text-black",
     amber: "text-amber-800",
-    emerald: "text-emerald-700",
+    emerald: "text-[#046A38]",
   };
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 text-sm font-semibold ${tones[tone]}`}>{value}</p>
+    <div className="rounded-md border border-[#E3E3E3] bg-[#FAFAFA] px-2 py-1.5">
+      <p className="text-[9px] font-semibold uppercase tracking-wide text-[#767676]">{label}</p>
+      <p className={`mt-0.5 truncate text-[11px] font-semibold ${tones[tone]}`}>{value}</p>
     </div>
   );
 }
@@ -1910,44 +1794,29 @@ function ComplianceConclusionPanel({
   const selected = COMPLIANCE_OPTIONS.find((o) => o.id === value) ?? COMPLIANCE_OPTIONS[3];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              Compliance conclusion
-            </p>
-            <h4 className="mt-0.5 text-base font-semibold text-slate-900">
-              What is the current control posture?
-            </h4>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Select the overall conclusion that should flow into downstream reporting.
-            </p>
-          </div>
-          <div
-            className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-              STATUS_COLORS[value] ?? STATUS_COLORS.not_assessed
-            }`}
-          >
-            {selected.label}
-          </div>
-        </div>
+    <div className="rounded-lg border border-[#E3E3E3] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E3E3E3] px-3 py-2">
+        <p className="text-[11px] font-semibold text-black">Compliance conclusion</p>
+        <span
+          className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            STATUS_COLORS[value] ?? STATUS_COLORS.not_assessed
+          }`}
+        >
+          {selected.label}
+        </span>
       </div>
 
-      <div className="p-5">
+      <div className="p-2.5">
         {locked ? (
-          <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-4">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+          <div className="flex items-start gap-2 rounded-md border border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#A7A8AA]" />
             <div>
-              <p className={`text-sm font-semibold ${selected.textClass}`}>{selected.label}</p>
-              <p className="mt-1 text-sm text-slate-600">{selected.description}</p>
-              <p className="mt-2 text-xs text-slate-500">
-                Locked after sign-off. Re-open sign-off to change the conclusion.
-              </p>
+              <p className={`text-xs font-semibold ${selected.textClass}`}>{selected.label}</p>
+              <p className="mt-0.5 text-[11px] text-[#666666]">{selected.description}</p>
             </div>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5 sm:grid-cols-2">
             {COMPLIANCE_OPTIONS.map((option) => {
               const isSelected = value === option.id;
               return (
@@ -1955,24 +1824,17 @@ function ComplianceConclusionPanel({
                   key={option.id}
                   type="button"
                   onClick={() => onChange(option.id)}
-                  className={`rounded-xl border p-4 text-left transition-all ${
+                  className={`rounded-md border px-2.5 py-2 text-left transition-colors ${
                     isSelected ? option.activeClass : option.idleClass
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${option.dotClass} ${
-                        isSelected ? "ring-2 ring-white ring-offset-1" : ""
-                      }`}
-                    />
-                    <div>
-                      <p className={`text-sm font-semibold ${isSelected ? option.textClass : "text-slate-900"}`}>
-                        {option.label}
-                      </p>
-                      <p className="text-[11px] font-medium text-slate-500">{option.summary}</p>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${option.dotClass}`} />
+                    <p className={`text-xs font-semibold ${isSelected ? option.textClass : "text-black"}`}>
+                      {option.label}
+                    </p>
                   </div>
-                  <p className="mt-2.5 text-xs leading-relaxed text-slate-600">{option.description}</p>
+                  <p className="mt-1 text-[10px] leading-snug text-[#666666]">{option.summary}</p>
                 </button>
               );
             })}
@@ -2035,122 +1897,101 @@ function SignOffAttestationForm({
   ];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-indigo-200/80 bg-white shadow-lg shadow-indigo-100/30">
-      <div className="border-b border-indigo-100 bg-gradient-to-r from-indigo-950 via-indigo-900 to-violet-900 px-6 py-5 text-white">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-200">
-              Final reviewer attestation
-            </p>
-            <h4 className="mt-0.5 text-lg font-semibold tracking-tight">Approve control {controlCode}</h4>
-            <p className="mt-1.5 text-sm leading-relaxed text-indigo-100/90">
-              Sign-off is allowed only when the workpaper is saved, evidence is reviewed, and all field notes are
-              resolved.
-            </p>
-          </div>
-        </div>
+    <div className="rounded-lg border border-[#E3E3E3] bg-white">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2">
+        <ShieldCheck className="h-3.5 w-3.5 text-black" />
+        <p className="text-[11px] font-semibold text-black">Approve {controlCode}</p>
+        <p className="text-[10px] text-[#767676]">Saved workpaper · resolved notes · attested checks</p>
       </div>
 
-      <div className="space-y-5 p-6">
-        <div className="grid gap-3 sm:grid-cols-3">
+      <div className="space-y-3 p-3">
+        <div className="grid gap-1.5 sm:grid-cols-3">
           {checklist.map((item) => (
             <label
               key={item.key}
-              className={`flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
+              className={`flex cursor-pointer flex-col rounded-md border px-2.5 py-2 transition-colors ${
                 reviewChecks[item.key]
-                  ? "border-indigo-300 bg-indigo-50/80 ring-2 ring-indigo-200"
-                  : "border-slate-200 bg-slate-50/50 hover:border-indigo-200"
+                  ? "border-[var(--theme-brand)] bg-[#EEF7E0]/50"
+                  : "border-[#E3E3E3] bg-[#FAFAFA] hover:border-[#D0D0CE]"
               }`}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="checkbox"
-                  className="rounded border-slate-300 text-indigo-600"
+                  className="rounded border-[#D0D0CE]"
                   checked={reviewChecks[item.key]}
                   onChange={(e) => onReviewCheckChange(item.key, e.target.checked)}
                 />
-                <span className="text-sm font-semibold text-slate-900">{item.title}</span>
+                <span className="text-[11px] font-semibold text-black">{item.title}</span>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-600">{item.detail}</p>
+              <p className="mt-1 text-[10px] leading-snug text-[#666666]">{item.detail}</p>
             </label>
           ))}
         </div>
 
-        <div className="grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[#767676]">
               <PenLine className="h-3 w-3" />
-              Reviewer name
+              Reviewer
             </label>
             <input
-              className={`w-full rounded-xl border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 ${
+              className={`w-full rounded-md border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 ${
                 reviewerError
                   ? "border-red-300 focus:ring-red-100"
-                  : "border-slate-200 focus:border-indigo-300 focus:ring-indigo-100"
+                  : "border-[#E3E3E3] focus:border-black focus:ring-[#E3E3E3]"
               }`}
-              placeholder="Full legal name"
+              placeholder="Full name"
               value={reviewerName}
               onChange={(e) => onReviewerNameChange(e.target.value)}
             />
             {reviewerError && (
-              <p className="mt-1.5 text-xs text-red-600">Reviewer name is required to sign off.</p>
+              <p className="mt-1 text-[10px] text-red-600">Name required</p>
             )}
           </div>
           <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[#767676]">
               <Calendar className="h-3 w-3" />
-              Sign-off date
+              Date
             </label>
             <input
               type="date"
               required
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-md border border-[#E3E3E3] px-2.5 py-1.5 text-xs focus:border-black focus:outline-none focus:ring-1 focus:ring-[#E3E3E3]"
               value={signOffDate}
               onChange={(e) => onSignOffDateChange(e.target.value)}
             />
-            <p className="mt-1.5 text-[11px] text-slate-500">Date this review was completed and attested.</p>
           </div>
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            Reviewer notes (optional)
-          </label>
-          <textarea
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-            rows={2}
-            placeholder="Context for audit trail — scope limitations, review observations, or follow-ups."
-            value={reviewNotes}
-            onChange={(e) => onReviewNotesChange(e.target.value)}
-          />
-        </div>
+        <textarea
+          className="w-full rounded-md border border-[#E3E3E3] px-2.5 py-1.5 text-xs focus:border-black focus:outline-none focus:ring-1 focus:ring-[#E3E3E3]"
+          rows={2}
+          placeholder="Reviewer notes (optional)"
+          value={reviewNotes}
+          onChange={(e) => onReviewNotesChange(e.target.value)}
+        />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
-          <p className="max-w-md text-xs text-slate-500">
-            Approved controls are projected into the existing control evaluation record and become eligible for
-            formal reporting.
-          </p>
-          <Button onClick={onSubmit} disabled={disabled} className="shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E3E3E3] pt-2">
+          {(blockedByAutosave || blockedByOpenNotes) ? (
+            <p className="inline-flex items-center gap-1 text-[10px] text-amber-700">
+              <AlertTriangle className="h-3 w-3" />
+              {blockedByAutosave
+                ? "Wait for auto-save before approving."
+                : "Resolve open notes before approval."}
+            </p>
+          ) : (
+            <p className="text-[10px] text-[#767676]">Projects into reporting once approved.</p>
+          )}
+          <Button size="sm" className="h-7 text-xs" onClick={onSubmit} disabled={disabled}>
             {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
             ) : (
-              <ShieldCheck className="mr-1.5 h-4 w-4" />
+              <ShieldCheck className="mr-1 h-3.5 w-3.5" />
             )}
-            Approve control
+            Approve
           </Button>
         </div>
-        {blockedByAutosave && (
-          <p className="text-xs text-amber-600">Wait for auto-save to finish before approving this control.</p>
-        )}
-        {blockedByOpenNotes && (
-          <p className="inline-flex items-center gap-1.5 text-xs text-amber-700">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Resolve all open review notes before approval.
-          </p>
-        )}
       </div>
     </div>
   );
@@ -2179,75 +2020,58 @@ function SignOffCertificate({
     COMPLIANCE_OPTIONS.find((o) => o.id === complianceStatus) ?? COMPLIANCE_OPTIONS[3];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-b from-emerald-50/80 via-white to-white shadow-lg shadow-emerald-100/40">
-      <div className="relative border-b border-emerald-100/80 px-6 py-6">
-        <div className="absolute right-4 top-4 opacity-10">
-          <ShieldCheck className="h-24 w-24 text-emerald-600" />
-        </div>
-        <div className="relative flex items-start gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200">
-            <CheckCircle2 className="h-7 w-7" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
-              Control review attestation
-            </p>
-            <p className="mt-1 font-mono text-sm font-bold text-emerald-800">{controlCode}</p>
-            <p className="mt-0.5 text-base font-semibold text-slate-900">{controlTitle}</p>
-          </div>
-        </div>
+    <div className="rounded-lg border border-[#86BC25]/50 bg-[#EEF7E0]/40">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#86BC25]/35 px-3 py-2">
+        <CheckCircle2 className="h-3.5 w-3.5 text-[#046A38]" />
+        <p className="font-mono text-[11px] font-semibold text-[#046A38]">{controlCode}</p>
+        <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-black">{controlTitle}</p>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-[#046A38]">Signed off</span>
       </div>
 
-      <div className="grid gap-4 px-6 py-5 sm:grid-cols-3">
-        <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Compliance conclusion</p>
-          <p className={`mt-1 text-sm font-semibold ${compliance.textClass}`}>{compliance.label}</p>
-          <p className="mt-0.5 text-xs text-slate-500">{compliance.summary}</p>
+      <div className="grid gap-1.5 px-3 py-2.5 sm:grid-cols-3">
+        <div className="rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#767676]">Conclusion</p>
+          <p className={`mt-0.5 text-[11px] font-semibold ${compliance.textClass}`}>{compliance.label}</p>
         </div>
-        <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Signed off by</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{confirmedBy ?? "—"}</p>
+        <div className="rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#767676]">By</p>
+          <p className="mt-0.5 truncate text-[11px] font-semibold text-black">{confirmedBy ?? "—"}</p>
         </div>
-        <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3 shadow-sm">
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            <Calendar className="h-3 w-3" />
-            Sign-off date
-          </p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{formatSignOffDate(confirmedAt)}</p>
+        <div className="rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#767676]">Date</p>
+          <p className="mt-0.5 text-[11px] font-semibold text-black">{formatSignOffDate(confirmedAt)}</p>
           {confirmedAt && (
-            <p className="mt-0.5 text-xs text-slate-500">
-              Recorded at {formatSignOffTime(confirmedAt)}
-            </p>
+            <p className="text-[10px] text-[#767676]">{formatSignOffTime(confirmedAt)}</p>
           )}
         </div>
       </div>
 
       {reviewerNotes && (
-        <div className="mx-6 mb-5 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Reviewer notes</p>
-          <p className="mt-1 text-sm leading-relaxed text-slate-700">{reviewerNotes}</p>
+        <div className="mx-3 mb-2.5 rounded-md border border-[#E3E3E3] bg-white px-2.5 py-1.5">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#767676]">Notes</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-[#53565A]">{reviewerNotes}</p>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-emerald-100 bg-emerald-50/30 px-6 py-4">
-        <p className="flex items-center gap-1.5 text-xs text-emerald-800">
-          <Lock className="h-3.5 w-3.5" />
-          Included in formal reporting
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#86BC25]/35 px-3 py-2">
+        <p className="flex items-center gap-1 text-[10px] text-[#046A38]">
+          <Lock className="h-3 w-3" />
+          In reporting
         </p>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="border-amber-200 bg-white text-amber-900 hover:bg-amber-50"
+          className="h-7 border-amber-200 bg-white text-xs text-amber-900 hover:bg-amber-50"
           onClick={onRemoveSignOff}
           disabled={removing}
         >
           {removing ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
           ) : (
-            <Undo2 className="mr-1.5 h-3.5 w-3.5" />
+            <Undo2 className="mr-1 h-3.5 w-3.5" />
           )}
-          Re-open sign-off
+          Re-open
         </Button>
       </div>
     </div>

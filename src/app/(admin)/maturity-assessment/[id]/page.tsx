@@ -39,6 +39,7 @@ export default async function MaturitySurveyPage({ params }: PageProps) {
             title={bundle.survey.title}
             organizationName={bundle.survey.organizationName}
             packName={bundle.survey.questionPack?.name ?? null}
+            pillarSet={bundle.survey.questionPack?.pillarSet ?? null}
             snapshots={bundle.snapshots}
             initialAnswers={bundle.packAnswers}
             initialStepIndex={bundle.survey.currentStepIndex}

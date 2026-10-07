@@ -122,49 +122,97 @@ export function AssessmentEngagementHeader({
   pendingCheckpointCount = 0,
   deleteButton,
   showNextAction = false,
-}: HeaderProps) {
+  /** Dense single-row chrome for working stages (workshop / deliver). */
+  compact = false,
+}: HeaderProps & { compact?: boolean }) {
+  const meta = [
+    clientName,
+    clientIndustry,
+    frameworkCodes.length > 0 ? frameworkCodes.join(", ") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (compact) {
+    return (
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-[#E3E3E3] pb-2">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="-ml-2 h-7 shrink-0 px-2 text-[#666666] hover:text-black"
+        >
+          <Link href="/assessments">
+            <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+            <span className="sr-only sm:not-sr-only">Assessments</span>
+          </Link>
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-base font-semibold tracking-tight text-black">
+              {assessmentName}
+            </h1>
+            {pendingCheckpointCount > 0 && (
+              <Badge variant="warning" className="shrink-0 text-[10px]">
+                {pendingCheckpointCount} pending
+              </Badge>
+            )}
+          </div>
+          {meta ? (
+            <p className="truncate text-[11px] text-[#666666]">{meta}</p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {deleteButton}
+          {showNextAction && onNextAction && nextActionLabel && (
+            <Button size="sm" onClick={onNextAction} disabled={nextActionLoading} className="h-7 gap-1.5 text-xs">
+              {nextActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {nextActionLabel}
+            </Button>
+          )}
+        </div>
+      </header>
+    );
+  }
+
   const progressPct =
     controlProgress.total > 0
       ? Math.round((controlProgress.confirmed / controlProgress.total) * 100)
       : null;
 
   return (
-    <header className="rounded-2xl border border-slate-200/80 bg-white px-5 py-4 shadow-sm sm:px-6">
-      <div className="mb-3">
-        <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 text-slate-500">
-          <Link href="/assessments">
-            <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Assessments
-          </Link>
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <header className="rounded-lg border border-[#E3E3E3] bg-white px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900">{assessmentName}</h1>
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="-ml-2 h-7 text-[#666666] hover:text-black"
+            >
+              <Link href="/assessments">
+                <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Assessments
+              </Link>
+            </Button>
             {pendingCheckpointCount > 0 && (
-              <Badge variant="warning" className="shrink-0">
+              <Badge variant="warning" className="shrink-0 text-[10px]">
                 {pendingCheckpointCount} approval{pendingCheckpointCount === 1 ? "" : "s"} pending
               </Badge>
             )}
           </div>
-          <p className="mt-1 text-sm text-slate-500">
-            {[clientName, clientIndustry].filter(Boolean).join(" · ")}
-            {frameworkCodes.length > 0 && (
-              <>
-                {(clientName || clientIndustry) && " · "}
-                {frameworkCodes.join(", ")}
-              </>
-            )}
+          <h1 className="mt-1 truncate text-xl font-light tracking-tight text-black">
+            {assessmentName}
+          </h1>
+          <p className="mt-0.5 truncate text-sm text-[#666666]">
+            {meta}
+            {progressPct !== null ? (
+              <span className="ml-2 font-medium text-[#046A38]">· {progressPct}% validated</span>
+            ) : null}
           </p>
-          {progressPct !== null && (
-            <p className="mt-1.5 text-xs font-medium text-indigo-600">
-              Validation: {controlProgress.confirmed} of {controlProgress.total} controls signed off ({progressPct}%)
-            </p>
-          )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+        <div className="flex shrink-0 items-center gap-2">
           {deleteButton}
           {showNextAction && onNextAction && nextActionLabel && (
             <div className="text-right">
@@ -173,7 +221,7 @@ export function AssessmentEngagementHeader({
                 {nextActionLabel}
               </Button>
               {nextActionHint && (
-                <p className="mt-1 max-w-[220px] text-[11px] leading-snug text-slate-500">{nextActionHint}</p>
+                <p className="mt-1 max-w-[220px] text-[11px] leading-snug text-[#666666]">{nextActionHint}</p>
               )}
             </div>
           )}

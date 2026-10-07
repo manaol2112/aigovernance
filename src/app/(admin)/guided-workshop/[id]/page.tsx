@@ -35,6 +35,7 @@ export default async function GuidedWorkshopSessionPage({ params }: PageProps) {
             title={bundle.workshop.title}
             organizationName={bundle.workshop.organizationName}
             packName={bundle.workshop.questionPack?.name ?? null}
+            pillarSet={bundle.workshop.questionPack?.pillarSet ?? null}
             snapshots={bundle.snapshots}
             initialAnswers={bundle.packAnswers}
             initialStepIndex={bundle.workshop.currentStepIndex}

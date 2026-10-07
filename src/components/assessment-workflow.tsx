@@ -20,7 +20,6 @@ import {
   type ControlReviewWorkspaceHandle,
 } from "@/components/control-review-workspace";
 import { AssessmentReportingPanel } from "@/components/assessment-reporting-panel";
-import { cn } from "@/lib/utils";
 import type { WorkshopDepartmentOption } from "@/lib/workshop-departments-catalog";
 import { getDepartmentsForFrameworks } from "@/lib/workshop-departments-catalog";
 import { DeleteAssessmentButton } from "@/components/delete-assessment-button";
@@ -39,7 +38,6 @@ import {
 } from "@/components/assessment-journey-rail";
 import {
   AssessmentPhaseNav,
-  getPhaseFocusCopy,
   type ScopeSectionId,
 } from "@/components/assessment-phase-nav";
 import {
@@ -136,7 +134,6 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
   const [departmentOptions, setDepartmentOptions] = useState<WorkshopDepartmentOption[]>([]);
   const [workspaceTab, setWorkspaceTab] = useState<WorkshopWorkspacePhaseId>("workshop");
   const [scopeSection, setScopeSection] = useState<ScopeSectionId>("overview");
-  const [phaseNavCollapsed, setPhaseNavCollapsed] = useState(false);
   const [workspaceInitialized, setWorkspaceInitialized] = useState(false);
   const workspaceRef = useRef<ControlReviewWorkspaceHandle>(null);
   const syncedWorkflowStageRef = useRef<string | null>(null);
@@ -214,27 +211,6 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
   );
 
   useEffect(() => { load(); }, [load]);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem("assessment-phase-nav-collapsed");
-      if (stored === "true") setPhaseNavCollapsed(true);
-    } catch {
-      // ignore storage errors
-    }
-  }, []);
-
-  function togglePhaseNavCollapsed() {
-    setPhaseNavCollapsed((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem("assessment-phase-nav-collapsed", String(next));
-      } catch {
-        // ignore storage errors
-      }
-      return next;
-    });
-  }
 
   async function workflowAction(action: string, extra?: Record<string, unknown>) {
     setActionLoading(action);
@@ -476,14 +452,6 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
   const inDeliver = data.workflowStage === "deliverables" || data.workflowStage === "finalized";
   const inScope = !inWorkspace && !inDeliver;
 
-  const phaseFocus = getPhaseFocusCopy(
-    inDeliver
-      ? { area: "deliver" }
-      : inWorkspace
-        ? { area: "workspace", tab: workspaceTab }
-        : { area: "scope", section: scopeSection }
-  );
-
   const showWorkspaceCheckpoint =
     inWorkspace &&
     activeCheckpoint?.checkpointType === "evaluation_review" &&
@@ -529,176 +497,190 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
     );
   }
 
+  const fillViewport = inWorkspace || inDeliver;
+
   return (
-    <div className="flex flex-col gap-4">
-      <AssessmentEngagementHeader
-        assessmentName={data.name}
-        clientName={data.clientName}
-        clientIndustry={data.clientIndustry}
-        frameworkCodes={data.scope?.frameworkCodes ?? []}
-        controlProgress={controlProgress}
-        pendingCheckpointCount={pendingCheckpointCount}
-        deleteButton={
-          <DeleteAssessmentButton
-            assessmentId={assessmentId}
-            assessmentName={data.name}
-            variant="workflow"
-          />
+    <div
+      className={
+        fillViewport
+          ? // Small screens: document scroll via #main-content (sticky chrome eats the pane).
+            // lg+: fill remaining viewport so Validate/Evidence panels keep a height shell.
+            "mx-auto flex w-full max-w-7xl flex-col gap-3 pb-10 lg:h-full lg:min-h-0 lg:flex-1 lg:pb-0"
+          : "mx-auto flex w-full max-w-7xl flex-col gap-5 pb-10"
+      }
+    >
+      <div className="shrink-0 space-y-2">
+        <AssessmentEngagementHeader
+          assessmentName={data.name}
+          clientName={data.clientName}
+          clientIndustry={data.clientIndustry}
+          frameworkCodes={data.scope?.frameworkCodes ?? []}
+          controlProgress={controlProgress}
+          pendingCheckpointCount={pendingCheckpointCount}
+          compact={fillViewport}
+          deleteButton={
+            <DeleteAssessmentButton
+              assessmentId={assessmentId}
+              assessmentName={data.name}
+              variant="workflow"
+            />
+          }
+        />
+
+        <AssessmentPhaseNav
+          workflowStage={data.workflowStage}
+          workspaceTab={inWorkspace ? workspaceTab : undefined}
+          workspaceInitialized={workspaceInitialized || controlProgress.total > 0}
+          scopeSection={scopeSection}
+          controlProgress={controlProgress}
+          useCaseCount={data.useCases.length}
+          totalScoped={totalScoped}
+          scopingApproved={scopingReady}
+          disabled={!!actionLoading}
+          onSelectScope={(section) => void handleSelectScope(section)}
+          onSelectWorkspace={(tab) => void handleSelectWorkspace(tab)}
+          onSelectDeliver={() => void handleSelectDeliver()}
+        />
+
+        {inScope && scopeNavigationBlocker ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {scopeNavigationBlocker}
+          </p>
+        ) : null}
+      </div>
+
+      <main
+        className={
+          fillViewport
+            ? "min-w-0 space-y-5 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:space-y-0 lg:overflow-hidden"
+            : "min-w-0 space-y-5"
         }
-      />
-
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <aside
-          className={cn(
-            "relative z-10 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start",
-            phaseNavCollapsed ? "lg:w-[4.75rem]" : "w-full lg:w-72"
+      >
+          {showWorkspaceCheckpoint && activeCheckpoint?.status === "pending" && (
+            <div className="shrink-0">{renderCheckpointCard(activeCheckpoint)}</div>
           )}
-        >
-          <AssessmentPhaseNav
-            workflowStage={data.workflowStage}
-            workspaceTab={inWorkspace ? workspaceTab : undefined}
-            workspaceInitialized={workspaceInitialized || controlProgress.total > 0}
-            scopeSection={scopeSection}
-            controlProgress={controlProgress}
-            useCaseCount={data.useCases.length}
-            totalScoped={totalScoped}
-            scopingApproved={scopingReady}
-            disabled={!!actionLoading}
-            collapsed={phaseNavCollapsed}
-            onToggleCollapsed={togglePhaseNavCollapsed}
-            onSelectScope={(section) => void handleSelectScope(section)}
-            onSelectWorkspace={(tab) => void handleSelectWorkspace(tab)}
-            onSelectDeliver={() => void handleSelectDeliver()}
-          />
-        </aside>
-
-        <main className="min-w-0 flex-1 space-y-4">
-          <section className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-600/80">
-              Current focus
-            </p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">{phaseFocus.title}</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">{phaseFocus.description}</p>
-            {inScope && scopeNavigationBlocker && (
-              <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                {scopeNavigationBlocker}
-              </p>
-            )}
-          </section>
-
-          {showWorkspaceCheckpoint && activeCheckpoint?.status === "pending" && renderCheckpointCard(activeCheckpoint)}
 
       {/* Stage: Client setup summary */}
       {inScope && scopeSection === "overview" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Client & Framework Scope</CardTitle>
-            <CardDescription>Assessment scope established at creation.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2 text-sm sm:grid-cols-3">
-            <div><span className="text-slate-500">Client:</span> {data.clientName}</div>
-            <div><span className="text-slate-500">Industry:</span> {data.clientIndustry ?? "—"}</div>
-            <div><span className="text-slate-500">Frameworks:</span> {data.scope?.frameworkCodes.join(", ")}</div>
+        <div className="overflow-hidden rounded-xl border border-[#E3E3E3] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="border-b border-[#E3E3E3] bg-gradient-to-br from-[#FAFAFA] via-white to-[#EEF7E0]/30 px-5 py-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--theme-brand)]">
+              Engagement scope
+            </p>
+            <h3 className="mt-1 text-lg font-light tracking-tight text-black">
+              Client & frameworks
+            </h3>
+            <p className="mt-1 text-sm text-[#666666]">
+              Confirmed at engagement creation — update only if the assessment brief changes.
+            </p>
+          </div>
+          <div className="space-y-4 px-5 py-5">
+            <div className="grid gap-3 text-sm sm:grid-cols-3">
+              <div className="rounded-lg border border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#767676]">Client</p>
+                <p className="mt-1 font-medium text-black">{data.clientName}</p>
+              </div>
+              <div className="rounded-lg border border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#767676]">Industry</p>
+                <p className="mt-1 font-medium text-black">{data.clientIndustry ?? "—"}</p>
+              </div>
+              <div className="rounded-lg border border-[#E3E3E3] bg-[#FAFAFA] px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#767676]">Frameworks</p>
+                <p className="mt-1 font-medium text-black">{data.scope?.frameworkCodes.join(", ")}</p>
+              </div>
             </div>
             {data.scope?.frameworkCodes?.length ? (
               <FrameworkScopeNotice codes={data.scope.frameworkCodes} compact />
             ) : null}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Stage: Use Cases */}
       {inScope && scopeSection === "use_cases" && canEditUseCases && (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-[#f6f7f9] shadow-sm">
-          <div className="border-b border-slate-200/80 bg-white px-6 py-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600">
-                  Assessment scope
-                </p>
-                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-                  AI use case registry
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
-                  Register every AI system in scope. Assign workshop departments so facilitation groups
-                  stakeholders who own related framework requirements.
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0 bg-white"
-                onClick={() => setShowAddUseCase(!showAddUseCase)}
-              >
-                <Plus className="mr-1 h-4 w-4" /> {showAddUseCase ? "Cancel" : "Add system"}
-              </Button>
+        <div className="space-y-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--theme-brand)]">
+                Assessment scope
+              </p>
+              <h3 className="mt-1 text-lg font-semibold tracking-tight text-black">
+                AI use case registry
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#666666]">
+                Register every AI system in scope. Assign workshop departments so facilitation
+                reaches stakeholders who own related framework requirements.
+              </p>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setShowAddUseCase(!showAddUseCase)}
+            >
+              <Plus className="mr-1 h-4 w-4" /> {showAddUseCase ? "Cancel" : "Add system"}
+            </Button>
           </div>
 
-          <div className="space-y-5 p-5 sm:p-6">
-            {showAddUseCase && data && (
-              <div className="overflow-hidden rounded-2xl border border-indigo-200/60 bg-white shadow-sm">
-                <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white px-5 py-4">
-                  <p className="text-sm font-semibold text-slate-900">Register new AI system</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Choose discovery or established intake, then capture system details.
-                  </p>
-                </div>
-                <div className="space-y-4 p-5">
-                  <GovernanceReadinessSelector
-                    value={useCaseIntakeMode}
-                    compact
-                    onChange={(mode) => {
-                      setUseCaseIntakeMode(mode);
-                      setNewUseCase(createEmptyUseCaseDraft(newUseCase.useCaseType, mode));
-                    }}
-                  />
-                  <UseCaseIntakeCard
-                    index={data.useCases.length}
-                    draft={newUseCase}
-                    frameworkCodes={data.scope?.frameworkCodes ?? []}
-                    intakeMode={useCaseIntakeMode}
-                    onChange={setNewUseCase}
-                  />
-                  <div className="flex justify-end">
-                    <Button size="sm" onClick={addUseCase} disabled={actionLoading === "add_use_case"}>
-                      {actionLoading === "add_use_case" ? (
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      ) : null}
-                      Save system
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {data.useCases.length === 0 && !showAddUseCase && (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                  <Bot className="h-6 w-6" />
-                </span>
-                <p className="mt-4 text-base font-semibold text-slate-900">No AI systems registered yet</p>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
-                  Add at least one AI system to scope framework requirements and begin the workshop.
+          {showAddUseCase && data && (
+            <div className="space-y-4 rounded-xl border border-[#E3E3E3] bg-white p-5">
+              <div>
+                <p className="text-sm font-semibold text-black">Register new AI system</p>
+                <p className="mt-1 text-xs text-[#666666]">
+                  Choose discovery or established intake, then capture system details.
                 </p>
-                <Button size="sm" className="mt-5" onClick={() => setShowAddUseCase(true)}>
-                  <Plus className="mr-1 h-4 w-4" /> Add first system
+              </div>
+              <GovernanceReadinessSelector
+                value={useCaseIntakeMode}
+                compact
+                onChange={(mode) => {
+                  setUseCaseIntakeMode(mode);
+                  setNewUseCase(createEmptyUseCaseDraft(newUseCase.useCaseType, mode));
+                }}
+              />
+              <UseCaseIntakeCard
+                index={data.useCases.length}
+                draft={newUseCase}
+                frameworkCodes={data.scope?.frameworkCodes ?? []}
+                intakeMode={useCaseIntakeMode}
+                onChange={setNewUseCase}
+              />
+              <div className="flex justify-end">
+                <Button size="sm" onClick={addUseCase} disabled={actionLoading === "add_use_case"}>
+                  {actionLoading === "add_use_case" ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : null}
+                  Save system
                 </Button>
               </div>
-            )}
+            </div>
+          )}
 
-            {data.useCases.map((uc, i) => (
-              <UseCaseRegistryRow
-                key={uc.id}
-                useCase={uc}
-                index={i}
-                departmentOptions={departmentOptions}
-                onDepartmentChange={(department) => updateUseCaseDepartment(uc.id, department)}
-                onRemove={() => removeUseCase(uc.id)}
-              />
-            ))}
-          </div>
+          {data.useCases.length === 0 && !showAddUseCase && (
+            <div className="rounded-xl border border-dashed border-[#D0D0CE] bg-[#FAFAFA] px-6 py-12 text-center">
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--theme-brand-muted)] text-[var(--theme-brand-hover)]">
+                <Bot className="h-5 w-5" />
+              </span>
+              <p className="mt-4 text-base font-semibold text-black">No AI systems registered yet</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#666666]">
+                Add at least one AI system to scope framework requirements and begin the workshop.
+              </p>
+              <Button size="sm" className="mt-5" onClick={() => setShowAddUseCase(true)}>
+                <Plus className="mr-1 h-4 w-4" /> Add first system
+              </Button>
+            </div>
+          )}
+
+          {data.useCases.map((uc, i) => (
+            <UseCaseRegistryRow
+              key={uc.id}
+              useCase={uc}
+              index={i}
+              departmentOptions={departmentOptions}
+              onDepartmentChange={(department) => updateUseCaseDepartment(uc.id, department)}
+              onRemove={() => removeUseCase(uc.id)}
+            />
+          ))}
         </div>
       )}
 
@@ -754,25 +736,25 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
 
       {/* Stage: Workshop (evidence, validation, reports) */}
       {inWorkspace && (
-        <div className="h-[calc(100dvh-12rem)] min-h-[32rem]">
+        <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <ControlReviewWorkspace
             ref={workspaceRef}
             assessmentId={assessmentId}
             hideWorkspacePhaseTabs
             activeWorkspaceTab={workspaceTab}
-            className="h-full min-h-0"
-          onWorkspaceTabChange={setWorkspaceTab}
-          onWorkspaceMetaChange={handleWorkspaceMetaChange}
-          onProgressChange={setControlProgress}
-          knownScopedCount={totalScoped}
-          onGoToStage={goToStage}
-          onInitWorkshop={() => workflowAction("init_control_review")}
-          initWorkshopLoading={actionLoading === "init_control_review"}
-          evaluationReviewApproved={evaluationCheckpoint?.status === "approved"}
-          onProceedToDeliverables={async (confirmedBy) => {
-            await workflowAction("proceed_to_deliverables", { confirmedBy });
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+            className="lg:h-full lg:min-h-0"
+            onWorkspaceTabChange={setWorkspaceTab}
+            onWorkspaceMetaChange={handleWorkspaceMetaChange}
+            onProgressChange={setControlProgress}
+            knownScopedCount={totalScoped}
+            onGoToStage={goToStage}
+            onInitWorkshop={() => workflowAction("init_control_review")}
+            initWorkshopLoading={actionLoading === "init_control_review"}
+            evaluationReviewApproved={evaluationCheckpoint?.status === "approved"}
+            onProceedToDeliverables={async (confirmedBy) => {
+              await workflowAction("proceed_to_deliverables", { confirmedBy });
+              document.getElementById("main-content")?.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             proceedLoading={actionLoading === "proceed_to_deliverables"}
           />
         </div>
@@ -780,7 +762,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
 
       {/* Stage: Deliverables — full package view (same as Reporting, plus approval flow) */}
       {inDeliver && (
-        <div className="flex h-[calc(100dvh-12rem)] min-h-[32rem] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+        <div className="flex flex-col overflow-hidden rounded-xl border border-[#E3E3E3] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] lg:min-h-0 lg:flex-1">
           <AssessmentReportingPanel
             assessmentId={assessmentId}
             reviewProgress={{
@@ -804,8 +786,7 @@ export function AssessmentWorkflow({ assessmentId }: { assessmentId: string }) {
           />
         </div>
       )}
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

@@ -1,6 +1,23 @@
 /** Client-safe pillar questionnaire types — no Prisma. */
 
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import {
+  getPackPillarCatalog,
+  isPackPillarId,
+  packCriticalityAny,
+  packPillarLabelAny,
+  resolvePackPillarIdForSet,
+  type PackPillarSet,
+} from "@/lib/pack-pillar-catalog";
+
+export type { PackPillarSet } from "@/lib/pack-pillar-catalog";
+export {
+  getPackPillarCatalog,
+  inferPackPillarSetFromName,
+  isPackPillarSet,
+  packPillarSetCount,
+  resolvePackPillarSet,
+  TMT_PILLARS,
+} from "@/lib/pack-pillar-catalog";
 
 export const QUESTION_PACK_PRODUCTS = ["maturity_assessment", "guided_workshop"] as const;
 export type QuestionPackProduct = (typeof QUESTION_PACK_PRODUCTS)[number];
@@ -769,6 +786,10 @@ export type PackFinding = {
   /** Concrete next action. */
   recommendation: string;
   severity: "critical" | "high" | "medium";
+  /** Question weight within the pillar (1–10), when available. */
+  weight?: number;
+  /** Pillar weight in the overall result (1–10), when available. */
+  pillarWeight?: number;
 };
 
 export function isQuestionCatalogPack(source: string | null | undefined): boolean {
@@ -780,6 +801,8 @@ export type PackQuestionInput = {
   pillarId: string;
   prompt: string;
   helpText?: string | null;
+  /** Relative weight within the pillar (1–10). */
+  weight?: number;
   sortOrder?: number;
   active?: boolean;
 };
@@ -791,6 +814,10 @@ export type PackSnapshot = {
   pillarLabel: string;
   prompt: string;
   helpText: string | null;
+  /** Relative weight within the pillar (1–10), frozen at session start. */
+  weight?: number;
+  /** Relative weight of the pillar in the overall score (1–10), frozen at session start. */
+  pillarWeight?: number;
   sortOrder: number;
 };
 
@@ -800,53 +827,66 @@ export type PackAnswerRecord = {
   notes?: string | null;
 };
 
-const PILLAR_BY_ID = new Map(RISK_PILLARS.map((pillar) => [pillar.id, pillar]));
-const PILLAR_BY_LABEL = new Map(
-  RISK_PILLARS.map((pillar) => [pillar.label.trim().toLowerCase(), pillar])
-);
-
-export function isRiskPillarId(pillarId: string): boolean {
-  return PILLAR_BY_ID.has(pillarId);
+export function isRiskPillarId(
+  pillarId: string,
+  pillarSet: PackPillarSet = "standard_11"
+): boolean {
+  return isPackPillarId(pillarId, pillarSet);
 }
 
-export function resolvePackPillarId(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  if (PILLAR_BY_ID.has(trimmed)) return trimmed;
-  return PILLAR_BY_LABEL.get(trimmed.toLowerCase())?.id ?? null;
+export function resolvePackPillarId(
+  raw: string,
+  pillarSet: PackPillarSet = "standard_11"
+): string | null {
+  return resolvePackPillarIdForSet(raw, pillarSet);
 }
 
 export function packPillarLabel(pillarId: string): string {
-  return PILLAR_BY_ID.get(pillarId)?.label ?? pillarId;
+  return packPillarLabelAny(pillarId);
 }
 
 export function packCriticality(pillarId: string): "critical" | "high" | "medium" {
-  return PILLAR_BY_ID.get(pillarId)?.criticality ?? "medium";
+  return packCriticalityAny(pillarId);
 }
 
 export function activePackQuestions(questions: PackQuestionInput[]): PackQuestionInput[] {
   return questions.filter((question) => question.active !== false && question.prompt.trim().length > 0);
 }
 
-export function packPillarCoverage(questions: PackQuestionInput[]): {
+export function packPillarCoverage(
+  questions: PackQuestionInput[],
+  pillarSet: PackPillarSet = "standard_11"
+): {
   coveredPillarIds: string[];
   missingPillarIds: string[];
   complete: boolean;
   questionCount: number;
+  pillarSet: PackPillarSet;
+  pillarCount: number;
 } {
+  const catalog = getPackPillarCatalog(pillarSet);
   const active = activePackQuestions(questions);
-  const covered = new Set(active.map((question) => question.pillarId).filter(isRiskPillarId));
-  const missingPillarIds = RISK_PILLARS.map((pillar) => pillar.id).filter((id) => !covered.has(id));
+  const covered = new Set(
+    active.map((question) => question.pillarId).filter((id) => isPackPillarId(id, pillarSet))
+  );
+  const missingPillarIds = catalog.map((pillar) => pillar.id).filter((id) => !covered.has(id));
   return {
-    coveredPillarIds: RISK_PILLARS.map((pillar) => pillar.id).filter((id) => covered.has(id)),
+    coveredPillarIds: catalog.map((pillar) => pillar.id).filter((id) => covered.has(id)),
     missingPillarIds,
     complete: missingPillarIds.length === 0 && active.length > 0,
     questionCount: active.length,
+    pillarSet,
+    pillarCount: catalog.length,
   };
 }
 
-export function sortPackQuestions(questions: PackQuestionInput[]): PackQuestionInput[] {
-  const pillarIndex = new Map(RISK_PILLARS.map((pillar, index) => [pillar.id, index]));
+export function sortPackQuestions(
+  questions: PackQuestionInput[],
+  pillarSet: PackPillarSet = "standard_11"
+): PackQuestionInput[] {
+  const pillarIndex = new Map(
+    getPackPillarCatalog(pillarSet).map((pillar, index) => [pillar.id, index])
+  );
   return [...questions].sort((a, b) => {
     const pillarDelta = (pillarIndex.get(a.pillarId) ?? 99) - (pillarIndex.get(b.pillarId) ?? 99);
     if (pillarDelta !== 0) return pillarDelta;
@@ -855,14 +895,21 @@ export function sortPackQuestions(questions: PackQuestionInput[]): PackQuestionI
 }
 
 export function buildPackSnapshots(
-  questions: PackQuestionInput[]
+  questions: PackQuestionInput[],
+  pillarSet: PackPillarSet = "standard_11",
+  pillarWeights: Record<string, number> = {}
 ): Omit<PackSnapshot, "id">[] {
-  return sortPackQuestions(activePackQuestions(questions)).map((question, index) => ({
+  return sortPackQuestions(activePackQuestions(questions), pillarSet).map((question, index) => ({
     sourceQuestionId: question.id ?? null,
     pillarId: question.pillarId,
     pillarLabel: packPillarLabel(question.pillarId),
     prompt: question.prompt.trim(),
     helpText: question.helpText?.trim() || null,
+    weight: Math.min(10, Math.max(1, Math.round(question.weight ?? 1))),
+    pillarWeight: Math.min(
+      10,
+      Math.max(1, Math.round(pillarWeights[question.pillarId] ?? 1))
+    ),
     sortOrder: index,
   }));
 }
@@ -874,6 +921,8 @@ export function hydratePackSnapshots(
     pillarId: string;
     prompt: string;
     helpText?: string | null;
+    weight?: number | null;
+    pillarWeight?: number | null;
     sortOrder: number;
   }>
 ): PackSnapshot[] {
@@ -886,6 +935,8 @@ export function hydratePackSnapshots(
       pillarLabel: packPillarLabel(row.pillarId),
       prompt: row.prompt,
       helpText: row.helpText ?? null,
+      weight: Math.min(10, Math.max(1, Math.round(row.weight ?? 1))),
+      pillarWeight: Math.min(10, Math.max(1, Math.round(row.pillarWeight ?? 1))),
       sortOrder: row.sortOrder,
     }));
 }

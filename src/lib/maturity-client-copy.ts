@@ -52,28 +52,28 @@ export const PACK_ASSESSMENT_COPY = {
   sectionPriorities: "Open gaps",
   sectionPrioritiesEyebrow: "No responses",
   sectionPrioritiesDescription:
-    "Practices marked No. Ordering reflects how high-stakes the governance area is in this model — not an audit severity rating.",
+    "Highest-stakes No responses first, ranked by area importance and question weight. Expand to see the full list — not an audit severity rating.",
   sectionImprovementsEyebrow: "Partial responses",
   sectionImprovementsDescription:
-    "Practices marked Partial — work has started, but is not yet complete.",
+    "Highest-priority Partial responses first — work has started, but is not yet complete. Expand to see the full list.",
   sectionToConfirmEyebrow: "Don’t know responses",
   sectionToConfirmDescription:
-    "Practices marked Don’t know. Confirm with an owner before treating the baseline as closed.",
+    "Highest-priority Don’t know responses first. Confirm with an owner before treating the baseline as closed. Expand to see the full list.",
   sectionRoadmapEyebrow: "Suggested sequencing",
   sectionRoadmapTitle: "Your action plan",
   sectionRoadmapDescription:
-    "A suggested sequence from open gaps, to work in progress, to unresolved items — based on your responses.",
+    "Highest-priority moves first in each time window, ranked by stakes and weight. Expand a column to see the full list.",
   sectionStrengthsEyebrow: "Yes responses",
   sectionStrengthsTitle: "Operating today",
   sectionStrengthsDescription:
-    "Practices marked Yes. This is self-reported current state — not independent validation that controls are effective or evidenced.",
+    "Highest-stakes Yes responses first, ranked by area importance and question weight. Expand to see the full list — self-reported, not independently validated.",
   sectionInsightsEyebrow: "Key findings",
   sectionInsightsTitle: "What matters most",
   sectionInsightsDescription: "",
   sectionProfileEyebrow: "Pillar view",
   sectionProfileTitle: "Where you stand",
   sectionProfileDescription:
-    "Expand any pillar for a leadership reading of the current posture and what it takes to reach the next level.",
+    "Expand any pillar for a clear reading of the current posture and what it takes to reach the next level.",
   shareSummary:
     "Self-reported posture by pillar, open gaps, work in progress, and unresolved follow-ups.",
   aboutReportTitle: "About this report",
@@ -143,28 +143,28 @@ export const PACK_WORKSHOP_COPY = {
   sectionPriorities: "Open gaps",
   sectionPrioritiesEyebrow: "No responses",
   sectionPrioritiesDescription:
-    "Practices the client marked No. Ordering reflects how high-stakes the governance area is in this model — not an audit severity rating.",
+    "Highest-stakes No responses first, ranked by area importance and question weight. Expand to see the full list — not an audit severity rating.",
   sectionImprovementsEyebrow: "Partial responses",
   sectionImprovementsDescription:
-    "Practices the client marked Partial — work has started, but is not yet complete.",
+    "Highest-priority Partial responses first — work has started, but is not yet complete. Expand to see the full list.",
   sectionToConfirmEyebrow: "Don’t know responses",
   sectionToConfirmDescription:
-    "Practices the client marked Don’t know — confirm with an owner before treating the baseline as closed.",
+    "Highest-priority Don’t know responses first. Confirm with an owner before treating the baseline as closed. Expand to see the full list.",
   sectionRoadmapEyebrow: "Suggested sequencing",
   sectionRoadmapTitle: "Workshop action plan",
   sectionRoadmapDescription:
-    "A suggested sequence from open gaps, to work in progress, to unresolved items — based on session responses.",
+    "Highest-priority moves first in each time window, ranked by stakes and weight. Expand a column to see the full list.",
   sectionStrengthsEyebrow: "Yes responses",
   sectionStrengthsTitle: "Operating today",
   sectionStrengthsDescription:
-    "Practices the client marked Yes. This is session-reported current state — not independent validation that controls are effective or evidenced.",
+    "Highest-stakes Yes responses first, ranked by area importance and question weight. Expand to see the full list — session-reported, not independently validated.",
   sectionInsightsEyebrow: "Key findings",
   sectionInsightsTitle: "What matters most",
   sectionInsightsDescription: "",
   sectionProfileEyebrow: "Pillar view",
   sectionProfileTitle: "Where you stand",
   sectionProfileDescription:
-    "Expand any pillar for a leadership reading of the current posture and what it takes to reach the next level.",
+    "Expand any pillar for a clear reading of the current posture and what it takes to reach the next level.",
   shareSummary:
     "Session-reported posture by pillar, open gaps, work in progress, and unresolved follow-ups.",
   aboutReportTitle: "About this summary",

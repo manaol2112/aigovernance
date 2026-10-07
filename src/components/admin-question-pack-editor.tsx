@@ -16,8 +16,18 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
-import { QUESTION_PACK_PRODUCT_META, type QuestionPackProduct } from "@/lib/pillar-questionnaire";
-import { RISK_PILLARS } from "@/lib/risk-pillars";
+import {
+  QUESTION_PACK_PRODUCT_META,
+  getPackPillarCatalog,
+  packPillarLabel,
+  resolvePackPillarSet,
+  type PackPillarSet,
+  type QuestionPackProduct,
+} from "@/lib/pillar-questionnaire";
+import { questionPackCsvTemplate } from "@/lib/question-pack-csv";
+import { looksLikeCsvFile, readCsvFileAsText } from "@/lib/read-csv-file-client";
+import { evenPackWeights, sumWeights, weightSharePct } from "@/lib/pack-weights";
+import { PackPillarWeightMixer, QuestionWeightPicker } from "@/components/pack-weight-controls";
 import { cn } from "@/lib/utils";
 
 type Question = {
@@ -25,8 +35,15 @@ type Question = {
   pillarId: string;
   prompt: string;
   helpText: string | null;
+  weight: number;
   sortOrder: number;
   active: boolean;
+};
+
+type PillarWeightRow = {
+  pillarId: string;
+  pillarLabel: string;
+  weight: number;
 };
 
 type PackPayload = {
@@ -34,10 +51,13 @@ type PackPayload = {
   name: string;
   description: string | null;
   product: QuestionPackProduct;
+  pillarSet: PackPillarSet;
   questions: Question[];
+  pillarWeights: PillarWeightRow[];
   coverage: {
     complete: boolean;
     questionCount: number;
+    pillarCount?: number;
     missingPillarIds: string[];
   };
 };
@@ -67,8 +87,13 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
   const [drafts, setDrafts] = useState<Record<string, { prompt: string; helpText: string }>>({});
   const [newPrompt, setNewPrompt] = useState<Record<string, string>>({});
   const [csvText, setCsvText] = useState("");
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  const [csvDragOver, setCsvDragOver] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [csvImportErrors, setCsvImportErrors] = useState<string[]>([]);
   const [expandedPillars, setExpandedPillars] = useState<Record<string, boolean>>({});
+  const [pillarWeights, setPillarWeights] = useState<PillarWeightRow[]>([]);
+  const [savingWeights, setSavingWeights] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/question-packs/${packId}`);
@@ -77,6 +102,7 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
     setPack(data);
     setName(data.name);
     setDescription(data.description ?? "");
+    setPillarWeights(data.pillarWeights ?? []);
     setDrafts(
       Object.fromEntries(
         data.questions.map((question: Question) => [
@@ -93,30 +119,45 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
       .finally(() => setLoading(false));
   }, [load]);
 
+  const pillarSet = useMemo(
+    () =>
+      resolvePackPillarSet({
+        pillarSet: pack?.pillarSet,
+        name: pack?.name ?? name,
+      }),
+    [pack?.pillarSet, pack?.name, name]
+  );
+  const packPillars = useMemo(() => getPackPillarCatalog(pillarSet), [pillarSet]);
+
   const questionsByPillar = useMemo(() => {
     const map = new Map<string, Question[]>();
-    for (const pillar of RISK_PILLARS) map.set(pillar.id, []);
+    for (const pillar of packPillars) map.set(pillar.id, []);
     for (const question of pack?.questions ?? []) {
       const list = map.get(question.pillarId) ?? [];
       list.push(question);
       map.set(question.pillarId, list);
     }
     return map;
-  }, [pack]);
+  }, [pack, packPillars]);
 
   const pillarsWithQuestions = useMemo(() => {
-    return RISK_PILLARS.filter((pillar) => (questionsByPillar.get(pillar.id)?.length ?? 0) > 0).length;
-  }, [questionsByPillar]);
+    return packPillars.filter((pillar) => (questionsByPillar.get(pillar.id)?.length ?? 0) > 0).length;
+  }, [questionsByPillar, packPillars]);
+
+  const orphanQuestions = useMemo(() => {
+    const allowed = new Set(packPillars.map((pillar) => pillar.id));
+    return (pack?.questions ?? []).filter((question) => !allowed.has(question.pillarId));
+  }, [pack?.questions, packPillars]);
 
   const metaDirty = useMemo(() => {
     if (!pack) return false;
     return name.trim() !== pack.name || (description.trim() || "") !== (pack.description ?? "").trim();
   }, [pack, name, description]);
 
-  const coveragePct = Math.round((pillarsWithQuestions / RISK_PILLARS.length) * 100);
+  const coveragePct = Math.round((pillarsWithQuestions / Math.max(packPillars.length, 1)) * 100);
 
   function expandAllPillars(expand: boolean) {
-    setExpandedPillars(Object.fromEntries(RISK_PILLARS.map((pillar) => [pillar.id, expand])));
+    setExpandedPillars(Object.fromEntries(packPillars.map((pillar) => [pillar.id, expand])));
   }
 
   async function saveMeta() {
@@ -138,21 +179,66 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
     }
   }
 
-  async function saveQuestion(question: Question) {
+  async function saveQuestion(question: Question, weight?: number) {
     const draft = drafts[question.id];
-    if (!draft) return;
+    if (!draft && weight == null) return;
     const res = await fetch(`/api/admin/question-packs/${packId}/questions/${question.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt: draft.prompt,
-        helpText: draft.helpText,
+        prompt: draft?.prompt ?? question.prompt,
+        helpText: draft?.helpText ?? question.helpText,
+        weight: weight ?? question.weight,
         active: question.active,
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to save question");
     await load();
+  }
+
+  async function persistPillarWeights(next: PillarWeightRow[]) {
+    setSavingWeights(true);
+    try {
+      const res = await fetch(`/api/admin/question-packs/${packId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pillarWeights: next.map((row) => ({
+            pillarId: row.pillarId,
+            weight: row.weight,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save pillar weights");
+      setPack(data);
+      setPillarWeights(data.pillarWeights ?? next);
+      toast("Pillar weights saved.", { variant: "success" });
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Failed to save weights.", {
+        variant: "error",
+      });
+      await load();
+    } finally {
+      setSavingWeights(false);
+    }
+  }
+
+  function updatePillarWeightLocal(pillarId: string, weight: number) {
+    setPillarWeights((current) =>
+      current.map((row) => (row.pillarId === pillarId ? { ...row, weight } : row))
+    );
+  }
+
+  async function distributePillarWeightsEvenly() {
+    const even = evenPackWeights(pillarWeights.length);
+    const next = pillarWeights.map((row, index) => ({
+      ...row,
+      weight: even[index] ?? 1,
+    }));
+    setPillarWeights(next);
+    await persistPillarWeights(next);
   }
 
   async function addQuestion(pillarId: string) {
@@ -181,28 +267,98 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
     await load();
   }
 
-  async function importCsv(mode: "replace" | "append") {
+  function clearCsvSelection() {
+    setCsvText("");
+    setCsvFileName(null);
+  }
+
+  async function postCsvText(csv: string, mode: "replace" | "append", sourceLabel?: string) {
     setSaving(true);
+    setCsvImportErrors([]);
     try {
       const res = await fetch(`/api/admin/question-packs/${packId}/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csv: csvText, mode }),
+        body: JSON.stringify({ csv, mode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Import failed");
-      if (data.errors?.length) {
-        toast(`Imported ${data.imported} rows. ${data.errors.length} skipped.`, { variant: "error" });
+      const skipped = Array.isArray(data.errors) ? (data.errors as string[]) : [];
+      if (skipped.length) {
+        setCsvImportErrors(skipped);
+        setCsvOpen(true);
+        toast(`Imported ${data.imported} rows. ${skipped.length} skipped — see details below.`, {
+          variant: "error",
+        });
       } else {
-        toast(`Imported ${data.imported} questions.`, { variant: "success" });
+        toast(
+          sourceLabel
+            ? `Imported ${data.imported} questions from ${sourceLabel}.`
+            : `Imported ${data.imported} questions.`,
+          { variant: "success" }
+        );
+        clearCsvSelection();
+        setCsvOpen(false);
       }
-      setCsvText("");
-      setCsvOpen(false);
       await load();
     } catch (error) {
       toast(error instanceof Error ? error.message : "Import failed.", { variant: "error" });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function importCsv(mode: "replace" | "append") {
+    if (!csvText.trim()) {
+      toast("Paste CSV text, or choose a file first.", { variant: "error" });
+      return;
+    }
+    await postCsvText(csvText, mode, csvFileName ?? undefined);
+  }
+
+  /**
+   * Read via blob: URL (not file.text / FileReader / FormData file upload),
+   * then import as JSON — avoids Prisma Access "digest" crashes on file uploads.
+   */
+  async function importCsvFileDirect(file: File, mode: "replace" | "append") {
+    if (!looksLikeCsvFile(file)) {
+      toast("Please choose a .csv file.", { variant: "error" });
+      return;
+    }
+    try {
+      const text = await readCsvFileAsText(file);
+      setCsvFileName(file.name);
+      setCsvText(text);
+      await postCsvText(text, mode, file.name);
+    } catch (error) {
+      toast(
+        error instanceof Error
+          ? `${error.message} If your browser blocks file access, open the CSV and paste it below.`
+          : "Could not read that CSV. Open the file and paste it below.",
+        { variant: "error" }
+      );
+    }
+  }
+
+  async function loadCsvFileOnly(file: File) {
+    if (!looksLikeCsvFile(file)) {
+      toast("Please choose a .csv file.", { variant: "error" });
+      return;
+    }
+    try {
+      const text = await readCsvFileAsText(file);
+      setCsvText(text);
+      setCsvFileName(file.name);
+      toast(`Loaded ${file.name}. Click Append or Replace to import.`, {
+        variant: "success",
+      });
+    } catch (error) {
+      toast(
+        error instanceof Error
+          ? `${error.message} Open the CSV and paste it into the box below instead.`
+          : "Could not read that CSV. Paste it into the box below instead.",
+        { variant: "error" }
+      );
     }
   }
 
@@ -311,7 +467,11 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">
               {pillarsWithQuestions}
-              <span className="text-base font-medium text-slate-400"> / 11</span>
+              <span className="text-base font-medium text-slate-400">
+                {" "}
+                / {packPillars.length}
+                {pillarSet === "tmt_6" ? " · TMT" : ""}
+              </span>
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
@@ -333,7 +493,7 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
           Each pillar needs at least one active question before this pack can be set as the workspace default.
         </p>
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {RISK_PILLARS.map((pillar, index) => {
+          {packPillars.map((pillar, index) => {
             const count = questionsByPillar.get(pillar.id)?.length ?? 0;
             const covered = count > 0;
             return (
@@ -380,24 +540,147 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
         </button>
 
         {csvOpen && (
-          <div className="border-t border-slate-100 px-5 pb-5 pt-4">
-            <div className="flex justify-end">
-              <a
+          <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-slate-500">
+                Paste or load a CSV with{" "}
+                <span className="font-mono">
+                  pillar_id, question, help_text, sort_order, weight
+                </span>
+                . Optional <span className="font-mono">weight</span> is 1–10 per question. Prefer
+                paste if your browser shows a “digest” error — that comes from a security extension,
+                not this app.
+              </p>
+              <button
+                type="button"
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-500"
-                href="/api/admin/question-packs/template"
+                onClick={() => {
+                  const blob = new Blob([questionPackCsvTemplate(pillarSet)], {
+                    type: "text/csv;charset=utf-8",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const anchor = document.createElement("a");
+                  anchor.href = url;
+                  anchor.download =
+                    pillarSet === "tmt_6"
+                      ? "tmt-question-pack-template.csv"
+                      : "question-pack-template.csv";
+                  anchor.click();
+                  URL.revokeObjectURL(url);
+                }}
               >
                 <Download className="h-3.5 w-3.5" />
-                Download template
-              </a>
+                Download {pillarSet === "tmt_6" ? "TMT" : "standard"} template
+              </button>
             </div>
-            <textarea
-              value={csvText}
-              onChange={(event) => setCsvText(event.target.value)}
-              rows={6}
-              placeholder="Paste CSV here…"
-              className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 font-mono text-xs leading-relaxed text-slate-800 outline-none focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-500/10"
-            />
-            <div className="mt-3 flex flex-wrap gap-2">
+
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-slate-700">CSV content</p>
+                {csvFileName ? (
+                  <span className="truncate text-[11px] text-slate-500">Loaded: {csvFileName}</span>
+                ) : null}
+              </div>
+              <textarea
+                value={csvText}
+                onChange={(event) => {
+                  setCsvText(event.target.value);
+                  setCsvFileName(null);
+                }}
+                rows={8}
+                placeholder="Paste CSV here (pillar_id, question, help_text, sort_order)…"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 font-mono text-xs leading-relaxed text-slate-800 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-500/10"
+              />
+            </div>
+
+            <div
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setCsvDragOver(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setCsvDragOver(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setCsvDragOver(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setCsvDragOver(false);
+                const file = event.dataTransfer.files?.[0];
+                if (file) void loadCsvFileOnly(file);
+              }}
+              className={cn(
+                "flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed px-5 py-6 text-center transition-colors",
+                csvDragOver
+                  ? "border-indigo-400 bg-indigo-50/70"
+                  : "border-slate-300 bg-slate-50/60"
+              )}
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm ring-1 ring-slate-200">
+                <Upload className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Or load from a .csv file</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Drop a file, or choose one — content is loaded into the box above
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <label className="inline-flex cursor-pointer">
+                  <span className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    {saving ? "Working…" : "Load file"}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".csv,text/csv,text/plain"
+                    className="sr-only"
+                    disabled={saving}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) void loadCsvFileOnly(file);
+                    }}
+                  />
+                </label>
+                <label className="inline-flex cursor-pointer">
+                  <span className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    Load &amp; append
+                  </span>
+                  <input
+                    type="file"
+                    accept=".csv,text/csv,text/plain"
+                    className="sr-only"
+                    disabled={saving}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) void importCsvFileDirect(file, "append");
+                    }}
+                  />
+                </label>
+                <label className="inline-flex cursor-pointer">
+                  <span className="inline-flex h-9 items-center rounded-xl bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm hover:bg-slate-800">
+                    Load &amp; replace
+                  </span>
+                  <input
+                    type="file"
+                    accept=".csv,text/csv,text/plain"
+                    className="sr-only"
+                    disabled={saving}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) void importCsvFileDirect(file, "replace");
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -406,7 +689,7 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
                 onClick={() => void importCsv("append")}
                 className="rounded-xl"
               >
-                Append questions
+                Append pasted / loaded CSV
               </Button>
               <Button
                 type="button"
@@ -415,11 +698,88 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
                 onClick={() => void importCsv("replace")}
                 className="rounded-xl"
               >
-                Replace all
+                Replace with pasted / loaded CSV
               </Button>
             </div>
+
+            {csvImportErrors.length > 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-950">
+                      {csvImportErrors.length} row{csvImportErrors.length === 1 ? "" : "s"} skipped
+                    </p>
+                    <p className="mt-0.5 text-xs text-amber-900/80">
+                      Valid rows were imported. Fix pillar ids below and re-import, or use the TMT
+                      template ids.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 text-xs font-medium text-amber-900/70 hover:text-amber-950"
+                    onClick={() => setCsvImportErrors([])}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto font-mono text-[11px] leading-relaxed text-amber-950">
+                  {csvImportErrors.slice(0, 40).map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                  {csvImportErrors.length > 40 ? (
+                    <li>…and {csvImportErrors.length - 40} more</li>
+                  ) : null}
+                </ul>
+              </div>
+            ) : null}
           </div>
         )}
+      </section>
+
+      {/* Pillar weights */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Pillar weights</h2>
+            <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-slate-500">
+              Set how much each pillar influences the overall score (1–10). The bar shows each
+              pillar’s share of the total. Question weights inside a pillar are set per question
+              below.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={savingWeights || pillarWeights.length === 0}
+              onClick={() => void distributePillarWeightsEvenly()}
+              className="rounded-xl"
+            >
+              Distribute evenly
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingWeights || pillarWeights.length === 0}
+              onClick={() => void persistPillarWeights(pillarWeights)}
+              className="rounded-xl"
+            >
+              {savingWeights ? "Saving…" : "Save pillar weights"}
+            </Button>
+          </div>
+        </div>
+        <div className="px-5 py-5">
+          {pillarWeights.length === 0 ? (
+            <p className="text-sm text-slate-500">Loading pillar weights…</p>
+          ) : (
+            <PackPillarWeightMixer
+              pillars={pillarWeights}
+              disabled={savingWeights}
+              onChange={updatePillarWeightLocal}
+            />
+          )}
+        </div>
       </section>
 
       {/* Pillars */}
@@ -428,7 +788,8 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
           <div>
             <h2 className="text-lg font-bold tracking-tight text-slate-900">Questions by pillar</h2>
             <p className="mt-0.5 text-sm text-slate-500">
-              Edits save when you leave a field. One question per row is enough for a baseline pack.
+              Edits save when you leave a field. Assign a weight on each question so critical
+              items count more inside the pillar.
             </p>
           </div>
           <div className="flex gap-2">
@@ -449,10 +810,15 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
           </div>
         </div>
 
-        {RISK_PILLARS.map((pillar, pillarIndex) => {
+        {packPillars.map((pillar, pillarIndex) => {
           const questions = questionsByPillar.get(pillar.id) ?? [];
           const expanded = isPillarExpanded(pillar.id, questions.length);
           const missing = pack.coverage.missingPillarIds.includes(pillar.id);
+          const pillarWeight =
+            pillarWeights.find((row) => row.pillarId === pillar.id)?.weight ?? 1;
+          const pillarWeightTotal = sumWeights(pillarWeights.map((row) => row.weight));
+          const pillarShare = weightSharePct(pillarWeight, pillarWeightTotal);
+          const questionWeightTotal = sumWeights(questions.map((question) => question.weight ?? 1));
 
           return (
             <section
@@ -484,6 +850,9 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
                           {questions.length} question{questions.length === 1 ? "" : "s"}
                         </span>
                       )}
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-slate-600">
+                        Weight {pillarWeight} · {pillarShare}% overall
+                      </span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">
                       {pillar.description}
@@ -552,6 +921,17 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
                               className="mt-1.5 w-full rounded-lg border border-slate-200/90 bg-slate-50/50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-500/10"
                             />
                           </label>
+                          <div className="mt-3">
+                            <QuestionWeightPicker
+                              value={question.weight ?? 1}
+                              sharePct={weightSharePct(question.weight ?? 1, questionWeightTotal)}
+                              onChange={(weight) =>
+                                void saveQuestion(question, weight).catch((e) =>
+                                  toast(e.message, { variant: "error" })
+                                )
+                              }
+                            />
+                          </div>
                           <button
                             type="button"
                             className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-rose-600"
@@ -596,6 +976,35 @@ export function AdminQuestionPackEditor({ packId }: { packId: string }) {
             </section>
           );
         })}
+
+        {orphanQuestions.length > 0 && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm">
+            <p className="text-sm font-semibold text-amber-950">
+              Legacy questions outside this pack’s {packPillars.length} pillars
+            </p>
+            <p className="mt-1 text-xs text-amber-900/80">
+              These rows use pillar ids from another taxonomy (often the standard 11). Re-map or
+              replace them with the TMT CSV template so coverage and reporting stay aligned.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {orphanQuestions.map((question) => (
+                <li
+                  key={question.id}
+                  className="rounded-xl border border-amber-200/80 bg-white px-3 py-2 text-sm text-slate-700"
+                >
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                    {question.pillarId}
+                  </span>
+                  <span className="mx-2 text-slate-300">·</span>
+                  <span className="text-xs text-slate-500">
+                    {packPillarLabel(question.pillarId)}
+                  </span>
+                  <p className="mt-1 text-sm text-slate-800">{question.prompt}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   );

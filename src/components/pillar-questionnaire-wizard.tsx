@@ -44,6 +44,7 @@ type Props = {
   title: string;
   organizationName?: string | null;
   packName?: string | null;
+  pillarSet?: string | null;
   snapshots: PackSnapshot[];
   initialAnswers: PackAnswerRecord[];
   initialStepIndex?: number;
@@ -143,6 +144,8 @@ export function PillarQuestionnaireWizard({
   sessionId,
   title,
   organizationName,
+  packName,
+  pillarSet,
   snapshots,
   initialAnswers,
   initialStepIndex = 0,
@@ -207,7 +210,10 @@ export function PillarQuestionnaireWizard({
       ? `/api/maturity-surveys/${sessionId}`
       : `/api/guided-workshops/${sessionId}`;
 
-  const pillarSummaries = packWorkshopPillarSummaries(snapshots, answers);
+  const pillarSummaries = packWorkshopPillarSummaries(snapshots, answers, {
+    packName,
+    pillarSet,
+  });
 
   useEffect(() => {
     const snapshot = snapshots[stepIndex];
